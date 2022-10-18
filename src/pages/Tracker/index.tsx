@@ -91,7 +91,7 @@ const Tracker: React.FC = () => {
 
         <MapContainer 
             center={[latitudeView, lontitudeView]} 
-            zoom={13} 
+            zoom={18} 
             scrollWheelZoom={false}
             style={{ height: '100vh', width: '100%', zIndex:1 }}>
         <TileLayer
