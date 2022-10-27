@@ -94,7 +94,7 @@ const Tracker: React.FC = () => {
             center={[latitudeView, lontitudeView]} 
             zoom={13} 
             scrollWheelZoom={false}
-            style={{ height: '70vh', width: '100%', zIndex:1 }}>
+            style={{ height: '65vh', width: '100%', zIndex:1 }}>
         <ChangeView />
         <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
