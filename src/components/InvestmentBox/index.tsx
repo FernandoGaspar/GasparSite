@@ -54,7 +54,8 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
       if (tipo === "BOVESPA"){
         link = 'https://finance.yahoo.com/chart/'+papelGrafico
       }if (tipo != "BOVESPA"){
-        link = 'https://s.tradingview.com/widgetembed/?frameElementId=tradingview_ac482&symbol=MERCADO%3A<CRIPTOMOEDA>BRL&interval=240&hidesidetoolbar=1&saveimage=1&toolbarbg=F4F7F9&studies=%5B%5D&hideideas=1&theme=Light&timezone=exchange&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=br'
+        link = 'https://www.binance.com/en/trade/<CRIPTOMOEDA>_BRL?theme=dark&type=spot'
+        // link = 'https://s.tradingview.com/widgetembed/?frameElementId=tradingview_ac482&symbol=MERCADO%3A<CRIPTOMOEDA>BRL&interval=240&hidesidetoolbar=1&saveimage=1&toolbarbg=F4F7F9&studies=%5B%5D&hideideas=1&theme=Light&timezone=exchange&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=br'
         link = link.replace ("<CRIPTOMOEDA>", papelGrafico)
       }
       return link
