@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useShowNumber } from '../../hooks/showNumber';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import formatCurrency from '../../utils/formatCurrency';
+import {isMobile} from 'react-device-detect';
 
 import { 
     Container,
@@ -60,7 +61,40 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
         <Container>
           {
             showNumber?
-              <ResponsiveContainer width="100%" height="95%">
+              isMobile?
+                <ResponsiveContainer width="100%" height="95%">
+                  <AreaChart
+                    data={dataFinal}
+                    margin={{
+                      top: 30,
+                      right: 30,    
+                      left: 15,
+                      bottom: 0,
+                    }}
+                  >
+                    <XAxis 
+                      dataKey="name" 
+                      fontSize={14}
+                    />
+                    <Tooltip 
+                      formatter={(value) => formatCurrency(Number(value), 0)}
+                      labelStyle={{ color: '#222' }}
+                      />
+                    {
+                      distinctContaContabil.map(item => (
+                        <Area 
+                          key={item.Cor + Math.random()}
+                          type="monotone" 
+                          dataKey={item.subGrupoContaContabil} 
+                          stackId="1" 
+                          stroke={ item.Cor }
+                          fill={ item.Cor } />
+                        ))
+                    } 
+                  </AreaChart>
+                </ResponsiveContainer>
+                :
+                <ResponsiveContainer width="100%" height="95%">
                 <AreaChart
                   data={dataFinal}
                   margin={{
@@ -70,11 +104,10 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                     bottom: 0,
                   }}
                 >
-
                   <XAxis 
                     dataKey="name" 
                     fontSize={14}
-                   />
+                  />
                   <YAxis 
                     fontSize={14}
                     tickFormatter={(value: any) => formatCurrency(value, 1)} />
@@ -94,7 +127,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                       ))
                   } 
                 </AreaChart>
-              </ResponsiveContainer>
+                </ResponsiveContainer>  
               :
               <ResponsiveContainer width="100%" height="95%">
               <AreaChart
@@ -114,9 +147,9 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                     ))
                 } 
               </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
           }
         </Container>
-    );
+    );  
 }
 export default AreaChartBox;
