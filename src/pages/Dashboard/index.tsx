@@ -5,6 +5,7 @@ import SelectInput from '../../components/SelectInput';
 import WalletBox from '../../components/WalletBox';
 import MessageBox from '../../components/MessageBox';
 import PieChartBox from '../../components/PieChartBox';
+import AreaChartBox from '../../components/AreaChartBox';
 import listOfMonths from '../../utils/months';
 import listOfYear from '../../utils/year';
 import happyImg from '../../assets/happy.svg';
@@ -231,7 +232,7 @@ const Dashboard: React.FC = () => {
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Receita") 
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Custo") 
         getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "1") 
-        getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "6") 
+        getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "12") 
 
     },[monthSelected, yearSelected]); 
 
@@ -265,7 +266,7 @@ const Dashboard: React.FC = () => {
                     footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
                     icon="arrowUp"
                 />
-
+                
                 <WalletBox 
                     title="saídas"
                     color="#E44C4E"
@@ -277,8 +278,10 @@ const Dashboard: React.FC = () => {
                 <CardBill
                     AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }
                 />
-
+                
                 <PieChartBox data={ custoAgrupado } />
+
+                <AreaChartBox data={ custoHistoricoAgrupado } />
                 
                 <MessageBox
                     title={message.title}

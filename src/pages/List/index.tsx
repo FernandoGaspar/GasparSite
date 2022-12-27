@@ -369,7 +369,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                             idTransacao = { item.idTransacoes }
                             data={ item.Data }
                             descricao ={ item.Descricao }
-                            valor={ formatCurrency(Number(item.Valor)) }
+                            valor={ formatCurrency(Number(item.Valor), 0) }
                             contaContabilCode = { item.contaContabilCode }
                             grupoContaContabil = { item.grupoContaContabil }
                             subGrupoContaContabil = { item.subGrupoContaContabil }
