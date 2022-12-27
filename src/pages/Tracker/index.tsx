@@ -92,7 +92,7 @@ const Tracker: React.FC = () => {
 
         <MapContainer 
             center={[latitudeView, lontitudeView]} 
-            zoom={18} 
+            zoom={20} 
             scrollWheelZoom={false}
             style={{ height: '65vh', width: '100%', zIndex:1 }}>
         <ChangeView />
