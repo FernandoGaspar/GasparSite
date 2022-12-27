@@ -1,13 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useShowNumber } from '../../hooks/showNumber';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import formatCurrency from '../../utils/formatCurrency';
 
 import { 
     Container,
  }  from './styles';
-import { randomBytes } from 'crypto';
-
 
 interface IAreaChartProps {
     data: {
@@ -19,7 +17,6 @@ interface IAreaChartProps {
 }
 
 const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => { 
-    const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
     const { showNumber } = useShowNumber();
       
     const distinctContaContabil = useMemo(() => {
@@ -37,7 +34,11 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
         
         return uniqueSubGrupoConta
     },[data]);
-
+    
+    function renameKey ( obj: any, oldKey: any, newKey: any ) {
+      obj[newKey] = obj[oldKey];
+      delete obj[oldKey];
+    }
     const dataFinal = useMemo(() => {
       var jsonToPivotjson = require("json-to-pivot-json");
       var options = {
@@ -46,10 +47,14 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
           value: "Valor"
       };
       var output = jsonToPivotjson(data, options)
-
+      
+      output.forEach( (obj: any) => renameKey( obj, 'AnoMes', 'name' ) );
+      const updatedJson = JSON.stringify( output );
+      console.log (updatedJson)
       return output
 
     },[data]);
+    
 
     return (
         <Container>
@@ -66,11 +71,17 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                   }}
                 >
 
-                  <XAxis dataKey="AnoMes" fontSize={14} />
+                  <XAxis 
+                    dataKey="name" 
+                    fontSize={14}
+                   />
                   <YAxis 
                     fontSize={14}
                     tickFormatter={(value: any) => formatCurrency(value, 1)} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value), 0)} />
+                  <Tooltip 
+                    formatter={(value) => formatCurrency(Number(value), 0)}
+                    labelStyle={{ color: '#222' }}
+                    />
                   {
                     distinctContaContabil.map(item => (
                       <Area 
@@ -96,7 +107,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                 }}
               >
 
-                <XAxis dataKey="AnoMes" />
+                <XAxis dataKey="name" />
                 {
                   distinctContaContabil.map(item => (
                     <Area type="monotone" dataKey={item.subGrupoContaContabil} stackId="1" stroke={ item.Cor }fill={ item.Cor } />
