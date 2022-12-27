@@ -50,7 +50,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
       
       output.forEach( (obj: any) => renameKey( obj, 'AnoMes', 'name' ) );
       const updatedJson = JSON.stringify( output );
-      console.log (updatedJson)
+      
       return output
 
     },[data]);
