@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import axios from 'axios';
+import { URL_API } from '../../repositories/baseAPI';
 
 import ContentHeader from '../../components/ContentHeader';
 import SelectInput from '../../components/SelectInput';
@@ -17,10 +19,9 @@ import CardBill from '../../components/CardBill';
 
 import { 
     Container,
-    Content, 
+    Content,
 } from './styles';
-import axios from 'axios';
-import { URL_API } from '../../repositories/baseAPI';
+import BudgetBar from '../../components/BudgetBar';
 
 interface IDataPost {
     idTransacoes: string
@@ -274,15 +275,20 @@ const Dashboard: React.FC = () => {
                     footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
                     icon="arrowDown"
                 />
-
-                <CardBill
-                    AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }
-                />
                 
-                <PieChartBox data={ custoAgrupado } />
+                <BudgetBar />
 
+                <section>
+                    <PieChartBox data={ custoAgrupado } />
+
+                    <CardBill
+                        AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }
+                        />
+                </section>
+
+                    
                 <AreaChartBox data={ custoHistoricoAgrupado } />
-                
+
                 <MessageBox
                     title={message.title}
                     description={message.description}

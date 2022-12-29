@@ -40,6 +40,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
       obj[newKey] = obj[oldKey];
       delete obj[oldKey];
     }
+    
     const dataFinal = useMemo(() => {
       var jsonToPivotjson = require("json-to-pivot-json");
       var options = {
