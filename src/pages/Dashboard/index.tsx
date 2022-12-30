@@ -276,7 +276,7 @@ const Dashboard: React.FC = () => {
                     icon="arrowDown"
                 />
                 
-                <BudgetBar />
+                <BudgetBar anoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
 
                 <section>
                     <PieChartBox data={ custoAgrupado } />

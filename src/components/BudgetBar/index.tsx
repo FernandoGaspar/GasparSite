@@ -20,8 +20,13 @@ interface IDataBudgetVrsRealizado {
     Delta: number    
   }
 
+interface IBudgetBar {
+    anoMes: string
+}
 
-const BudgetBar: React.FC = () => { 
+const BudgetBar: React.FC<IBudgetBar> = ({
+    anoMes,
+}) => {
     
 
     const [dataBudgetVrsRealizado, setDataBudgetVrsRealizado] = useState<IDataBudgetVrsRealizado[]>([]);
@@ -30,7 +35,7 @@ const BudgetBar: React.FC = () => {
     const getBudgetVrsRealizado = () => {
         axios.post (URL_API + "/budgetvrsRealizado", {
             headers: {"Access-Control-Allow-Origin": "*"},
-            anomes: "202212",
+            anomes: anoMes,
             usuario: idUsuario
         })
         .then((response) => {
@@ -43,10 +48,8 @@ const BudgetBar: React.FC = () => {
     }
 
     useEffect(() => {
-
         getBudgetVrsRealizado()
-        console.log (dataBudgetVrsRealizado)
-    },[]);
+    },[anoMes]);
 
     return (
         <Container>
