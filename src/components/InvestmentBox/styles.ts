@@ -51,6 +51,12 @@ export const Container = styled.div`
         font-size: 10px;
     }
 
+    > header section p {
+        font-size: 13px;
+        text-align: right;
+        margin: 1%;
+    }
+
     @media(max-width: 420px){
         width: 100%;
 

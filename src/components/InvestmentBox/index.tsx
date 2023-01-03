@@ -16,6 +16,8 @@ interface IInvestmentBoxProps {
   variacao: number;
   saldo: number;
   dataAtualizacao: string;  
+  ultimoDividendo: number;
+  dataUltimoDiv: string
   atualizaPapeisMonitorados: (arg: string) => void
 }
 
@@ -27,6 +29,8 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
   variacao,
   saldo,
   dataAtualizacao,
+  ultimoDividendo,
+  dataUltimoDiv,
   atualizaPapeisMonitorados
 
 }) => {
@@ -113,11 +117,41 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
                   decimalSeparator={","}
                 />   
                 )
-              </div>
+              </div>  
+                         
             </h1>
-
+            <section>
+            {ultimoDividendo > 0 ?
+              <p>
+                Dividendo: &nbsp;
+                <NumberFormat
+                          value={ultimoDividendo}
+                          displayType={'text'}
+                          prefix={'R$'}
+                          fixedDecimalScale={true}
+                          decimalScale={2}
+                          thousandSeparator={"."}
+                          decimalSeparator={","}
+                          />   &nbsp;
+                                (
+                    <NumberFormat
+                      value={ultimoDividendo/cotacaoAtual*100}
+                      displayType={'text'}
+                      prefix={sinal}
+                      suffix={'%'}
+                      fixedDecimalScale={true}
+                      decimalScale={2}
+                      thousandSeparator={"."}
+                      decimalSeparator={","}
+                      />   
+                    )
+                    <div>
+                      { formatDate(dataUltimoDiv!, 0) }
+                    </div>
+              </p> : ""
+            }
+            </section>
           </header>
-
           <footer>
             {saldo > 0 ? 
             <p>
