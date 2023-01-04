@@ -26,6 +26,7 @@ interface IDataPost {
     saldoAtual: number
     ultimoDividendo: number
     dataUltimoDiv: string
+    tipoPapel: string
 }
 
 const Investment: React.FC = () => {
@@ -129,6 +130,7 @@ const Investment: React.FC = () => {
                             dataAtualizacao={item.dataAtualizada}
                             ultimoDividendo={item.ultimoDividendo}
                             dataUltimoDiv={item.dataUltimoDiv}
+                            tipoPapel = {item.tipoPapel}
                             
                             atualizaPapeisMonitorados = { atualizaPapeisMonitorados }
                             />
