@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-
 import { Container }  from './styles';
 import NumberFormat from 'react-number-format';
 import formatDate from '../../utils/formatDate';
@@ -7,6 +6,7 @@ import { useShowNumber } from '../../hooks/showNumber';
 import { FaLowVision } from 'react-icons/fa';
 import axios from 'axios';
 import { URL_API } from "../../repositories/baseAPI";
+import { FaBuilding, FaUniversity, FaBitcoin, FaShareAlt } from "react-icons/fa";
 
 interface IInvestmentBoxProps {
   papel: string;
@@ -18,6 +18,7 @@ interface IInvestmentBoxProps {
   dataAtualizacao: string;  
   ultimoDividendo: number;
   dataUltimoDiv: string
+  tipoPapel: string
   atualizaPapeisMonitorados: (arg: string) => void
 }
 
@@ -31,6 +32,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
   dataAtualizacao,
   ultimoDividendo,
   dataUltimoDiv,
+  tipoPapel,
   atualizaPapeisMonitorados
 
 }) => {
@@ -79,18 +81,35 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
       console.log(error)
     })
     atualizaPapeisMonitorados ("Atualizar")
-}
+  }
+
+  const tipoPapelIcone = useMemo(() => {
+    switch (tipoPapel) {
+        case 'FUNDOS IMOBILIÁRIOS':
+            return <FaBuilding />;
+        case 'EMPRESA LISTADA NA BOLSA BRASILEIRA': 
+            return <FaUniversity />;
+        case 'CRIPTOMOEDA': 
+            return <FaBitcoin />;
+          case 'INDICE': 
+            return <FaShareAlt />;                            
+        default:
+          return undefined;
+    }
+  },[tipoPapel]);
 
   return (
         <Container
           onClick={() => window.open(linkGrafico)}
         >
           <header>
+
             <h1
               style={{
                 color: color
               }}>
-              {papel}  &nbsp; &nbsp; &nbsp;
+              {tipoPapelIcone} &nbsp;
+              {papel}  &nbsp; &nbsp;
               <div
                 style={{
                   float: "right",
