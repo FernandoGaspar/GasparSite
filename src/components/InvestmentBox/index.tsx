@@ -146,7 +146,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
                       />   
                     )
                     <div>
-                      { formatDate(dataUltimoDiv!, 0) }
+                      { formatDate(dataUltimoDiv!, 2) }
                     </div>
               </p> : ""
             }
