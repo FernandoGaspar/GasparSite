@@ -6,7 +6,8 @@ import { useShowNumber } from '../../hooks/showNumber';
 import { FaLowVision } from 'react-icons/fa';
 import axios from 'axios';
 import { URL_API } from "../../repositories/baseAPI";
-import { FaBuilding, FaUniversity, FaBitcoin, FaShareAlt } from "react-icons/fa";
+import { FaBitcoin } from "react-icons/fa";
+import { AiOutlineStock, AiOutlineShop, AiOutlineNodeIndex } from "react-icons/ai";
 
 interface IInvestmentBoxProps {
   papel: string;
@@ -86,13 +87,13 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
   const tipoPapelIcone = useMemo(() => {
     switch (tipoPapel) {
         case 'FUNDOS IMOBILIÁRIOS':
-            return <FaBuilding />;
+            return <AiOutlineShop />;
         case 'EMPRESA LISTADA NA BOLSA BRASILEIRA': 
-            return <FaUniversity />;
+            return <AiOutlineStock />;
         case 'CRIPTOMOEDA': 
             return <FaBitcoin />;
           case 'INDICE': 
-            return <FaShareAlt />;                            
+            return <AiOutlineNodeIndex />;                            
         default:
           return undefined;
     }
