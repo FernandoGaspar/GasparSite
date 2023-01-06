@@ -8,6 +8,8 @@ import WalletBox from '../../components/WalletBox';
 import MessageBox from '../../components/MessageBox';
 import PieChartBox from '../../components/PieChartBox';
 import AreaChartBox from '../../components/AreaChartBox';
+import InvestmentEvolution from '../../components/InvestmentEvolution';
+
 import listOfMonths from '../../utils/months';
 import listOfYear from '../../utils/year';
 import happyImg from '../../assets/happy.svg';
@@ -288,6 +290,8 @@ const Dashboard: React.FC = () => {
 
                     
                 <AreaChartBox data={ custoHistoricoAgrupado } />
+                
+                <InvestmentEvolution AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
 
                 <MessageBox
                     title={message.title}

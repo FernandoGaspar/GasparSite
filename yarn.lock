@@ -6884,6 +6884,18 @@
   "resolved" "https://registry.npmjs.org/grapheme-splitter/-/grapheme-splitter-1.0.4.tgz"
   "version" "1.0.4"
 
+"group-by-with-sum@^2.0.0":
+  "integrity" "sha512-n2o+z7XAdAYztRaPitC7VImFH+y9xMR2xhYb+dWbXhH/A2F02M+Uk4FZTojbwulDedF74xSh1gTgEYhvh+imrg=="
+  "resolved" "https://registry.npmjs.org/group-by-with-sum/-/group-by-with-sum-2.0.0.tgz"
+  "version" "2.0.0"
+  dependencies:
+    "group-by-with" "1.0.0"
+
+"group-by-with@1.0.0":
+  "integrity" "sha512-jNRFb0tjdVBtoJxxwSiUrRxVPj1yj/5aLxdGSBf86KEuIUa0EC15BU4r5LjjB2CYSEJlDnMBNpwwcfbwq1YlrQ=="
+  "resolved" "https://registry.npmjs.org/group-by-with/-/group-by-with-1.0.0.tgz"
+  "version" "1.0.0"
+
 "gzip-size@^6.0.0":
   "integrity" "sha512-ax7ZYomf6jqPTQ4+XCpUGyXKHk5WweS+e05MBO4/y3WJ5RkmPXNKvX+bx1behVILVwr6JSQvZAku021CHPXG3Q=="
   "resolved" "https://registry.npmjs.org/gzip-size/-/gzip-size-6.0.0.tgz"

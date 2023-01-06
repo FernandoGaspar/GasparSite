@@ -113,6 +113,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         }else{            
             setSubGrupoContaFilterSelected((prev) => [...prev, filtro]); 
         }
+        console.log (subGrupoContaFilterSelected)
     }
 
     const handleMonthSelected = (month: string) => {

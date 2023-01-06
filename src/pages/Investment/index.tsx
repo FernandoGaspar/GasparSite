@@ -53,7 +53,6 @@ const Investment: React.FC = () => {
     }
 
     const atualizaPapeisMonitorados = async () => {
-        console.log ("entrou")
         await axios.post (URL_API+"/papeisMonitorados", {
             headers: {"Access-Control-Allow-Origin": "*"},
             idUsuario: idUsuario,

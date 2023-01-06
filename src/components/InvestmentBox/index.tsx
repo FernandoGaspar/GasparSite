@@ -3,10 +3,9 @@ import { Container }  from './styles';
 import NumberFormat from 'react-number-format';
 import formatDate from '../../utils/formatDate';
 import { useShowNumber } from '../../hooks/showNumber';
-import { FaLowVision } from 'react-icons/fa';
 import axios from 'axios';
 import { URL_API } from "../../repositories/baseAPI";
-import { FaBitcoin } from "react-icons/fa";
+import { FaBitcoin, FaLowVision } from "react-icons/fa";
 import { AiOutlineStock, AiOutlineShop, AiOutlineNodeIndex } from "react-icons/ai";
 
 interface IInvestmentBoxProps {
@@ -119,7 +118,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
                 <NumberFormat
                     value={cotacaoAtual}
                     displayType={'text'}
-                    prefix={sinal+'R$'}
+                    prefix={'R$'}
                     fixedDecimalScale={true}
                     decimalScale={2}
                     thousandSeparator={"."}
