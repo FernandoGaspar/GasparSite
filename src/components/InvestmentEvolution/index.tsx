@@ -6,8 +6,7 @@ import { Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Bar, Composed
 import formatCurrency from '../../utils/formatCurrency';
 import { MdAttachMoney } from "react-icons/md";
 import { RiPercentLine } from "react-icons/ri";
-
-// RiPercentLine
+import { isMobile } from 'react-device-detect';
 
 import { 
     Container,
@@ -190,22 +189,30 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
                     margin={{
                       top: 30,
                       right: 20,    
-                      left: 30,
+                      left: 25,
                       bottom: 0,
                     }}          >
             <XAxis dataKey="AnoMes" fontSize={14}/>
-            <YAxis
-              orientation="left"
-              fontSize={14}
-              yAxisId={1} 
-              tickFormatter={(lable: any) => {return tickFormatter(lable)}}
-              />
-            <YAxis
-              orientation="right"
-              fontSize={14}
-              tickFormatter={(lable: any) => {return tickFormatter(lable)}}
-              yAxisId={2} 
-              />
+            {
+              isMobile ?
+              <></>
+              :
+              <>
+                <YAxis
+                  orientation="left"
+                  fontSize={14}
+                  yAxisId={1} 
+                  tickFormatter={(lable: any) => {return tickFormatter(lable)}}
+                  />
+                <YAxis
+                  orientation="right"
+                  fontSize={14}
+                  tickFormatter={(lable: any) => {return tickFormatter(lable)}}
+                  yAxisId={2} 
+                />
+              </>
+            }
+
             <Tooltip      
               formatter={(lable: any) => {return tickFormatter(lable)}}/>
             <Legend />
