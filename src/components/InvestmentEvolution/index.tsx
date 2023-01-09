@@ -89,7 +89,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   },[evolucaoInvestimentos, tipoFiltro]);
 
   const dataFinal = useMemo(() => {
-
+    console.log (dataAjustada)
     const groupBy = require('group-by-with-sum');
     const agrupado = groupBy(dataAjustada, 'AnoMes', 'ValorMedioPonderado, ValorCotacaoPonderado, ValorM1Ponderado, ValorDividendoPonderado');
     console.log (agrupado)
@@ -149,7 +149,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
     if (tipoValor){
       retorno = formatCurrency(Number(valor), 0);
     } else {
-      retorno = Number(valor).toFixed(1)+"%";
+      retorno = Number(valor).toFixed(2)+"%";
     } 
     return retorno
   }
