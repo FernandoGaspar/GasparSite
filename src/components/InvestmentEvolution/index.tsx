@@ -34,14 +34,24 @@ interface IEvolucaoInvestimentoData {
   ValorDividendoPonderado: number
 }
 
+interface IIndicadoresEconomicosData {
+  AnoMes: string
+  Nome: string
+  Valor: string
+}
+
 const InvestmentEvolution: React.FC<IAreaChartProps> = ({ 
   AnoMes
  }) => { 
   const { showNumber } = useShowNumber();
   const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
   const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
+  const [evolucaoIndicadores, setEvolucaoIndicadores] = useState<IIndicadoresEconomicosData[]>([]);
+  const [tipoFiltroIndicador, setTipoFiltroIndicador] = useState<string[]>([]);
+  
   const [tipoFiltro, setTipoFiltro] = useState<string[]>([]);
-  const [tipoValor, setTipoValor] = useState<boolean>(true);
+  
+  const [tipoValor, setTipoValor] = useState<boolean>(false);
 
   const getEvolucaoInvestimento = () => {
       axios.post (URL_API+"/evolucaoInvestimento", {
@@ -89,10 +99,8 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   },[evolucaoInvestimentos, tipoFiltro]);
 
   const dataFinal = useMemo(() => {
-    console.log (dataAjustada)
     const groupBy = require('group-by-with-sum');
     const agrupado = groupBy(dataAjustada, 'AnoMes', 'ValorMedioPonderado, ValorCotacaoPonderado, ValorM1Ponderado, ValorDividendoPonderado');
-    console.log (agrupado)
     let investimentosAgrupados: [{
       AnoMes: string,
       Tipo: string,
@@ -135,12 +143,21 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
   const filtroTipo = (filtro: string) => {
     const alreadySelected = tipoFiltro.findIndex(item => item === filtro);
-
     if(alreadySelected >= 0){
         const filtered = tipoFiltro.filter(item => item !== filtro);
         setTipoFiltro(filtered);
     }else{            
       setTipoFiltro((prev) => [...prev, filtro]); 
+    }
+  }
+
+  const filtroTipoIndicador = (filtro: string) => {
+    const alreadySelected = tipoFiltroIndicador.findIndex(item => item === filtro);
+    if(alreadySelected >= 0){
+        const filtered = tipoFiltroIndicador.filter(item => item !== filtro);
+        setTipoFiltroIndicador(filtered);
+    }else{            
+      setTipoFiltroIndicador((prev) => [...prev, filtro]); 
     }
   }
 
@@ -154,9 +171,63 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
     return retorno
   }
 
+  const getIndicadoresEconomicos = () => {
+    axios.post (URL_API+"/evolucaoIndicadores", {
+        headers: {"Access-Control-Allow-Origin": "*"},
+        idUsuario: idUsuario,
+        AnoMes: AnoMes
+    })
+    .then((response) => {
+        const { data } = response
+        setEvolucaoIndicadores(JSON.parse(data))  
+
+    })
+    .catch((error) => {
+      console.log(error)
+    })
+      
+  }
+
+  const distinctIndicadores = useMemo(() => {
+      let indicadores: [{Nome: string}] = [{
+        Nome: "", 
+      }] 
+      indicadores.splice (0)
+      evolucaoIndicadores.forEach(item => {
+          if(!indicadores.some(element => element.Nome == item.Nome))
+          {
+            indicadores.push({Nome: item.Nome})
+          }
+      });
+      
+      return indicadores
+  },[evolucaoIndicadores]);
+
+  const indicadoresDataFinal = useMemo(() => {
+
+    let dadoFiltrado = evolucaoIndicadores
+    if (tipoFiltroIndicador.length > 0){
+      dadoFiltrado = dadoFiltrado.filter(item => {
+        return tipoFiltroIndicador.includes(item.Nome);
+      });
+    }
+
+    var jsonToPivotjson = require("json-to-pivot-json");
+    var options = {
+        row: "AnoMes", 
+        column: "Nome", 
+        value: "Valor"
+    };
+    var output = jsonToPivotjson(dadoFiltrado, options)
+
+    return output 
+
+  },[evolucaoIndicadores, tipoFiltroIndicador]);
+
   useEffect(() => {
     getEvolucaoInvestimento()
-    
+    getIndicadoresEconomicos()
+    console.log (dataFinal)
   },[]); 
 
     return (
@@ -165,7 +236,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
                 {
                     tipoInvestimento.map(item => (
                         <button 
-                            key = { item }
+                            key = { Math.random() }
                             type="button"
                             className={`
                             tag-filter 
@@ -212,7 +283,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
                 />
               </>
             }
-
             <Tooltip      
               formatter={(lable: any) => {return tickFormatter(lable)}}/>
             <Legend />
@@ -235,6 +305,28 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
         </ResponsiveContainer>
       : <></> }
       <p>
+      <Filters>
+            {
+                distinctIndicadores.map(item => (
+                    <button 
+                        key = { Math.random() }
+                        type="button"
+                        className={`
+                        tag-filter 
+                        tag-filter-eventual
+                        ${tipoFiltroIndicador.includes( item.Nome ) && 'tag-actived'}`}
+                        onClick={() => filtroTipoIndicador( item.Nome )}
+                        style={{
+                                borderBottomColor: "black",
+                            }}
+                    >
+                    { item.Nome }
+                    </button>
+                ))
+            }   
+            
+        </Filters>
+
         <MdAttachMoney  className={`
                             tag-filter 
                             tag-filter-eventual

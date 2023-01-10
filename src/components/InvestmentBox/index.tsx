@@ -78,6 +78,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
     })
     .then((response) => {
         const { data } = response
+        atualizaPapeisMonitorados ("Atualizar")
     })
     .catch((error) => {
       console.log(error)
@@ -93,7 +94,6 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
             return <AiOutlineStock />;
         case 'EMPRESA LISTADA NA BOLSA INTERNACIONAL': 
             return <GiWorld />;
-            
         case 'CRIPTOMOEDA': 
             return <FaBitcoin />;
           case 'INDICE': 

@@ -119,7 +119,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                   {
                     distinctContaContabil.map(item => (
                       <Area 
-                        key={item.Cor + Math.random()}
+                        key={ Math.random () }
                         type="monotone" 
                         dataKey={item.subGrupoContaContabil} 
                         stackId="1" 
@@ -144,7 +144,14 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                 <XAxis dataKey="name" />
                 {
                   distinctContaContabil.map(item => (
-                    <Area type="monotone" dataKey={item.subGrupoContaContabil} stackId="1" stroke={ item.Cor }fill={ item.Cor } />
+                    
+                    <Area 
+                      type="monotone" 
+                      key = {Math.random ()}
+                      dataKey={item.subGrupoContaContabil} 
+                      stackId="1" 
+                      stroke={ item.Cor }
+                      fill={ item.Cor } />
                     ))
                 } 
               </AreaChart>
