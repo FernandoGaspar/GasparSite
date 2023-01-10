@@ -30,13 +30,16 @@ export const Container = styled.div`
         margin-bottom: 20px;
         margin: 4%;
     }
+    > span {
+        margin: 4px 4px 4px 4px;
+        font-size: 18px;
+        font-weight: 500;
+    }
 
     background-color: ${props => props.theme.colors.tertiary};
     color: ${props => props.theme.colors.white};
 
     border-radius: 7px;
-
-    display: flex;
 
     animation: ${animate} .5s;
 

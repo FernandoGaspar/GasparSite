@@ -1,5 +1,4 @@
-import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useShowNumber } from '../../hooks/showNumber';
 import {
     PieChart,
@@ -8,61 +7,64 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-import { URL_API } from '../../repositories/baseAPI';
 
 import { 
     Container,
     SideRight,
  }  from './styles';
 
- 
-//  interface IPieChartProps {
-//      data: {
-//         name: string;
-//         value: number;
-//         percent: number;
-//         color: string;
-//      }[];
-//  }
-
-
 interface IPieChartProps {
+    titulo: string
     data: {
-        subGrupoContaContabil: string
+        grupo: string
+        subGrupo: string
         Valor: number
-        AnoMes: string
         Cor: string
     }[]
 }
 
-interface IDataContaAgrupado {
-    contaContabil: string
-    Valor: number
-    AnoMes: string
+interface IDataAgrupado {
+    grupo: string
     Cor: string
+    Valor: number
 }
-const PieChartBox: React.FC<IPieChartProps> = ({ data }) => { 
 
-    const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
-    const [custoContaAgrupado, setCustoContaAgrupado] = useState<IDataContaAgrupado[]>([]);
+interface IDataDetalhe {
+    grupo: string
+    subGrupo: string
+    Cor: string
+    Valor: number
+}
+
+
+const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => { 
+    const [dataAgrupado, setDataAgrupado] = useState<IDataAgrupado[]>([]);
+    const [dataDetalhe, setDataDetalhe] = useState<IDataDetalhe[]>([]);
     const { showNumber } = useShowNumber();
 
-    async function detalharGasto (subGrupoContaContabil: string){
-        await axios.post (URL_API+"/gastosAgrupadosPorConta", {
-            anomes: data[1].AnoMes,
-            usuario: idUsuario,
-            subGrupoContaContabil: subGrupoContaContabil
-        })
-        .then((response) => {
-            const { data } = response
-            setCustoContaAgrupado(JSON.parse(data))
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-    } 
+
+    function agruparDado () {
+        const groupBy = require('group-by-with-sum');
+        const agrupado = groupBy(data, 'grupo, Cor', 'Valor');
+        setDataAgrupado(agrupado)
+
+    }
+
+    function detalharGrupo (grupo: string){
+        const dadoFiltrado = data.filter(item => item.grupo === grupo);
+        const groupBy = require('group-by-with-sum');
+        const agrupado = groupBy(dadoFiltrado, 'grupo, subGrupo, Cor', 'Valor');
+        setDataDetalhe(agrupado)
+    }
+
+    useEffect(() => {
+        agruparDado ()
+    },[data]); 
     return (
         <Container>
+            {/* <span>
+                { titulo }
+            </span> */}
                         <SideRight>
                         <ResponsiveContainer >
                         <PieChart 
@@ -76,16 +78,16 @@ const PieChartBox: React.FC<IPieChartProps> = ({ data }) => {
                                                                                     }).format(Number(value))} />
                         <Pie
                             dataKey="Valor"
-                            nameKey="contaContabil"                    
-                            data={ custoContaAgrupado }
+                            nameKey="subGrupo"                    
+                            data={ dataDetalhe }
                             cx="50%"
                             cy="50%"
                             outerRadius={60}
                         >
                                 {
-                                    custoContaAgrupado.map((indicator) => (
+                                    dataDetalhe.map((indicator) => (
                                         <Cell 
-                                            key={indicator.contaContabil} 
+                                            key={indicator.subGrupo} 
                                             fill={indicator.Cor} 
                                             
                                             />
@@ -96,16 +98,16 @@ const PieChartBox: React.FC<IPieChartProps> = ({ data }) => {
                         
                         <Pie
                             dataKey="Valor"
-                            nameKey="subGrupoContaContabil"
-                            label={showNumber? (cutoAgrupadoSubGrup) => new Intl.NumberFormat([], {
+                            nameKey="grupo"
+                            label={showNumber? (valorGrupo) => new Intl.NumberFormat([], {
                                                                                         style: 'currency',
                                                                                         currency: 'BRL',
                                                                                         maximumFractionDigits: 0
-                                                                                        }).format(Number(cutoAgrupadoSubGrup.payload.Valor))
+                                                                                        }).format(Number(valorGrupo.payload.Valor))
                                     : false
                                                                                     }
                             isAnimationActive={ false }
-                            data={ data }
+                            data={ dataAgrupado }
                             cx="50%"
                             cy="50%"
                             innerRadius={70} 
@@ -113,11 +115,11 @@ const PieChartBox: React.FC<IPieChartProps> = ({ data }) => {
                             paddingAngle={5}
                         >
                                 {
-                                    data.map((indicator) => (
+                                    dataAgrupado.map((indicator) => (
                                         <Cell 
-                                            key={indicator.subGrupoContaContabil} 
+                                            key={indicator.grupo} 
                                             fill={indicator.Cor} 
-                                            onClick={() => {detalharGasto(indicator.subGrupoContaContabil)}}
+                                            onClick={() => {detalharGrupo(indicator.grupo)}}
                                             />
                                     ))
                                 }

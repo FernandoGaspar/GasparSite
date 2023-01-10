@@ -15,24 +15,27 @@ import {
  }  from './styles';
 
 
-interface IAreaChartProps {
-  AnoMes: string
-}
+// interface IAreaChartProps {
+//   AnoMes: string
+// }
 
-interface IEvolucaoInvestimentoData {
-  AnoMes: string
-  UltimoDiaMes: string
-  Tipo: string
-  Codigo: string
-  ValorMedio: number
-  dividendo: number
-  Saldo: number
-  ValorCotacao: number
-  ValorCotacaoM1: number
-  ValorMedioPonderado: number
-  ValorCotacaoPonderado: number
-  ValorM1Ponderado: number
-  ValorDividendoPonderado: number
+interface IAreaChartProps {
+  evolucaoInvestimentos: {
+
+    AnoMes: string
+    UltimoDiaMes: string
+    Tipo: string
+    Codigo: string
+    ValorMedio: number
+    dividendo: number
+    Saldo: number
+    ValorCotacao: number
+    ValorCotacaoM1: number
+    ValorMedioPonderado: number
+    ValorCotacaoPonderado: number
+    ValorM1Ponderado: number
+    ValorDividendoPonderado: number
+  }[]
 }
 
 interface IIndicadoresEconomicosData {
@@ -42,11 +45,11 @@ interface IIndicadoresEconomicosData {
 }
 
 const InvestmentEvolution: React.FC<IAreaChartProps> = ({ 
-  AnoMes
+  evolucaoInvestimentos
  }) => { 
   const { showNumber } = useShowNumber();
   const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
-  const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
+  // const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
   const [evolucaoIndicadores, setEvolucaoIndicadores] = useState<IIndicadoresEconomicosData[]>([]);
   const [tipoFiltroIndicador, setTipoFiltroIndicador] = useState<string[]>([]);
   
@@ -57,8 +60,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   const getIndicadoresEconomicos = () => {
     axios.post (URL_API+"/evolucaoIndicadores", {
         headers: {"Access-Control-Allow-Origin": "*"},
-        idUsuario: idUsuario,
-        AnoMes: AnoMes
     })
     .then((response) => {
         const { data } = response
@@ -108,21 +109,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
   },[evolucaoIndicadores, tipoFiltroIndicador]);
 
-  const getEvolucaoInvestimento = () => {
-      axios.post (URL_API+"/evolucaoInvestimento", {
-          headers: {"Access-Control-Allow-Origin": "*"},
-          idUsuario: idUsuario,
-          AnoMes: AnoMes
-      })
-      .then((response) => {
-          const { data } = response
-          setEvolucaoInvestimentos(JSON.parse(data))  
-      })
-      .catch((error) => {
-        console.log(error)
-      })
-      
-  }
+
 
   const tipoInvestimento = useMemo(() => {
     return evolucaoInvestimentos.map(item => item.Tipo)
@@ -250,7 +237,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
   useEffect(() => {
     getIndicadoresEconomicos()
-    getEvolucaoInvestimento()
   },[]); 
 
     return (
@@ -324,7 +310,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
               <Line type="monotone" dataKey="base" stroke="black" yAxisId={1} />
               
               {(() => {
-                        console.log (tipoFiltroIndicador)
                         if (tipoFiltroIndicador.includes("selic")){
                           return <Line type="monotone" dataKey="selic" stroke="green" strokeDasharray="3 3" yAxisId={1} />
                         }
@@ -332,7 +317,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
 
               {(() => {
-                        console.log (tipoFiltroIndicador)
                         if (tipoFiltroIndicador.includes("ipca")){
                           return <Line type="monotone" dataKey="ipca" stroke="#ff8585" strokeDasharray="3 3" yAxisId={1} />
                         }
@@ -340,7 +324,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
 
               {(() => {
-                        console.log (tipoFiltroIndicador)
                         if (tipoFiltroIndicador.includes("cdi")){
                           return <Line type="monotone" dataKey="cdi" stroke="#9dff85" strokeDasharray="3 3" yAxisId={1} />
                         }
@@ -348,7 +331,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
 
               {(() => {
-                        console.log (tipoFiltroIndicador)
                         if (tipoFiltroIndicador.includes("cdb")){
                           return <Line type="monotone" dataKey="cdb" stroke="#ffe985" strokeDasharray="3 3" yAxisId={1} />
                         }

@@ -6,7 +6,6 @@ import ContentHeader from '../../components/ContentHeader';
 import SelectInput from '../../components/SelectInput';
 import WalletBox from '../../components/WalletBox';
 import MessageBox from '../../components/MessageBox';
-import PieChartBox from '../../components/PieChartBox';
 import AreaChartBox from '../../components/AreaChartBox';
 import InvestmentEvolution from '../../components/InvestmentEvolution';
 
@@ -24,6 +23,8 @@ import {
     Content,
 } from './styles';
 import BudgetBar from '../../components/BudgetBar';
+import PieChartBox from '../../components/PieChartBox';
+
 
 interface IDataPost {
     idTransacoes: string
@@ -31,12 +32,13 @@ interface IDataPost {
     tabelaOrigem: string
     Data: string
     Descricao: string
-    Valor: string
+    Valor: number
     contaContabilCode: string
     grupoContaContabil: string
     subGrupoContaContabil: string
     contaContabil: string
     Observacao: string
+    Cor: string
 }
 
 interface IDataPostAgrupado {
@@ -45,6 +47,22 @@ interface IDataPostAgrupado {
     AnoMes: string
     Cor: string
 }
+
+interface IEvolucaoInvestimentoData {
+    AnoMes: string
+    UltimoDiaMes: string
+    Tipo: string
+    Codigo: string
+    ValorMedio: number
+    dividendo: number
+    Saldo: number
+    ValorCotacao: number
+    ValorCotacaoM1: number
+    ValorMedioPonderado: number
+    ValorCotacaoPonderado: number
+    ValorM1Ponderado: number
+    ValorDividendoPonderado: number
+  }
 
 const Dashboard: React.FC = () => {
     const [monthSelected, setMonthSelected] = useState<number>(new Date().getMonth() + 1);
@@ -58,7 +76,8 @@ const Dashboard: React.FC = () => {
     const [custoHistoricoAgrupado, setCustoHistoricoAgrupado] = useState<IDataPostAgrupado[]>([]);
 
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
-
+    const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
+  
     const years = useMemo(() => {
         return listOfYear.map((year, index) => {
             return {
@@ -121,7 +140,7 @@ const Dashboard: React.FC = () => {
         }      
         else if(totalGains === 0 && totalExpenses === 0){
             return {
-                title: "Op's!",
+                title: "Ops!",
                 description: "Neste mês, não há registros de entradas ou saídas.",
                 footerText: "Parece que você não fez nenhum registro no mês e ano selecionado.",
                 icon: opsImg
@@ -208,7 +227,6 @@ const Dashboard: React.FC = () => {
     }
 
     const getGastosAgrupados = async (anoMes: string, idUsuario: string, meses: string) => {
-        // axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
         await axios.post (URL_API+"/gastosAgrupados", {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
@@ -230,12 +248,90 @@ const Dashboard: React.FC = () => {
         })
     }
 
+    const custoAjustadoGraficoPizza = useMemo(() => {
+        let custoTratado: [{
+            grupo:      string
+            subGrupo:   string
+            Valor:      number
+            AnoMes:     string
+            Cor:        string
+        }] = [{            
+            grupo:      "",
+            subGrupo:   "",
+            Valor:      0,
+            AnoMes:     "",
+            Cor:        ""
+        }]
+        custoTratado.splice (0)
+
+        custo.forEach(item => {
+            if (item.grupoContaContabil === "Custo" &&
+            item.subGrupoContaContabil != "Construção"){
+                custoTratado.push({
+                    grupo: item.subGrupoContaContabil,
+                    subGrupo: item.contaContabil,
+                    Valor: item.Valor*-1,
+                    AnoMes: item.Data,
+                    Cor: item.Cor,
+                })
+            }
+
+        })
+
+        return custoTratado;
+        
+    },[custo]);
+
+    const investimentoAjustadoGraficoPizza = useMemo(() => {
+        let investimentoTratado: [{
+            grupo:      string
+            subGrupo:   string
+            Valor:      number
+            Cor:        string
+        }] = [{            
+            grupo:      "",
+            subGrupo:   "",
+            Valor:      0,
+            Cor:        ""
+        }]
+        investimentoTratado.splice (0)
+
+        evolucaoInvestimentos.forEach(item => {
+            if (item.Saldo > 0 &&
+                item.AnoMes == yearSelected.toString()+monthSelected.toString().padStart(2, '0')){
+                investimentoTratado.push({
+                    grupo: item.Tipo,
+                    subGrupo: item.Codigo,
+                    Valor: item.Saldo*item.ValorCotacao,
+                    Cor: "",
+                })
+            }
+        })
+        return investimentoTratado;
+        
+    },[evolucaoInvestimentos]);
+
+    const getEvolucaoInvestimento = () => {
+        axios.post (URL_API+"/evolucaoInvestimento", {
+            headers: {"Access-Control-Allow-Origin": "*"},
+            idUsuario: idUsuario,
+        })
+        .then((response) => {
+            const { data } = response
+            setEvolucaoInvestimentos(JSON.parse(data))  
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+        
+    }
+
     useEffect(() => {        
         getSaldo (idUsuario)
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Receita") 
-        getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Custo") 
-        getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "1") 
+        getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Custo")        
         getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "12") 
+        getEvolucaoInvestimento ()
 
     },[monthSelected, yearSelected]); 
 
@@ -281,7 +377,7 @@ const Dashboard: React.FC = () => {
                 <BudgetBar anoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
 
                 <section>
-                    <PieChartBox data={ custoAgrupado } />
+                    <PieChartBox titulo = {"Custo por categoria"} data={ custoAjustadoGraficoPizza } />
 
                     <CardBill
                         AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }
@@ -291,7 +387,11 @@ const Dashboard: React.FC = () => {
                     
                 <AreaChartBox data={ custoHistoricoAgrupado } />
                 
-                <InvestmentEvolution AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
+                <InvestmentEvolution evolucaoInvestimentos = { evolucaoInvestimentos } />
+                <section>
+                        <PieChartBox titulo = {"Investimento"} data ={ investimentoAjustadoGraficoPizza } />
+                </section>
+                    
 
                 <MessageBox
                     title={message.title}
@@ -299,6 +399,7 @@ const Dashboard: React.FC = () => {
                     footerText={message.footerText}
                     icon={message.icon}
                 />
+
 
             </Content>
                 

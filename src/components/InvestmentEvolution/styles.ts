@@ -4,7 +4,6 @@ interface ILegendProps {
     color: string;
 }
 
-
 const animate = keyframes`
     0% {
         transform: translateX(100px);
@@ -31,7 +30,6 @@ export const Container = styled.div`
     color: ${props => props.theme.colors.white};
 
     border-radius: 7px;
-
 
     animation: ${animate} .5s;
 
