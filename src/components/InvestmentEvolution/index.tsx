@@ -11,6 +11,7 @@ import { isMobile } from 'react-device-detect';
 import { 
     Container,
     Filters,
+    FiltersFooter,
  }  from './styles';
 
 
@@ -34,14 +35,78 @@ interface IEvolucaoInvestimentoData {
   ValorDividendoPonderado: number
 }
 
+interface IIndicadoresEconomicosData {
+  AnoMes: string
+  Nome: string
+  Valor: number
+}
+
 const InvestmentEvolution: React.FC<IAreaChartProps> = ({ 
   AnoMes
  }) => { 
   const { showNumber } = useShowNumber();
   const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
   const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
+  const [evolucaoIndicadores, setEvolucaoIndicadores] = useState<IIndicadoresEconomicosData[]>([]);
+  const [tipoFiltroIndicador, setTipoFiltroIndicador] = useState<string[]>([]);
+  
   const [tipoFiltro, setTipoFiltro] = useState<string[]>([]);
-  const [tipoValor, setTipoValor] = useState<boolean>(true);
+  
+  const [tipoValor, setTipoValor] = useState<boolean>(false);
+
+  const getIndicadoresEconomicos = () => {
+    axios.post (URL_API+"/evolucaoIndicadores", {
+        headers: {"Access-Control-Allow-Origin": "*"},
+        idUsuario: idUsuario,
+        AnoMes: AnoMes
+    })
+    .then((response) => {
+        const { data } = response
+        setEvolucaoIndicadores(JSON.parse(data))  
+
+    })
+    .catch((error) => {
+      console.log(error)
+    })
+      
+  }
+
+  const distinctIndicadores = useMemo(() => {
+      let indicadores: [{Nome: string}] = [{
+        Nome: "", 
+      }] 
+      indicadores.splice (0)
+      evolucaoIndicadores.forEach(item => {
+          if(!indicadores.some(element => element.Nome == item.Nome))
+          {
+            indicadores.push({Nome: item.Nome})
+          }
+      });
+      
+      return indicadores
+  },[evolucaoIndicadores]);
+
+  const indicadoresDataFinal = useMemo(() => {
+
+    let dadoFiltrado = evolucaoIndicadores
+
+    if (tipoFiltroIndicador.length > 0){
+      dadoFiltrado = dadoFiltrado.filter(item => {
+        return tipoFiltroIndicador.includes(item.Nome);
+      });
+    }
+
+    var jsonToPivotjson = require("json-to-pivot-json");
+    var options = {
+        row: "AnoMes", 
+        column: "Nome", 
+        value: "Valor"
+    };
+    var output = jsonToPivotjson(dadoFiltrado, options)
+
+    return output 
+
+  },[evolucaoIndicadores, tipoFiltroIndicador]);
 
   const getEvolucaoInvestimento = () => {
       axios.post (URL_API+"/evolucaoInvestimento", {
@@ -89,10 +154,8 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   },[evolucaoInvestimentos, tipoFiltro]);
 
   const dataFinal = useMemo(() => {
-
     const groupBy = require('group-by-with-sum');
     const agrupado = groupBy(dataAjustada, 'AnoMes', 'ValorMedioPonderado, ValorCotacaoPonderado, ValorM1Ponderado, ValorDividendoPonderado');
-    console.log (agrupado)
     let investimentosAgrupados: [{
       AnoMes: string,
       Tipo: string,
@@ -109,6 +172,10 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
       variacaoValor: number,
       dividendoValor: number,
 
+      selic: number
+      ipca: number
+      cdb: number
+      cdi: number
       base: number
     }] = agrupado
 
@@ -120,12 +187,30 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
       item.rentabilidadeValor = (item.ValorCotacaoPonderado-item.ValorMedioPonderado-1)
       item.variacaoValor = (item.ValorCotacaoPonderado-item.ValorM1Ponderado-1)
       item.dividendoValor = (item.ValorDividendoPonderado)
+      
+      try {
+        item.selic = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "selic"})[0].Valor
+      }catch{
+      }
+      try {
+        item.ipca = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "ipca"})[0].Valor
+      }catch{
+      }
+      try {
+        item.cdb = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "cdb"})[0].Valor
+      }catch{
+      }
+      try {
+        item.cdi = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "cdi"})[0].Valor
+      }catch{
+      }
 
       item.base = 0
+      
     })
     return investimentosAgrupados 
 
-  },[dataAjustada, evolucaoInvestimentos]);
+  },[dataAjustada, evolucaoInvestimentos, evolucaoIndicadores, distinctIndicadores]);
 
   const carregou = useMemo(() => { 
     if (dataFinal.length > 0){
@@ -135,7 +220,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
   const filtroTipo = (filtro: string) => {
     const alreadySelected = tipoFiltro.findIndex(item => item === filtro);
-
     if(alreadySelected >= 0){
         const filtered = tipoFiltro.filter(item => item !== filtro);
         setTipoFiltro(filtered);
@@ -144,19 +228,29 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
     }
   }
 
+  const filtroTipoIndicador = (filtro: string) => {
+    const alreadySelectedIndicador = tipoFiltroIndicador.findIndex(item => item === filtro);
+    if(alreadySelectedIndicador >= 0){
+      const filteredIndicador = tipoFiltroIndicador.filter(item => item !== filtro);
+      setTipoFiltroIndicador(filteredIndicador);
+    }else{            
+      setTipoFiltroIndicador((prev) => [...prev, filtro]); 
+    }
+  }
+
   function tickFormatter (valor: any){
     let retorno = "" as string
     if (tipoValor){
       retorno = formatCurrency(Number(valor), 0);
     } else {
-      retorno = Number(valor).toFixed(1)+"%";
+      retorno = Number(valor).toFixed(2)+"%";
     } 
     return retorno
   }
 
   useEffect(() => {
+    getIndicadoresEconomicos()
     getEvolucaoInvestimento()
-    
   },[]); 
 
     return (
@@ -165,7 +259,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
                 {
                     tipoInvestimento.map(item => (
                         <button 
-                            key = { item }
+                            key = { Math.random() }
                             type="button"
                             className={`
                             tag-filter 
@@ -212,7 +306,6 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
                 />
               </>
             }
-
             <Tooltip      
               formatter={(lable: any) => {return tickFormatter(lable)}}/>
             <Legend />
@@ -228,25 +321,79 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
               <Bar dataKey="dividendoPerc" name='Dividendo' barSize={20} fill="#a8a8a8" radius={[5, 5, 0, 0]} yAxisId={2} />
               <Line type="monotone" dataKey="rentabilidadePerc" name='Rentabilidade' stroke="#8884d8" yAxisId={1}/>
               <Line type="monotone" dataKey="variacaoPerc" name='Variação' stroke="red" yAxisId={1}/>
-              <Line type="monotone" dataKey="base" stroke="black" strokeDasharray="3 3"yAxisId={1} />
+              <Line type="monotone" dataKey="base" stroke="black" yAxisId={1} />
+              
+              {(() => {
+                        console.log (tipoFiltroIndicador)
+                        if (tipoFiltroIndicador.includes("selic")){
+                          return <Line type="monotone" dataKey="selic" stroke="green" strokeDasharray="3 3" yAxisId={1} />
+                        }
+              })()}
+
+
+              {(() => {
+                        console.log (tipoFiltroIndicador)
+                        if (tipoFiltroIndicador.includes("ipca")){
+                          return <Line type="monotone" dataKey="ipca" stroke="#ff8585" strokeDasharray="3 3" yAxisId={1} />
+                        }
+              })()}
+
+
+              {(() => {
+                        console.log (tipoFiltroIndicador)
+                        if (tipoFiltroIndicador.includes("cdi")){
+                          return <Line type="monotone" dataKey="cdi" stroke="#9dff85" strokeDasharray="3 3" yAxisId={1} />
+                        }
+              })()}
+
+
+              {(() => {
+                        console.log (tipoFiltroIndicador)
+                        if (tipoFiltroIndicador.includes("cdb")){
+                          return <Line type="monotone" dataKey="cdb" stroke="#ffe985" strokeDasharray="3 3" yAxisId={1} />
+                        }
+              })()}
+
             </>
             }
           </ComposedChart>
         </ResponsiveContainer>
       : <></> }
-      <p>
-        <MdAttachMoney  className={`
-                            tag-filter 
-                            tag-filter-eventual
-                            ${tipoValor && 'tag-actived'}`} 
-                          onClick = {() => {setTipoValor(!tipoValor);}} 
-                          />
-        <RiPercentLine  className={`
-                            tag-filter 
-                            tag-filter-eventual
-                            ${!tipoValor && 'tag-actived'}`} 
-                            onClick = {() => {setTipoValor(!tipoValor);}} />
-      </p>
+      <section>
+        <FiltersFooter>
+              {
+                  distinctIndicadores.map(item => (
+                      <button 
+                          key = { Math.random() }
+                          type="button"
+                          className={`
+                          tag-filter 
+                          tag-filter-eventual
+                          ${tipoFiltroIndicador.includes( item.Nome ) && 'tag-actived'}`}
+                          onClick={() => filtroTipoIndicador( item.Nome )}
+                          style={{
+                                  borderBottomColor: "black",
+                              }}
+                      >
+                      { item.Nome }
+                      </button>
+                  ))
+              }   
+              <MdAttachMoney  className={`
+                                  tag-filter 
+                                  tag-filter-eventual
+                                  tipoValor
+                                  ${tipoValor && 'tag-actived'}`} 
+                                  onClick = {() => {setTipoValor(!tipoValor);}} 
+                                  />
+              <RiPercentLine  className={`
+                                  tag-filter  
+                                  tag-filter-eventual
+                                  tipoValor
+                                  ${!tipoValor && 'tag-actived'}`} 
+                                  onClick = {() => {setTipoValor(!tipoValor);}} />  
+          </FiltersFooter>
+      </section>
       </Container>
 
 

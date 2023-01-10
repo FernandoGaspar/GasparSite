@@ -56,6 +56,7 @@ const BudgetBar: React.FC<IBudgetBar> = ({
             {
                 dataBudgetVrsRealizado.map(item => (
                     <BudgetBarLine 
+                        key = {item.subGrupoContaContabil}
                         grupoContaContabil={item.subGrupoContaContabil} 
                         valorRestante={Number(item.ValorOrcado-item.ValorRealizado)} 
                         valorBudget={Number(item.ValorOrcado)} 

@@ -26,53 +26,6 @@ export const Container = styled.div`
 
     display: flex;
     flex-direction: column;
-    
-    > h2 {
-        margin-bottom: 20px;
-        margin: 4%;
-    }
-    > p {
-        text-align: right;
-        margin: 10px 10px 10px 20px;
-
-        .tag-filter {
-
-            font-size: 25px;
-            font-weight: 500;
-    
-            background: none;
-            color: ${props => props.theme.colors.white};
-    
-            margin: 10px 10px;
-    
-            opacity: .4;
-            transition: opacity .3s;
-    
-            &:hover {
-                opacity: .7;
-            }
-        }
-    
-        .tag-filter-recurrent::after {
-            content: '';
-            display: block;
-            width: 55px;
-            margin: 0 auto;
-            border-bottom: 10px solid ${props => props.theme.colors.success};
-        }
-    
-        .tag-filter-eventual::after {
-            content: '';
-            display: block;
-            width: 55px;
-            margin: 0 auto;
-            /* border-bottom: 10px solid ${props => props.theme.colors.success}; */
-        }
-    
-        .tag-actived {
-           opacity: 1;
-        }
-    }
 
     background-color: ${props => props.theme.colors.tertiary};
     color: ${props => props.theme.colors.white};
@@ -134,6 +87,44 @@ export const Filters = styled.div`
 
     .tag-actived {
        opacity: 1;
+    }
+
+`;
+
+export const FiltersFooter = styled.div`
+
+    .tag-filter {
+        font-size: 15px;
+        background: none;
+        color: ${props => props.theme.colors.white};
+        margin: 10px 10px;
+        opacity: .4;
+        transition: opacity .3s;
+        &:hover {
+            opacity: .7;
+        }
+    }
+
+    .tag-filter-recurrent::after {
+        content: '';
+        // display: block;
+        margin: 0 auto;
+    }
+
+    .tag-filter-eventual::after {
+        content: '';
+        // display: block;
+        margin: 0 auto;
+    }
+
+    .tag-actived {
+       opacity: 1;
+    }
+
+    .tipoValor {
+        float: right !important;
+        
+        
     }
 
 `;

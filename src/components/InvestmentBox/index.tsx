@@ -7,6 +7,8 @@ import axios from 'axios';
 import { URL_API } from "../../repositories/baseAPI";
 import { FaBitcoin, FaLowVision } from "react-icons/fa";
 import { AiOutlineStock, AiOutlineShop, AiOutlineNodeIndex } from "react-icons/ai";
+import { GiWorld } from "react-icons/gi";
+
 
 interface IInvestmentBoxProps {
   papel: string;
@@ -76,6 +78,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
     })
     .then((response) => {
         const { data } = response
+        atualizaPapeisMonitorados ("Atualizar")
     })
     .catch((error) => {
       console.log(error)
@@ -89,6 +92,8 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
             return <AiOutlineShop />;
         case 'EMPRESA LISTADA NA BOLSA BRASILEIRA': 
             return <AiOutlineStock />;
+        case 'EMPRESA LISTADA NA BOLSA INTERNACIONAL': 
+            return <GiWorld />;
         case 'CRIPTOMOEDA': 
             return <FaBitcoin />;
           case 'INDICE': 
