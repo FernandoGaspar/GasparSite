@@ -10,7 +10,6 @@ import {
 
 import { 
     Container,
-    SideRight,
  }  from './styles';
 
 interface IPieChartProps {
@@ -48,6 +47,8 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
         const agrupado = groupBy(data, 'grupo, Cor', 'Valor');
         setDataAgrupado(agrupado)
 
+        console.log (agrupado)
+
     }
 
     function detalharGrupo (grupo: string){
@@ -65,7 +66,6 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
             {/* <span>
                 { titulo }
             </span> */}
-                        <SideRight>
                         <ResponsiveContainer >
                         <PieChart 
                             width={1000} 
@@ -127,7 +127,6 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
                         <Tooltip />
                         </PieChart>
                     </ResponsiveContainer>
-                </SideRight>
             </Container>
     );
 }
