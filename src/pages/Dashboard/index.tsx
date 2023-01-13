@@ -282,6 +282,17 @@ const Dashboard: React.FC = () => {
         
     },[custo]);
 
+    function getCorInvestimento (tipo: string){
+        switch (tipo) {
+            case 'FUNDOS IMOBILIÁRIOS': return "#02b022"
+            case 'EMPRESA LISTADA NA BOLSA BRASILEIRA': return  "#8c98ff"
+            case 'EMPRESA LISTADA NA BOLSA INTERNACIONAL': return "#ff8cbe"
+            case 'CRIPTOMOEDA': return "#fff48c"
+            case 'INDICE': return "#8cfbff"                            
+            default: return "";
+        };
+    }
+
     const investimentoAjustadoGraficoPizza = useMemo(() => {
         let investimentoTratado: [{
             grupo:      string
@@ -299,11 +310,12 @@ const Dashboard: React.FC = () => {
         evolucaoInvestimentos.forEach(item => {
             if (item.Saldo > 0 &&
                 item.AnoMes == yearSelected.toString()+monthSelected.toString().padStart(2, '0')){
-                investimentoTratado.push({
+
+                    investimentoTratado.push({
                     grupo: item.Tipo,
                     subGrupo: item.Codigo,
                     Valor: item.Saldo*item.ValorCotacao,
-                    Cor: "",
+                    Cor: getCorInvestimento (item.Tipo),
                 })
             }
         })

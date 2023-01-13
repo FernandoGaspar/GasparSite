@@ -1,9 +1,8 @@
 import styled, { keyframes } from 'styled-components';
 
-interface ILegendProps {
-    color: string;
+interface ITitleContainerProps {
+    lineColor: string;
 }
-
 
 const animate = keyframes`
     0% {
@@ -23,123 +22,77 @@ const animate = keyframes`
 export const Container = styled.div`
     width: 100%;
     height: 260px;
-
-    margin: 10px 0;
-
-    > h2 {
-        margin-bottom: 20px;
-        margin: 4%;
-    }
-    > span {
-        margin: 4px 4px 4px 4px;
-        font-size: 18px;
-        font-weight: 500;
-    }
+    margin: 10px 0px 0px 0;
 
     background-color: ${props => props.theme.colors.tertiary};
     color: ${props => props.theme.colors.white};
-
     border-radius: 7px;
-
     animation: ${animate} .5s;
+    display: flex;
+    overflow-y: visible;
 
-    @media(max-width: 770px){
+    > section {
         display: flex;
-        width: 100%;
-
+        flex-wrap: wrap;
+        flex-direction: row;
+        margin: 10px 15px;
     }
-`;
 
-export const SideLeft = styled.aside`
-    padding: 30px 20px;
+    > section span {
+        overflow: visible!important;
+        margin: 0px -90px 0px 0px;
+    }
 
-    @media(max-width: 1345px){
-        padding: 0 15px 5px;
-        margin-bottom: 7px;
+    > section main {
+        margin: 65px 0px;
 
-        > h2 {
-            margin-top: 15px;
-            margin-bottom: 7px;
+        height: 150px;
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+
+        padding-bottom: 0;
+        overflow-x: scroll;
+
+        ::-webkit-scrollbar {
+            width: 10px;
         }
-    }
-
-    @media(max-width: 420px){
-        padding: 15px;
-        margin-bottom: 7px;
-    }
-`;
-
-export const LegendContainer = styled.ul`
-    list-style: none;
     
-    height: 175px; 
-    padding-right: 15px;
-    overflow-y: scroll;
-
-    ::-webkit-scrollbar {
-        width: 10px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background-color: ${props => props.theme.colors.secondary};
-        border-radius: 10px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background-color: ${props => props.theme.colors.tertiary};
-    }
-
-
-    @media(max-width: 1345px){
-        display: flex;
-        flex-direction: column;
-    }
-`;
-
-export const Legend = styled.li<ILegendProps>`
-    display: flex;
-    align-items: center;
-
-    margin-bottom: 7px;    
-
-    > div {
-        background-color: ${props => props.color};
-
-        width: 40px;
-        height: 40px;
-        border-radius: 5px;
-        
-        font-size: 14px;        
-        line-height: 40px;
-        text-align: center;
-    }
-
-    > span {
-        margin-left: 5px;
-    }
-
-    @media(max-width: 145px){
-        font-size: 14px;
-        margin: 3px 0;
-
-        > div {
-            height: 35px;
-            width: 35px;
-            line-height: 35px;
+        ::-webkit-scrollbar-thumb {
+            background-color: ${props => props.theme.colors.secondary};
+            border-radius: 10px;
         }
-
-        > span {
-            margin-left: 7px;
+    
+        ::-webkit-scrollbar-track {
+            background-color: ${props => props.theme.colors.tertiary};
         }
     }
 `;
 
-export const SideRight = styled.main`
-    display: flex;
-    flex: 1;
-    justify-content: center;
-
-    @media(max-width: 1345px){
-        height: 100%;
+export const TituloGrupo = styled.div<ITitleContainerProps>`
+    margin: 3px;
+    > footer {
+        border-top: 5px solid ${props => props.lineColor};
+        width: 55px;
+        font-size: 12px;
+        margin: 0px;
+        content: '';
     }
+    > h1 {
+
+        font-size: 10px;
+        margin: 0px;
+    }
+    @media(max-width: 420px){
+        > footer {
+                &::after {
+                content: '';
+                display: block;
+                width: 35px;
+                margin: 0px;
+                border-top: 3px solid ${props => props.lineColor};
+            }
+        }
+    }
+
 `;
