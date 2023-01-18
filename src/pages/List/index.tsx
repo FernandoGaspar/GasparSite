@@ -15,6 +15,8 @@ import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogTitle from '@material-ui/core/DialogTitle';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import { 
     Container, 
@@ -49,6 +51,12 @@ interface IRouteParams {
     }
 }
 
+interface ITransacoesIncluidas {
+    idTransacoes: number
+    descricao: string
+    IdContaContabil: string
+}
+
 const List: React.FC<IRouteParams> = ({ match }) => {
     const [dataPost, setDataPost] = useState<IDataPost[]>([]);
     const [openModalToken, setOpenModalToken] = React.useState(false);
@@ -65,6 +73,9 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     const movimentType = match.params.type;
     
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
+
+    const notify = (Mensagem: string) => toast(Mensagem);
+    const [transacoesIncluidas, setTransacoesIncluidas] = useState<ITransacoesIncluidas[]>([]);
 
     const pageData = useMemo(() => {
         return movimentType === 'entry-balance' ?
@@ -183,12 +194,30 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         await axios.post (URL_API+"/atualizaTransacoesBancos", {
             idUsuario: idUsuario,
             tokenBradesco: tokenBradesco
-        }).then(() => {   
-            console.log("Entrou aqui")
+        })
+        .then((response) => {
+            const { data } = response
+            setTransacoesIncluidas (JSON.parse(data))
             setClassCSSRefresh('')
+            let transacoes = 0  
+            transacoes = JSON.parse(data).length;
+            console.log (transacoes)
+
+            let texto = ""
+            if (transacoes == 1){
+                texto = "Uma transação incluída com sucesso!"
+            }
+            else if (transacoes > 1){
+                texto = transacoes + " transações incluídas com sucesso!"
+            } else {
+                texto = "Atualização concluída com sucesso, sem novas transações!"
+            }
+            console.log (texto)
+            notify (texto)
         })
         .catch((error) => {
-          console.log(error)
+            notify ("Erro ao atualizar transações!!")
+            console.log(error)
         })
         atualizaTransacoesLista()
     }
@@ -198,7 +227,6 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         if (await solicitarTokenBradesco === false){
             postAtualizaTransacoesBancos()
             atualizaTransacoesLista()
-            // setClassCSSRefresh('')
         } else {
             setOpenModalToken(true)
         }
@@ -240,7 +268,6 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         return dadoFiltrado
     },[dataPost, filtroTexto, subGrupoContaFilterSelected]);
 
-
     const valorTotalDadoFiltrado = useMemo(() => {
         let total: number = 0;
         dadoFiltrado.forEach(item => {
@@ -278,6 +305,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     return (
         <Container>
+        <ToastContainer />
                 <Dialog 
                     open={ openModalToken } 
                     onClose={ handleCloseModalToken } 
@@ -417,6 +445,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                     
                     }
             </div>
+            
         </Container>
     );
 }

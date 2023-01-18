@@ -33,12 +33,14 @@ export const Container = styled.div`
 
     > section {
         display: flex;
+        width: 120px;
         flex-wrap: wrap;
         flex-direction: row;
         margin: 10px 15px;
     }
 
     > section span {
+        font-weight: bold;
         overflow: visible!important;
         margin: 0px -90px 0px 0px;
     }
@@ -70,7 +72,8 @@ export const Container = styled.div`
 `;
 
 export const TituloGrupo = styled.div<ITitleContainerProps>`
-    margin: 3px;
+    margin: 3px; 
+    
     > footer {
         border-top: 5px solid ${props => props.lineColor};
         width: 55px;
@@ -79,7 +82,6 @@ export const TituloGrupo = styled.div<ITitleContainerProps>`
         content: '';
     }
     > h1 {
-
         font-size: 10px;
         margin: 0px;
     }
