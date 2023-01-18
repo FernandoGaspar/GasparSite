@@ -76,10 +76,10 @@ export const Refresh =  styled.div `
         float: right;
         font-size: 30px;
 
-        -webkit-animation:spin 3s linear;
-        -moz-animation:spin 3s linear;
-        animation:spin 3s linear;
-        animation-iteration-count: 10;
+        -webkit-animation:spin 4s linear;
+        -moz-animation:spin 4s linear;
+        animation:spin 4s linear;
+        animation-iteration-count: 100;
 
         @-moz-keyframes spin { 100% { -moz-transform: rotate(360deg); } }
         @-webkit-keyframes spin { 100% { -webkit-transform: rotate(360deg); } }
