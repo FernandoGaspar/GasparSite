@@ -32,12 +32,16 @@ interface IDataPost {
 const Investment: React.FC = () => {
     const [dataPost, setDataPost] = useState<IDataPost[]>([]);
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
-    const [periodoSelected, setperiodoSelected] = useState<number>(3);
+    const [periodoSelected, setperiodoSelected] = useState<number>();
 
     const periodos = useMemo(() => {
         return listOfPeriodos.map((month, index) => {
+            let valueReturn = index + 1 
+            if (month === "Final"){
+                valueReturn = 9999
+            }
             return {
-                value: index + 1,
+                value: valueReturn,
                 label: month,
             }
         });
@@ -52,15 +56,20 @@ const Investment: React.FC = () => {
         }
     }
 
-    const atualizaPapeisMonitorados = async () => {
-        await axios.post (URL_API+"/papeisMonitorados", {
+    const atualizaPapeisMonitorados = () => {
+        console.log (periodoSelected)
+        if (periodoSelected == undefined){
+            setperiodoSelected (0)
+        }
+        axios.post (URL_API+"/papeisMonitorados", {
             headers: {"Access-Control-Allow-Origin": "*"},
             idUsuario: idUsuario,
             periodo: periodoSelected
         })
         .then((response) => {
             const { data } = response
-            setDataPost(JSON.parse(data))  
+            setDataPost(JSON.parse(data)) 
+            console.log (dataPost) 
         })
         .catch((error) => {
           console.log(error)
@@ -73,6 +82,7 @@ const Investment: React.FC = () => {
     },[dataPost]);
     
     useEffect(() => {
+        
         atualizaPapeisMonitorados()
         
     },[idUsuario, periodoSelected]); 
@@ -100,7 +110,6 @@ const Investment: React.FC = () => {
                 onClick={async () => {
                     await CustomDialog(
                             <InvestmentAddModal
-                                // key = 1
                                 atualizaPapeisMonitorados = { atualizaPapeisMonitorados }
                             />
                             , {
