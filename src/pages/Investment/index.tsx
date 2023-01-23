@@ -32,22 +32,21 @@ interface IDataPost {
 const Investment: React.FC = () => {
     const [dataPost, setDataPost] = useState<IDataPost[]>([]);
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
-    const [periodoSelected, setperiodoSelected] = useState<number>();
+    const [periodoSelected, setperiodoSelected] = useState<number>(1);
 
     const periodos = useMemo(() => {
         return listOfPeriodos.map((month, index) => {
-            let valueReturn = index + 1 
-            if (month === "Final"){
-                valueReturn = 9999
-            }
             return {
-                value: valueReturn,
+                value: index + 1 ,
                 label: month,
             }
         });
     },[]);
 
     const handlePeriodoSelected = (periodo: number) => {
+        if (periodo == 8){
+            periodo = 9999
+        }
         try {
             setperiodoSelected(periodo);   
         }
@@ -57,7 +56,6 @@ const Investment: React.FC = () => {
     }
 
     const atualizaPapeisMonitorados = () => {
-        console.log (periodoSelected)
         if (periodoSelected == undefined){
             setperiodoSelected (0)
         }
@@ -69,7 +67,6 @@ const Investment: React.FC = () => {
         .then((response) => {
             const { data } = response
             setDataPost(JSON.parse(data)) 
-            console.log (dataPost) 
         })
         .catch((error) => {
           console.log(error)
@@ -128,7 +125,7 @@ const Investment: React.FC = () => {
                 papeisMonitorados ?   
                 papeisMonitorados.map(item=> (
                     <InvestimentBox
-                            key={item.codigo}
+                            key={item.codigo + Math.random}
                             papel={item.codigo}
                             tipo = {item.tipo}
                             papelGrafico = {item.codigoGrafico}
