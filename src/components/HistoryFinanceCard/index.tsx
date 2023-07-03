@@ -3,6 +3,8 @@ import React, { useEffect, useMemo } from 'react';
 import logoBradesco from '../../assets/bradesco.svg';
 import logoNubank from '../../assets/nubank.svg';
 import logoItau from '../../assets/itau.svg';
+import logoItauCard from '../../assets/itaucard.png';
+
 import logoXp from '../../assets/xp.svg';
 import formatDate from '../../utils/formatDate';
 import { FaCircle } from 'react-icons/fa';
@@ -59,6 +61,8 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
                 return logoNubank;
             case 'tbBradescoConta':
                 return logoBradesco;
+            case 'tbItauCredito':
+                return logoItauCard;
             case 'tbXPCredito':
                 return undefined;                            
             default:

@@ -76,7 +76,8 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     const notify = (Mensagem: string) => toast(Mensagem);
     const [transacoesIncluidas, setTransacoesIncluidas] = useState<ITransacoesIncluidas[]>([]);
-
+    const token = localStorage.getItem('@minha-carteira:token') as string;
+    
     const pageData = useMemo(() => {
         return movimentType === 'entry-balance' ?
             {
@@ -151,7 +152,8 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         axios.post (URL_API+"/gastos", {
             anomes: yearSelected.toString()+monthSelected.toString().padStart(2, '0'),
             usuario: idUsuario,
-            tipo: pageData.tipoDeDado
+            tipo: pageData.tipoDeDado,
+            token: token
         })
         .then((response) => {
             const { data } = response

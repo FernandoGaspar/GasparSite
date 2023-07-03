@@ -24,6 +24,7 @@ import {
 } from './styles';
 import BudgetBar from '../../components/BudgetBar';
 import PieChartBox from '../../components/PieChartBox';
+import { useAuth } from '../../hooks/auth';
 
 
 interface IDataPost {
@@ -76,6 +77,8 @@ const Dashboard: React.FC = () => {
     const [custoHistoricoAgrupado, setCustoHistoricoAgrupado] = useState<IDataPostAgrupado[]>([]);
 
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
+    const token = localStorage.getItem('@minha-carteira:token') as string;
+    const { signOut } = useAuth();
     const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
   
     const years = useMemo(() => {
@@ -186,12 +189,12 @@ const Dashboard: React.FC = () => {
     },[]);
 
     const getfetchTransacoes = async (anoMes: string, idUsuario: string, tipo: string) => {
-        // axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
         await axios.post (URL_API+"/gastos", {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
             usuario: idUsuario,
-            tipo: tipo
+            tipo: tipo,
+            token: token
         })
         .then((response) => {
             const { data } = response
@@ -212,6 +215,7 @@ const Dashboard: React.FC = () => {
         await axios.post (URL_API+"/saldo", {
             headers: {"Access-Control-Allow-Origin": "*"},
             usuario: idUsuario,
+            token: token
         }, 
         )
         .then((response) => {
@@ -222,6 +226,9 @@ const Dashboard: React.FC = () => {
         })
         .catch((error) => {
           console.log(error)
+          if (error.response.status === 401) {
+            signOut()
+          }
         })
         return saldoPost;
     }
@@ -231,7 +238,8 @@ const Dashboard: React.FC = () => {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
             usuario: idUsuario,
-            meses: meses
+            meses: meses,
+            token: token
         }, 
          
         )
@@ -327,6 +335,7 @@ const Dashboard: React.FC = () => {
         axios.post (URL_API+"/evolucaoInvestimento", {
             headers: {"Access-Control-Allow-Origin": "*"},
             idUsuario: idUsuario,
+            token: token
         })
         .then((response) => {
             const { data } = response

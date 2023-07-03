@@ -47,7 +47,7 @@ const AuthProvider: React.FC = ({ children }) => {
         const { data } = await axios.post(URL_API + '/login', {
             headers: {"Access-Control-Allow-Origin": "*"},
             email: email,
-            senha: password,
+            senha: password
         });
 
         let token = JSON.parse(data)[0].Token
