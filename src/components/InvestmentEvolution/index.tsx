@@ -14,11 +14,6 @@ import {
     FiltersFooter,
  }  from './styles';
 
-
-// interface IAreaChartProps {
-//   AnoMes: string
-// }
-
 interface IAreaChartProps {
   evolucaoInvestimentos: {
 

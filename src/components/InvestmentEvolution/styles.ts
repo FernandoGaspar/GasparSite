@@ -18,7 +18,6 @@ const animate = keyframes`
     }
 `;
 
-
 export const Container = styled.div`
     width: 100%;
     height: 300px;
@@ -80,7 +79,6 @@ export const Filters = styled.div`
         display: block;
         width: 55px;
         margin: 0 auto;
-        /* border-bottom: 10px solid ${props => props.theme.colors.success}; */
     }
 
     .tag-actived {
@@ -90,7 +88,6 @@ export const Filters = styled.div`
 `;
 
 export const FiltersFooter = styled.div`
-
     .tag-filter {
         font-size: 15px;
         background: none;
@@ -121,8 +118,6 @@ export const FiltersFooter = styled.div`
 
     .tipoValor {
         float: right !important;
-        
-        
     }
 
 `;

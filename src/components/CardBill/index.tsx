@@ -1,143 +1,152 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Container }  from './styles';
-import axios from 'axios';
-import { URL_API } from '../../repositories/baseAPI';
-import NumberFormat from 'react-number-format';
+import React, { useMemo, PureComponent, useState } from 'react';
+import { Container, FiltrHeader }  from './styles';
+import formatCurrency from '../../utils/formatCurrency';
+import { useShowNumber } from '../../hooks/showNumber';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {isMobile} from 'react-device-detect';
+import { parse, addMonths, format } from 'date-fns';
 
-interface ICardBillProps {
-    AnoMes: string;
+
+interface IAreaChartProps {
+  data: {
+    idUsuario: string
+    AnoMesFatura: number
+    tabelaOrigem: string
+    Valor: number
+  }[]
+  anomes: string
 }
 
-interface IFaturaListPost {
-  idTransacoes: string
-  tabelaOrigem: string
-  idUsuario: string	
-  Data: string	
-  Descricao: string	
-  Valor: string	
-  dataLiquidacao: string	
-  grupoContaContabil: string	
-  subGrupoContaContabil: string	
-  contaContabil: string	
-  obraGrupoCode: string
-}
 
-interface IBancosUsuario {
-  idBanco: string
-}
-
-const CardBill: React.FC<ICardBillProps> = ({
-    AnoMes,
+const CardBill: React.FC<IAreaChartProps> = ({
+    data,
+    anomes,
 }) => {
+  const { showNumber } = useShowNumber();
+  const [tipoFiltroIndicador, setTipoFiltroIndicador] = useState<string[]>([]);
 
-  const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
- 
-  const [faturaXp, setFaturaXp] = useState<IFaturaListPost[]>([]);
-  const [faturaNubank, setFaturaNubank] = useState<IFaturaListPost[]>([]);
-
-  const [bancosUsuario, setBancosUsuario] = useState<IBancosUsuario[]>([]);
-
-
-  const FaturaTotalNubank = useMemo(() => {
-      let total: number = 0;
-      faturaNubank.forEach(item => {
-        total += Number(item.Valor)
-      });
-      return Math.round(total)*-1;
-  },[faturaNubank]);
-
-  const FaturaTotalXP = useMemo(() => {
-    let total: number = 0;
-    faturaXp.forEach(item => {
-      total += Number(item.Valor)
-    });
-    return Math.round(total)*-1;
-  },[faturaXp]);
-
-  const getTransacoesFatura = async (anoMes: string, idUsuario: string, banco: string) => {
-    await axios.post (URL_API+"/getFaturaCartao", {
-        headers: {"Access-Control-Allow-Origin": "*"},
-        anomes: anoMes,
-        usuario: idUsuario,
-        banco: banco
-    })
-    .then((response) => {
-        const { data } = response
-        if (banco === "1"){
-          setFaturaNubank(JSON.parse(data))
-        } else {
-          setFaturaXp(JSON.parse(data))
-        }
-    })
-    .catch((error) => {
-      console.log(error)
-    })
+  function renameKey ( obj: any, oldKey: any, newKey: any ) {
+    obj[newKey] = obj[oldKey];
+    delete obj[oldKey];
   }
 
-  // const getBancosUsuario = async (idUsuario: string) => {
-  //   await axios.post (URL_API+"/bancosUsuario", {
-  //       headers: {"Access-Control-Allow-Origin": "*"},       
-  //       usuario: idUsuario,
-  //   })
-  //   .then((response) => {
-  //     const { data } = response
-  //     setBancosUsuario(JSON.parse(data))
-  //   })
-  //   .catch((error) => {
-  //   console.log(error)
-  //   })
-  // }
-
-  const Faturas = useMemo(() => {
-    let faturas = {
-      idBanco: "0",
-      ValorFatura: "0"
+  const filtroTipoIndicador = (filtro: string) => {
+    console.log (tipoFiltroIndicador.length)
+    const alreadySelectedIndicador = tipoFiltroIndicador.findIndex(item => item === filtro);
+    if(alreadySelectedIndicador >= 0){
+      const filteredIndicador = tipoFiltroIndicador.filter(item => item !== filtro);
+      setTipoFiltroIndicador(filteredIndicador);
+    }else{            
+      setTipoFiltroIndicador((prev) => [...prev, filtro]); 
     }
-    bancosUsuario.forEach(async item => {
-      await getTransacoesFatura (AnoMes, idUsuario, item.idBanco)
-      
-    });
+  }
 
-    return faturas;
-  },[bancosUsuario]);
+  const dataFinal = useMemo(() => {
 
-  useEffect(() => { 
-    getTransacoesFatura (AnoMes, idUsuario, "1")       
-    getTransacoesFatura (AnoMes, idUsuario, "3")
-  },[AnoMes, idUsuario]); 
+    const dataString = anomes
+    const date = parse(dataString, 'yyyyMM', new Date()); // Converter a string para um objeto Date
+    const dataSubtraida = addMonths(date, 1); // Subtrair um mês da data
+    const dataFormatada = format(dataSubtraida, 'yyyyMM');
+
+    let filteredItems = data
+    if (tipoFiltroIndicador.length == 0){
+      filteredItems = data.filter(item => item.AnoMesFatura <= Number (dataFormatada) );
+    }
+
+    var jsonToPivotjson = require("json-to-pivot-json");
+    var options = {
+        row: "AnoMesFatura", 
+        column: "tabelaOrigem", 
+        value: "Valor"
+    };
+    var output = jsonToPivotjson(filteredItems, options)
+    
+    output.forEach( (obj: any) => renameKey( obj, 'AnoMes', 'name' ) );
+    const updatedJson = JSON.stringify( output );
+    
+    return output
+
+  },[data, tipoFiltroIndicador]);
+  
 
   return (
         <Container>
-          <header>
-            <h1>
-            </h1>
-              {/* { AnoMes } */}
-              <span>Fatura Nubank </span>
-              <strong>R$ </strong>
-              <NumberFormat 
-                        value={Number(FaturaTotalNubank)}
-                        displayType={'text'}
-                        decimalSeparator=","
-                        thousandSeparator="."
-                    />
-              <br/>
-              <br/>
-              
-              <span>Fatura XP </span>
-              <strong>R$ </strong>
-              <NumberFormat 
-                        value={Number(FaturaTotalXP)}
-                        displayType={'text'}
-                        decimalSeparator=","
-                        thousandSeparator="."
-                    />
-                {/* <img src={icon} alt={title}/>  */}
-            {/* <p>{description}</p> */}
-          </header>
+          <div>
+            <span>
+                Faturas futuras
+            </span>
+            <FiltrHeader>
+              <button 
+                  key = { Math.random() }
+                  type="button"
+                  className={`
+                  tag-filter 
+                  tag-filter-eventual
+                  ${tipoFiltroIndicador.includes( "Mostrar Tudo" ) && 'tag-actived'}`}
+                  onClick={() => filtroTipoIndicador( "Mostrar Tudo" )}
+                  style={{
+                    borderBottomColor: "black",
+                  }}
+                  >
+                Mostrar tudo
+              </button>
+            </FiltrHeader>
+          </div>
+          {
+            showNumber?
+              // isMobile?
 
-          {/* <footer>
-            <span>{footerText}</span>
-          </footer> */}
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                width={500}
+                height={300}
+                data={dataFinal}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <XAxis dataKey="AnoMesFatura" />
+                <Tooltip 
+                        formatter={(value) => formatCurrency(Number(value), 0)}
+                        labelStyle={{ color: '#222' }}
+                        />
+                <YAxis 
+                      fontSize={14}
+                      tickFormatter={(value: any) => formatCurrency(value, 1)} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="Nubank" stackId="a" fill="#820ad1" />
+                <Bar dataKey="C6 Bank" stackId="a" fill="#000000" />
+                <Bar dataKey="XP Investimentos" stackId="a" fill="#1f1f1f" />
+                <Bar dataKey="Itau" stackId="a" fill="#ec7000" />              
+              </BarChart>
+            </ResponsiveContainer>
+          :
+                          
+            <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              width={500}
+              height={300}
+              data={dataFinal}
+              margin={{
+                top: 20,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <XAxis dataKey="AnoMesFatura" />
+              <Legend />
+              <Bar dataKey="Nubank" stackId="a" fill="#820ad1" />
+              <Bar dataKey="C6 Bank" stackId="a" fill="#000000" />
+              <Bar dataKey="Itau" stackId="a" fill="#ec7000" />              
+              <Bar dataKey="XP Investimentos" stackId="a" fill="#1f1f1f" />
+            </BarChart>
+          </ResponsiveContainer>
+        }
         </Container>
     );
   }

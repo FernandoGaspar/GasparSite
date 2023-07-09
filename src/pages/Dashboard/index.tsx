@@ -65,6 +65,14 @@ interface IEvolucaoInvestimentoData {
     ValorDividendoPonderado: number
   }
 
+interface IDataPostValorFatura {
+    idUsuario: string
+    AnoMesFatura: number
+    tabelaOrigem: string
+    Valor: number
+}
+
+
 const Dashboard: React.FC = () => {
     const [monthSelected, setMonthSelected] = useState<number>(new Date().getMonth() + 1);
     const [yearSelected, setYearSelected] = useState<number>(new Date().getFullYear());
@@ -74,6 +82,8 @@ const Dashboard: React.FC = () => {
     const [receita, setReceita] = useState<IDataPost[]>([]);
 
     const [custoAgrupado, setCustoAgrupado] = useState<IDataPostAgrupado[]>([]);
+    const [valoresFatura, setValoresFatura] = useState<IDataPostValorFatura[]>([]);
+
     const [custoHistoricoAgrupado, setCustoHistoricoAgrupado] = useState<IDataPostAgrupado[]>([]);
 
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
@@ -346,12 +356,31 @@ const Dashboard: React.FC = () => {
         })
         
     }
+	
+    const getValoresFatura = async (anoMes: string, idUsuario: string) => {
+        await axios.post (URL_API+"/getValorFatura", {
+            headers: {"Access-Control-Allow-Origin": "*"},
+            anomes: anoMes,
+            usuario: idUsuario,
+            token: token
+        }, 
+        )
+        .then((response) => {
+            const { data } = response
+            setValoresFatura(JSON.parse(data))
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    }
 
     useEffect(() => {        
         getSaldo (idUsuario)
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Receita") 
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Custo")        
         getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "12") 
+        getValoresFatura (yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario)
+
         getEvolucaoInvestimento ()
 
     },[monthSelected, yearSelected]); 
@@ -399,10 +428,7 @@ const Dashboard: React.FC = () => {
 
                 <section>
                     <PieChartBox titulo = {"Custo por categoria"} data={ custoAjustadoGraficoPizza } />
-
-                    <CardBill
-                        AnoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }
-                        />
+                    <CardBill data={ valoresFatura } anomes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }  />
                 </section>
 
                     
