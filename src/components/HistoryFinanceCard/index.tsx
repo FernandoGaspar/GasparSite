@@ -30,6 +30,7 @@ interface IHistoryFinanceCardProps {
     tabelaOrigem: string;
     obraGrupoCode: string;
     dataTransacao: string;
+    dataInserido: string;
     atualizaTransacaoList: (arg: string) => void
 }
 
@@ -48,6 +49,7 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
     tabelaOrigem,
     obraGrupoCode,
     dataTransacao,
+    dataInserido,
     atualizaTransacaoList
 
 })  => {
@@ -72,7 +74,7 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
 
     const novaTransacao = useMemo(() => {
         let retornar = false;
-        let dataForamatada = formatDate(dataTransacao, 0);
+        let dataForamatada = formatDate(dataInserido, 0);
         let hoje = new Date()
         let hojeFormatada = Moment(hoje).format('YYYY-MM-DD');
         
@@ -81,7 +83,7 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
         }
 
         return retornar;
-    },[dataTransacao]);
+    },[dataInserido]);
 
 
     useEffect(() => {
@@ -107,6 +109,7 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
                             tagColor = { "" }
                             obraGrupoCode = { obraGrupoCode }
                             atualizaTransacao = {atualizaTransacaoList}
+
 
                         />, {
                             title: descricao,
@@ -161,7 +164,7 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
 
         </Container>
     );
-    }
+}
 
 export default HistoryFinanceCard;
 

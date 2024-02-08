@@ -50,7 +50,7 @@ interface IDataPostAgrupado {
 }
 
 interface IEvolucaoInvestimentoData {
-    AnoMes: string
+    AnoMes: number
     UltimoDiaMes: string
     Tipo: string
     Codigo: string
@@ -327,7 +327,7 @@ const Dashboard: React.FC = () => {
 
         evolucaoInvestimentos.forEach(item => {
             if (item.Saldo > 0 &&
-                item.AnoMes == yearSelected.toString()+monthSelected.toString().padStart(2, '0')){
+                item.AnoMes.toString() == yearSelected.toString()+monthSelected.toString().padStart(2, '0')){
 
                     investimentoTratado.push({
                     grupo: item.Tipo,
@@ -449,7 +449,6 @@ const Dashboard: React.FC = () => {
 
 
             </Content>
-                
         </Container>
     );
 }

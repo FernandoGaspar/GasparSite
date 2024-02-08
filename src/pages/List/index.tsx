@@ -41,6 +41,7 @@ interface IDataPost {
     NfImportada: string
     obraGrupoCode: string
     DataTransacao: string;
+    dataInserido: string;
 }
 
 interface IRouteParams {
@@ -412,6 +413,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                             atualizaTransacaoList = { atualizaTransacoesLista }
                             obraGrupoCode = { item.obraGrupoCode }
                             dataTransacao = { item.DataTransacao }
+                            dataInserido = { item.dataInserido }
                         />
                     ))
                 }     

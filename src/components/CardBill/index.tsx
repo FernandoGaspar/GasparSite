@@ -3,9 +3,9 @@ import { Container, FiltrHeader }  from './styles';
 import formatCurrency from '../../utils/formatCurrency';
 import { useShowNumber } from '../../hooks/showNumber';
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import {isMobile} from 'react-device-detect';
 import { parse, addMonths, format } from 'date-fns';
-
+import {isMobile} from 'react-device-detect';
+import { useHistory } from 'react-router-dom';
 
 interface IAreaChartProps {
   data: {
@@ -41,6 +41,13 @@ const CardBill: React.FC<IAreaChartProps> = ({
     }
   }
 
+  const history = useHistory();
+  const handleBarClick = (data: any, index: number, conta: string) => {
+    const anoMesFatura = data.payload?.AnoMesFatura
+    const url = `/CardList/${conta}/${anoMesFatura}`;
+    history.push(url);
+  };
+
   const dataFinal = useMemo(() => {
 
     const dataString = anomes
@@ -68,7 +75,6 @@ const CardBill: React.FC<IAreaChartProps> = ({
 
   },[data, tipoFiltroIndicador]);
   
-
   return (
         <Container>
           <div>
@@ -118,10 +124,10 @@ const CardBill: React.FC<IAreaChartProps> = ({
                       tickFormatter={(value: any) => formatCurrency(value, 1)} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="Nubank" stackId="a" fill="#820ad1" />
-                <Bar dataKey="C6 Bank" stackId="a" fill="#000000" />
-                <Bar dataKey="XP Investimentos" stackId="a" fill="#1f1f1f" />
-                <Bar dataKey="Itau" stackId="a" fill="#ec7000" />              
+                <Bar dataKey="Nubank" stackId="a" fill="#820ad1" onClick={(data, index) => handleBarClick(data, index, "1")}/>
+                <Bar dataKey="Itau" stackId="a" fill="#ec7000" onClick={(data, index) => handleBarClick(data, index, "2")} />              
+                <Bar dataKey="C6 Bank" stackId="a" fill="#000000" onClick={(data, index) => handleBarClick(data, index, "5")} />
+                <Bar dataKey="XP Investimentos" stackId="a" fill="#1f1f1f" onClick={(data, index) => handleBarClick(data, index, "3")}/>
               </BarChart>
             </ResponsiveContainer>
           :
@@ -140,10 +146,10 @@ const CardBill: React.FC<IAreaChartProps> = ({
             >
               <XAxis dataKey="AnoMesFatura" />
               <Legend />
-              <Bar dataKey="Nubank" stackId="a" fill="#820ad1" />
-              <Bar dataKey="C6 Bank" stackId="a" fill="#000000" />
-              <Bar dataKey="Itau" stackId="a" fill="#ec7000" />              
-              <Bar dataKey="XP Investimentos" stackId="a" fill="#1f1f1f" />
+                <Bar dataKey="Nubank" stackId="a" fill="#820ad1" onClick={(data, index) => handleBarClick(data, index, "1")}/>
+                <Bar dataKey="Itau" stackId="a" fill="#ec7000" onClick={(data, index) => handleBarClick(data, index, "2")} />              
+                <Bar dataKey="C6 Bank" stackId="a" fill="#000000" onClick={(data, index) => handleBarClick(data, index, "5")} />
+                <Bar dataKey="XP Investimentos" stackId="a" fill="#1f1f1f" onClick={(data, index) => handleBarClick(data, index, "3")}/>
             </BarChart>
           </ResponsiveContainer>
         }

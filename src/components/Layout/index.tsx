@@ -5,6 +5,7 @@ import { Grid } from './styles';
 import MainHeader from '../MainHeader';
 import Aside from '../Aside';
 import Content from '../Content';
+import Chat from '../Chat';
 
 const Layout: React.FC = ({ children }) => (
     <Grid>
@@ -13,6 +14,7 @@ const Layout: React.FC = ({ children }) => (
         <Content>
             { children }
         </Content>
+        <Chat/>
     </Grid>
 );
 

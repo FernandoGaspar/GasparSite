@@ -16,8 +16,7 @@ import {
 
 interface IAreaChartProps {
   evolucaoInvestimentos: {
-
-    AnoMes: string
+    AnoMes: number
     UltimoDiaMes: string
     Tipo: string
     Codigo: string
@@ -47,7 +46,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   // const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
   const [evolucaoIndicadores, setEvolucaoIndicadores] = useState<IIndicadoresEconomicosData[]>([]);
   const [tipoFiltroIndicador, setTipoFiltroIndicador] = useState<string[]>([]);
-  
+  const [prazoFiltro, setPrazoFiltro] = useState<string[]>([]);
   const [tipoFiltro, setTipoFiltro] = useState<string[]>([]);
   
   const [tipoValor, setTipoValor] = useState<boolean>(false);
@@ -124,11 +123,12 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
       item.ValorM1Ponderado = item.ValorCotacaoM1*item.Saldo
       item.ValorDividendoPonderado = item.dividendo*item.Saldo
 
-      if (dividendo == 1){
+      if (dividendo !== null){
         item.ValorCotacaoPonderado = (item.ValorCotacao+item.dividendo)*item.Saldo
       }else {
         item.ValorCotacaoPonderado = item.ValorCotacao*item.Saldo
       }
+      // item.ValorCotacaoPonderado = item.ValorCotacao*item.Saldo
     })
 
     return dadoFiltrado
@@ -138,8 +138,9 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   const dataFinal = useMemo(() => {
     const groupBy = require('group-by-with-sum');
     const agrupado = groupBy(dataAjustada, 'AnoMes', 'ValorMedioPonderado, ValorCotacaoPonderado, ValorM1Ponderado, ValorDividendoPonderado');
+    let primeiroMes = 999999;
     let investimentosAgrupados: [{
-      AnoMes: string,
+      AnoMes: number,
       Tipo: string,
       Saldo: number,
       ValorCotacaoPonderado: number,
@@ -149,6 +150,8 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
       rentabilidadePerc: number,
       variacaoPerc: number,
       dividendoPerc: number,
+
+      variacaoPercAcumulado: number,
 
       rentabilidadeValor: number,
       variacaoValor: number,
@@ -162,34 +165,71 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
     }] = agrupado
 
     investimentosAgrupados.forEach(item => {
+      if (primeiroMes > item.AnoMes){
+        primeiroMes = item.AnoMes;
+      }
       item.rentabilidadePerc = (item.ValorCotacaoPonderado/item.ValorMedioPonderado-1)*100
       item.variacaoPerc = (item.ValorCotacaoPonderado/item.ValorM1Ponderado-1)*100
       item.dividendoPerc = (item.ValorDividendoPonderado/item.ValorCotacaoPonderado)*100
-
+      
       item.rentabilidadeValor = (item.ValorCotacaoPonderado-item.ValorMedioPonderado-1)
       item.variacaoValor = (item.ValorCotacaoPonderado-item.ValorM1Ponderado-1)
       item.dividendoValor = (item.ValorDividendoPonderado)
       
       try {
-        item.selic = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "selic"})[0].Valor
+        item.selic = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "selic"})[0].Valor
       }catch{
       }
       try {
-        item.ipca = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "ipca"})[0].Valor
+        item.ipca = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "ipca"})[0].Valor
       }catch{
       }
       try {
-        item.cdb = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "cdb"})[0].Valor
+        item.cdb = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "cdb"})[0].Valor
       }catch{
       }
       try {
-        item.cdi = evolucaoIndicadores.filter((i, index) => {return i.AnoMes == item.AnoMes && i.Nome == "cdi"})[0].Valor
+        item.cdi = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "cdi"})[0].Valor
       }catch{
       }
 
       item.base = 0
       
     })
+    
+    investimentosAgrupados.forEach(item => {
+      if (primeiroMes == item.AnoMes){
+        item.variacaoPerc = 0;
+      }
+    })
+    let variacaoPercAcumuladoVar = 0
+    let selicAcumulado = 0
+    let ipcaAcumulado = 0
+    let cdbAcumulado = 0
+    let cdiAcumulado = 0
+    
+    investimentosAgrupados.forEach(item => {
+      if (item.variacaoPercAcumulado === undefined){
+        item.variacaoPercAcumulado = item.variacaoPerc/100
+      }
+      variacaoPercAcumuladoVar = ((1+variacaoPercAcumuladoVar) * (1+(item.variacaoPerc/100)))-1
+      item.variacaoPercAcumulado = variacaoPercAcumuladoVar*100
+      
+      selicAcumulado = ((1+selicAcumulado) * (1+(item.selic/100)))-1
+      item.selic = selicAcumulado*100
+
+      ipcaAcumulado = ((1+ipcaAcumulado) * (1+(item.ipca/100)))-1
+      item.ipca = ipcaAcumulado*100
+
+      cdbAcumulado = ((1+cdbAcumulado) * (1+(item.cdb/100)))-1
+      item.cdb = cdbAcumulado*100
+
+      cdiAcumulado = ((1+cdiAcumulado) * (1+(item.cdi/100)))-1
+      item.cdi = cdiAcumulado*100
+      
+    })
+    
+
     return investimentosAgrupados 
 
   },[dataAjustada, evolucaoInvestimentos, evolucaoIndicadores, distinctIndicadores]);
@@ -236,27 +276,27 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
     return (
       <Container>
-            <Filters>
-                {
-                    tipoInvestimento.map(item => (
-                        <button 
-                            key = { Math.random() }
-                            type="button"
-                            className={`
-                            tag-filter 
-                            tag-filter-eventual
-                            ${tipoFiltro.includes( item ) && 'tag-actived'}`}
-                            onClick={() => filtroTipo( item )}
-                            style={{
-                                    borderBottomColor: "black",
-                                }}
-                        >
-                        { item }
-                        </button>
-                    ))
-                }   
-                
-            </Filters>
+        <Filters>
+            {
+                tipoInvestimento.map(item => (
+                    <button 
+                        key = { Math.random() }
+                        type="button"
+                        className={`
+                        tag-filter 
+                        tag-filter-eventual
+                        ${tipoFiltro.includes( item ) && 'tag-actived'}`}
+                        onClick={() => filtroTipo( item )}
+                        style={{
+                                borderBottomColor: "black",
+                            }}
+                    >
+                    { item }
+                    </button>
+                ))
+            }   
+            
+        </Filters>
       { carregou ? 
 
         <ResponsiveContainer width="100%" height="70%">
@@ -300,8 +340,11 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
             :
             <>
               <Bar dataKey="dividendoPerc" name='Dividendo' barSize={20} fill="#a8a8a8" radius={[5, 5, 0, 0]} yAxisId={2} />
-              <Line type="monotone" dataKey="rentabilidadePerc" name='Rentabilidade' stroke="#8884d8" yAxisId={1}/>
+              <Line type="monotone" dataKey="rentabilidadePerc" name='Rentabilidade histórica' stroke="#8884d8" yAxisId={1}/>
               <Line type="monotone" dataKey="variacaoPerc" name='Variação' stroke="red" yAxisId={1}/>
+
+              <Line type="monotone" dataKey="variacaoPercAcumulado" name='Variação acumulada' stroke="green" yAxisId={1}/>
+              
               <Line type="monotone" dataKey="base" stroke="black" yAxisId={1} />
               
               {(() => {
@@ -313,21 +356,21 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
 
               {(() => {
                         if (tipoFiltroIndicador.includes("ipca")){
-                          return <Line type="monotone" dataKey="ipca" stroke="#ff8585" strokeDasharray="3 3" yAxisId={1} />
+                          return <Line type="monotone" dataKey="ipca" stroke="#fb5959" strokeDasharray="3 3" yAxisId={1} />
                         }
               })()}
 
 
               {(() => {
                         if (tipoFiltroIndicador.includes("cdi")){
-                          return <Line type="monotone" dataKey="cdi" stroke="#9dff85" strokeDasharray="3 3" yAxisId={1} />
+                          return <Line type="monotone" dataKey="cdi" stroke="#6c9561" strokeDasharray="3 3" yAxisId={1} />
                         }
               })()}
 
 
               {(() => {
                         if (tipoFiltroIndicador.includes("cdb")){
-                          return <Line type="monotone" dataKey="cdb" stroke="#ffe985" strokeDasharray="3 3" yAxisId={1} />
+                          return <Line type="monotone" dataKey="cdb" stroke="#826a00" strokeDasharray="3 3" yAxisId={1} />
                         }
               })()}
 

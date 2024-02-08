@@ -7,6 +7,7 @@ import Investment from '../pages/Investment';
 import Health from '../pages/Health';
 import Home from '../pages/Home';
 import Tracker from '../pages/Tracker';
+import CardList from '../pages/CardList';
 
 const AppRoutes: React.FC = () => (
     <Layout>
@@ -17,6 +18,9 @@ const AppRoutes: React.FC = () => (
             <Route path="/health" exact component={Health} />
             <Route path="/home" exact component={Home} />
             <Route path="/tracker" exact component={Tracker} />
+            
+            <Route path="/CardList/:Banco/:AnoMes" exact component={CardList} />
+
         </Switch>
     </Layout>
 );

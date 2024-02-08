@@ -28,7 +28,7 @@ const Home: React.FC = () => {
 
     const getDispositivos = () => {
         axios.post (URL_API_HOME + "/listarDispositivos", {
-            headers: {"Access-Control-Allow-Origin": "*"},
+            // headers: {"Access-Control-Allow-Origin": "*"},
         })
         .then((response) => {
             const { data } = response           
@@ -60,7 +60,7 @@ const Home: React.FC = () => {
           URL_API_REGRA = URL_API_HOME + "/desligarTudo"
         }
           axios.post (URL_API_REGRA, {
-              headers: {"Access-Control-Allow-Origin": "*"}
+            //   headers: {"Access-Control-Allow-Origin": "*"}
           })
           .then((response) => {
             const { data } = response
