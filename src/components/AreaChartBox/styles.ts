@@ -37,7 +37,7 @@ export const Container = styled.div`
     border-radius: 7px;
 
     display: flex;
-
+    flex-direction: column;
     animation: ${animate} .5s;
 
     @media(max-width: 770px){
@@ -45,4 +45,38 @@ export const Container = styled.div`
         width: 100%;
 
     }
+`;
+export const FiltersFooter = styled.div`
+    .tag-filter {
+        font-size: 19px;
+        background: none;
+        color: ${props => props.theme.colors.white};
+        margin: 10px 10px;
+        opacity: .4;
+        transition: opacity .3s;
+        &:hover {
+            opacity: .7;
+        }
+    }
+
+    .tag-filter-recurrent::after {
+        content: '';
+        // display: block;
+        margin: 0 auto;
+    }
+
+    .tag-filter-eventual::after {
+        content: '';
+        // display: block;
+        margin: 0 auto;
+    }
+
+    .tag-actived {
+       opacity: 1;
+    }
+
+    .tipoValor {
+        float: right !important;
+    }
+
 `;

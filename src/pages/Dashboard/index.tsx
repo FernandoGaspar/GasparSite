@@ -47,6 +47,7 @@ interface IDataPostAgrupado {
     Valor: number
     AnoMes: string
     Cor: string
+    Recorrente: number
 }
 
 interface IEvolucaoInvestimentoData {

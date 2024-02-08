@@ -1,11 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useShowNumber } from '../../hooks/showNumber';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import formatCurrency from '../../utils/formatCurrency';
 import {isMobile} from 'react-device-detect';
+import { MdAccessAlarms } from "react-icons/md";
+
 
 import { 
     Container,
+    FiltersFooter,
  }  from './styles';
 
 interface IAreaChartProps {
@@ -14,12 +17,13 @@ interface IAreaChartProps {
         Valor: number
         AnoMes: string
         Cor: string
+        Recorrente: number
     }[]
 }
 
 const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => { 
     const { showNumber } = useShowNumber();
-      
+    const [exibirRecorrente, setExibirRecorrente] = useState<boolean>(true);
     const distinctContaContabil = useMemo(() => {
         let uniqueSubGrupoConta: [{subGrupoContaContabil: string, Cor: string}] = [{
             subGrupoContaContabil: "", 
@@ -42,24 +46,42 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
     }
     
     const dataFinal = useMemo(() => {
+      let dadoFiltrado = data     
+      if (exibirRecorrente === false){
+        dadoFiltrado = dadoFiltrado.filter(item => {
+          return item.Recorrente === 0;
+        });
+      }
+
       var jsonToPivotjson = require("json-to-pivot-json");
       var options = {
           row: "AnoMes", 
           column: "subGrupoContaContabil", 
           value: "Valor"
       };
-      var output = jsonToPivotjson(data, options)
+      var output = jsonToPivotjson(dadoFiltrado, options)
       
       output.forEach( (obj: any) => renameKey( obj, 'AnoMes', 'name' ) );
-      const updatedJson = JSON.stringify( output );
+      
+      // const updatedJson = JSON.stringify( output );
       
       return output
 
-    },[data]);
+    },[data, exibirRecorrente]);
     
 
     return (
         <Container>
+        <FiltersFooter>
+        <MdAccessAlarms   className={`
+                                  tag-filter 
+                                  tag-filter-eventual
+                                  tipoValor
+                                  ${exibirRecorrente && 'tag-actived'}`} 
+                                  onClick = {() => {setExibirRecorrente(!exibirRecorrente);}} 
+                                  />
+
+        </FiltersFooter>
           {
             showNumber?
               isMobile?
@@ -157,7 +179,9 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
               </AreaChart>
               </ResponsiveContainer>
           }
+        
         </Container>
+        
     );  
 }
 export default AreaChartBox;
