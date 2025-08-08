@@ -5,7 +5,10 @@ import { URL_API } from '../../repositories/baseAPI';
 import HistoryFinanceCard from '../../components/HistoryFinanceCard';
 import formatCurrency from '../../utils/formatCurrency';
 import NumberFormat from 'react-number-format';
-import { FaSearchengin } from 'react-icons/fa';
+import { FaSearchengin, FaFileExcel  } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
+import * as FileSaver from 'file-saver';
+import formatDate from '../../utils/formatDate';
 
 import { 
     Container,
@@ -125,6 +128,28 @@ const CardList: React.FC<IHistoryFinanceCardProps> = ({
             .filter((value, index, self) => self.indexOf(value) === index)
     }, [dataPost]);
 
+
+    const handleExport = () => {
+        
+        let datadonwload =
+            dadoFiltrado.forEach(item => {
+                item.Data = formatDate(item.Data, 1);
+            });
+
+        let fileName = "Fatura_"+AnoMes
+        const worksheet = XLSX.utils.json_to_sheet(dadoFiltrado);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook,   
+     worksheet, 'Sheet1');
+    
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const data:   
+     Blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'   
+     });
+        FileSaver.saveAs(data, `${fileName}.xlsx`);   
+    
+      };
+
     useEffect(() => {
         atualizaTransacoesLista()
      },[idUsuario, Banco, AnoMes]); 
@@ -191,6 +216,10 @@ const CardList: React.FC<IHistoryFinanceCardProps> = ({
                     ))
                 }     
             </Content>
+            <div>
+                <FaFileExcel onClick={handleExport}>Baixar para Excel</FaFileExcel>
+            </div>
+            
             <div
                 style={{
                     float: "right"
