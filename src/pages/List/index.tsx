@@ -42,6 +42,7 @@ interface IDataPost {
     obraGrupoCode: string
     DataTransacao: string;
     dataInserido: string;
+    Parcelas: string
 }
 
 interface IRouteParams {
@@ -78,6 +79,8 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     const notify = (Mensagem: string) => toast(Mensagem);
     const [transacoesIncluidas, setTransacoesIncluidas] = useState<ITransacoesIncluidas[]>([]);
     const token = localStorage.getItem('@minha-carteira:token') as string;
+    
+    const [apenasGastosDoMes, setApenasGastosDoMes] = useState<boolean>(false);
     
     const pageData = useMemo(() => {
         return movimentType === 'entry-balance' ?
@@ -251,6 +254,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     const dadoFiltrado = useMemo(() => {
         let dadoFiltrado = []
+        
         dadoFiltrado =  dataPost.filter(item => {
             return (item.Descricao.toUpperCase().includes(filtroTexto!.toUpperCase()) 
                     || item.contaContabil.toUpperCase().includes(filtroTexto!.toUpperCase())
@@ -266,6 +270,26 @@ const List: React.FC<IRouteParams> = ({ match }) => {
             dadoFiltrado = dadoFiltrado.filter(item => {
                 return subGrupoContaFilterSelected.includes(item.subGrupoContaContabil);
             });
+        }
+
+        if (apenasGastosDoMes) {
+            let AnoMes = yearSelected.toString()+"-"+monthSelected.toString().padStart(2, '0')
+     
+            dadoFiltrado = dadoFiltrado.filter(item => {
+                const dataTransacao = new Date(item.DataTransacao); // Converte para objeto Date
+                const anoMesTransacao = dataTransacao.getFullYear() + "-" + (dataTransacao.getMonth() + 1).toString().padStart(2, '0');
+                return anoMesTransacao === AnoMes;
+            });
+            
+            dadoFiltrado = dadoFiltrado.map(item => {
+                const valorNumerico = Number(item.Valor); // Converte Valor para número
+                const parcelas = Number(item.Parcelas) || 1;
+                return {
+                    ...item,
+                    Valor: (valorNumerico * parcelas).toString()  // Multiplica pelo número de parcelas (assume 1 se Parcelas não existir)
+                };
+            });   
+
         }
 
         return dadoFiltrado
@@ -304,7 +328,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     useEffect(() => {
         atualizaTransacoesLista()
-    },[movimentType, monthSelected, yearSelected, idUsuario, pageData, idUsuario]); 
+    },[movimentType, monthSelected, yearSelected, idUsuario, pageData, idUsuario, apenasGastosDoMes]); 
 
     return (
         <Container>
@@ -430,6 +454,29 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 })()}
                 
             </div>
+            
+            <div
+                style={{
+                    textAlign: "center"
+                }}
+            >
+                <button
+                style={{
+                    padding: "8px 16px",
+                    fontSize: "16px",
+                    cursor: "pointer",
+                    backgroundColor: "#007BFF",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "5px"
+                }}
+                onClick={() => setApenasGastosDoMes(!apenasGastosDoMes)}
+                >
+                {apenasGastosDoMes ? "Visão caixa" : "Visão gasto"}
+                </button>
+            </div>
+            
+            
             <div
                 style={{
                     float: "right"
