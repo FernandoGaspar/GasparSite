@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, PropsWithChildren  } from 'react';
 
 import dark from '../styles/themes/dark';
 import light from '../styles/themes/light';
@@ -28,7 +28,7 @@ interface ITheme {
 
 const ThemeContext = createContext<IThemeContext>({} as IThemeContext);
 
-const ThemeProvider: React.FC = ({ children }) => {
+const ThemeProvider: React.FC<PropsWithChildren> = ({ children }) => {
     const [theme, setTheme] = useState<ITheme>(() => {
         const themeSaved = localStorage.getItem('@minha-carteira:theme');
 
@@ -56,11 +56,9 @@ const ThemeProvider: React.FC = ({ children }) => {
     )
 }
 
-function useTheme(): IThemeContext {
-    const context = useContext(ThemeContext);
-
-    return context;
+export function useTheme(): IThemeContext {
+  return useContext(ThemeContext);
 }
 
 
-export { ThemeProvider, useTheme };
+export { ThemeContext, ThemeProvider };

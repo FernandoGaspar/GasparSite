@@ -129,8 +129,7 @@ const Tracker: React.FC = () => {
                         longitude = { item.longitude }
                         latitude = { item.latitude }                        
                         handleView={ handleView }
-                        >
-                    </TrackerCard> 
+                        />
                         ))
         }     
         

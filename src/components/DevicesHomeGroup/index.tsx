@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Container }  from './styles';
 import {Collapse} from 'react-collapse';
-import Button from '@material-ui/core/Button';
+import { Button } from '@mui/material';
 import Switch from "react-switch";
 import { BsChevronDoubleDown } from "react-icons/bs"
 import { BsChevronDoubleRight } from "react-icons/bs"
@@ -122,8 +122,7 @@ const DevicesHomeGroup: React.FC<IDevicesHomeGroupProps> = ({
                   atualizarAmbiente = { atualizarAmbiente }
                   setAtualizarAmbiente = { setAtualizarAmbiente }
                   setStatusAmbiente = { setStatusAmbiente }
-                >
-                </DevicesHome>
+                />
                 ))
               }   
           </Collapse>

@@ -1,452 +1,484 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import Select from 'react-select'
+import React, { useMemo, useState, useEffect, ChangeEvent } from 'react';
 import axios from 'axios';
-import { ChangeEvent } from 'react';
-import Button from '@material-ui/core/Button';
-import { URL_API } from "../../repositories/baseAPI";
-import { useDialog } from 'react-st-modal';
-import formatDate from '../../utils/formatDate';
+import Select from 'react-select';
+import { Button } from '@mui/material';
 import NumberFormat from 'react-number-format';
+import { useDialog } from 'react-st-modal';
+
+import { URL_API } from '../../repositories/baseAPI';
+import formatDate from '../../utils/formatDate';
+
+import {
+  Wrapper,
+  HeaderCard,
+  HeaderLeft,
+  HeaderRight,
+  TagDot,
+  SectionCard,
+  SectionTitleRow,
+  FieldLabel,
+  Grid2,
+  NoteTextArea,
+  AttachRow,
+  FileChip,
+  EmptyHint,
+  ParcelasHeader,
+  ParcelasToggle,
+  TableWrap,
+  StyledTable,
+  ActionsRow,
+  FooterNote,
+} from './styles';
 
 interface IHistoryFinanceModalProps {
-    idTransacao: string;
-    data: string;
-    descricao: string;
-    valor: string;
-    contaContabilCode: string;
-    grupoContaContabil: string;
-    subGrupoContaContabil: string;
-    contaContabil: string;
-    observacao: string;
-    tagColor: string;
-    obraGrupoCode: string;
-    atualizaTransacao: (arg: string) => void
+  idTransacao: string;
+  data: string;
+  descricao: string;
+  valor: string;
+  contaContabilCode: string;
+  grupoContaContabil: string;
+  subGrupoContaContabil: string;
+  contaContabil: string;
+  observacao: string;
+  tagColor: string;
+  obraGrupoCode: string;
+  atualizaTransacao: (arg: string) => void;
 }
 
 interface IgrupoContaContabeis {
-    idContaContabil: string;
-    contaContabilCode: string;
-    grupoContaContabil: string;
-    subGrupoContaContabil: string;
-    contaContabil: string;
+  idContaContabil: string;
+  contaContabilCode: string;
+  grupoContaContabil: string;
+  subGrupoContaContabil: string;
+  contaContabil: string;
 }
 interface IobraGrupoCode {
-    subGrupoContaContabil: string;
-    descricao: string;
+  subGrupoContaContabil: string;
+  descricao: string;
 }
 interface IparcelasTransacao {
-    id: number;
-    DataParcela: string;
-    ValorParcela: string;
-    Descricao: string;
+  id: number;
+  DataParcela: string;
+  ValorParcela: string;
+  Descricao: string;
 }
 
+type Option = { label: string; value: string };
+
+const STORAGE = {
+  usuarioId: '@minha-carteira:usuarioId',
+};
+
 const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
-    idTransacao,
-    data,
-    descricao,
-    valor,
-    contaContabilCode,
-    grupoContaContabil,
-    subGrupoContaContabil,
-    contaContabil,
-    observacao,
-    tagColor,
-    obraGrupoCode,
-    atualizaTransacao
-})  => {
-    const dialog = useDialog();
-    const [grupoContaContabeis, setGrupoContaContabeis] = useState<IgrupoContaContabeis[]>([]);
+  idTransacao,
+  data,
+  descricao,
+  valor,
+  contaContabilCode,
+  grupoContaContabil,
+  subGrupoContaContabil,
+  contaContabil,
+  observacao,
+  tagColor,
+  obraGrupoCode,
+  atualizaTransacao,
+}) => {
+  const dialog = useDialog();
 
-    const [obraGrupoCodeData, setObraGrupoCodeData] = useState<IobraGrupoCode[]>([]);
-    const [parcelasTransacao, setParcelasTransacao] = useState<IparcelasTransacao[]>([]);
+  // ======= Loading flags =======
+  const [saving, setSaving] = useState(false);
+  const [loadingParcelas, setLoadingParcelas] = useState(false);
 
-    const [grupoContaSelecionado, setGrupoContaSelecionado] = useState<string>(grupoContaContabil);
-    const [subGrupoContaSelecionado, setSubGrupoContaSelecionado] = useState<string>(subGrupoContaContabil);
-    const [contaSelecionado, setContaSelecionado] = useState<string>(contaContabil);
-    const [observacaoSelecionado, setObservacaoSelecionado] = useState<string>(observacao);
+  // ======= Data sources =======
+  const [grupoContaContabeis, setGrupoContaContabeis] = useState<IgrupoContaContabeis[]>([]);
+  const [obraGrupoCodeData, setObraGrupoCodeData] = useState<IobraGrupoCode[]>([]);
+  const [parcelasTransacao, setParcelasTransacao] = useState<IparcelasTransacao[]>([]);
 
-    const [obraGrupoCodeSelecionado, setObraGrupoCodeSelecionado] = useState<string>(obraGrupoCode);
-    const [showParcelas, setShowParcelas] = useState<boolean>(false);
+  // ======= Controlled fields =======
+  const [grupoContaSelecionado, setGrupoContaSelecionado] = useState<string>(grupoContaContabil || '');
+  const [subGrupoContaSelecionado, setSubGrupoContaSelecionado] = useState<string>(subGrupoContaContabil || '');
+  const [contaSelecionado, setContaSelecionado] = useState<string>(contaContabil || '');
+  const [observacaoSelecionado, setObservacaoSelecionado] = useState<string>(observacao || '');
+  const [obraGrupoCodeSelecionado, setObraGrupoCodeSelecionado] = useState<string>(obraGrupoCode || '');
+  const [showParcelas, setShowParcelas] = useState<boolean>(false);
 
-    const [file, setFile] = useState<File>();
-    const [binary, setBinary] = useState<string>();
+  // ======= Upload state =======
+  const [file, setFile] = useState<File>();
+  const [binary, setBinary] = useState<string>();
+  const [fileName, setFileName] = useState<string>();
+  const [linkFile, setLinkFile] = useState<string>();
 
-    const [fileName, setFileName] = useState<string>();
-    const [LinkFile, setLinkFile] = useState<string>();
-    const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
+  const idUsuario = localStorage.getItem(STORAGE.usuarioId) as string;
 
-    const getContasContabeis = () => {
-        axios.post (URL_API+"/contasContabeisTabela", {
-            usuario: idUsuario,
-        })
-        .then((response) => {
-            const { data } = response
-            setGrupoContaContabeis(JSON.parse(data))
-        })
-        .catch((error) => {
-          console.log(error)
-        })
+  // ======= API calls =======
+  const getContasContabeis = async () => {
+    try {
+      const { data } = await axios.post(URL_API + '/contasContabeisTabela', { usuario: idUsuario });
+      setGrupoContaContabeis(JSON.parse(data));
+    } catch (e) {
+      console.log(e);
     }
+  };
 
-    const getObraGrupoCode = () => {
-        axios.post (URL_API+"/obraGrupoCode", {
-        })
-        .then((response) => {
-            const { data } = response
-            setObraGrupoCodeData(JSON.parse(data))
-        })
-        .catch((error) => {
-          console.log(error)
-        })
+  const getObraGrupoCode = async () => {
+    try {
+      const { data } = await axios.post(URL_API + '/obraGrupoCode', {});
+      setObraGrupoCodeData(JSON.parse(data));
+    } catch (e) {
+      console.log(e);
     }
+  };
 
-    const grupoConta = useMemo(() => {
-        let uniqueGrupoConta: string[] = [];
-
-        grupoContaContabeis.forEach(item => {
-            if(!uniqueGrupoConta.includes(item.grupoContaContabil)){
-                uniqueGrupoConta.push(item.grupoContaContabil)
-           }
-        });
-
-        return uniqueGrupoConta.map(item => {
-            return {
-                label: item,
-            }
-        })
-    },[grupoContaContabeis]);
-
-    const subGrupoConta = useMemo(() => {
-        let uniqueSubGrupoConta: string[] = [];
-        const filteredData = grupoContaContabeis.filter (item => {
-            return grupoContaSelecionado?.includes(item.grupoContaContabil);
-        })
-        filteredData.forEach(item => {
-            if(!uniqueSubGrupoConta.includes(item.subGrupoContaContabil)){
-                uniqueSubGrupoConta.push(item.subGrupoContaContabil)
-           }
-        });
-        return uniqueSubGrupoConta.map(item => {
-            return {
-                label: item,
-            }
-        })
-    },[grupoContaContabeis, grupoContaSelecionado]);
-
-    const contas = useMemo(() => {
-        const filteredData = grupoContaContabeis.filter (item => {
-            return subGrupoContaSelecionado?.includes(item.subGrupoContaContabil) && grupoContaSelecionado?.includes(item.grupoContaContabil);
-        })
-        return filteredData.map(item => {
-            return {
-                label: item.contaContabil,
-            }
-        })
-    },[grupoContaContabeis, grupoContaSelecionado, subGrupoContaSelecionado]);
-
-    const obraGrupoCodeList = useMemo(() => {
-        const filteredData = obraGrupoCodeData.filter (item => {
-            return contaSelecionado?.includes(item.subGrupoContaContabil);
-        })
-        return filteredData.map(item => {
-            return {
-                label: item.descricao,
-            }
-        })
-    },[contaSelecionado, obraGrupoCodeData]);
-
-    const alteraTransacao = () => {
-        if (binary !== undefined || file !== undefined){
-            manageUploadedFile(binary!, file!, idTransacao!, descricao!);
-        }
-        axios.post (URL_API+"/setTransacoes", {
-            idTransacao: idTransacao,
-            grupoConta: grupoContaSelecionado,
-            subGrupoConta: subGrupoContaSelecionado,
-            conta: contaSelecionado,
-            observacao: observacaoSelecionado,
-            obraGrupoCode: obraGrupoCodeSelecionado
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-        atualizaTransacao("Atualiza transacoes");
-        dialog.close();
+  const getArquivosPasta = async (id: string) => {
+    try {
+      const { data } = await axios.post(URL_API + '/getArquivo', { idTransacao: id });
+      if (data?.[0]) {
+        setFileName(data[0]);
+        setLinkFile(URL_API + '/LinkFile?fileName=' + data[0]);
+      }
+    } catch (e) {
+      console.log(e);
     }
+  };
 
-    const inativarTransacao = () => {
-        axios.post (URL_API+"/inativaTransacoes", {
-            idTransacao: idTransacao,
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-        atualizaTransacao("Atualiza transacoes");
-        dialog.close();
+  const getParcelasTransacao = async (id: string) => {
+    // Abre/fecha, e carrega quando abrir
+    const next = !showParcelas;
+    setShowParcelas(next);
+    if (!next) return;
+
+    setLoadingParcelas(true);
+    try {
+      const { data } = await axios.post(URL_API + '/getParcelasTransacao', { idTransacao: id });
+      setParcelasTransacao(JSON.parse(data));
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoadingParcelas(false);
     }
+  };
 
-    function manageUploadedFile(binary: string, file: File, idTransacao: string, descricao: string) {
+  const manageUploadedFile = async (bin: string, f: File, id: string) => {
+    try {
+      const slash = f.type.indexOf('/');
+      const ext = slash >= 0 ? f.type.substring(slash + 1, slash + 4) : 'bin';
+      const name = `${id}.${ext}`;
 
-        let local = file.type.indexOf("/")
-        let extensao = file.type.substring(local+1, local+4)
-        let fileName = idTransacao+"." + extensao
+      const formData = new FormData();
+      formData.append('file', f, name);
 
-        var formData = new FormData();
-        formData.append("file", file, fileName);
-
-        axios.post (URL_API+"/salvarArquivo", formData,  {
-        })
-        .catch((error) => {
-          console.log(error)
-        })
+      await axios.post(URL_API + '/salvarArquivo', formData);
+    } catch (e) {
+      console.log(e);
     }
+  };
 
-    function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-        event.persist();
-        Array.from(event.target.files!).forEach(file => {
-            getFileFromInput(file)
-                .then((binary) => {
-                    setFile(file);
-                    setBinary(binary);
-                }).catch(function (reason) {
-                    console.log(`Error during upload ${reason}`);
-                    event.target.value = ''; // to allow upload of same file if error occurs
-                });
-        });
+  const alteraTransacao = async () => {
+    setSaving(true);
+    try {
+      if (binary && file) {
+        await manageUploadedFile(binary, file, idTransacao);
+      }
+      await axios.post(URL_API + '/setTransacoes', {
+        idTransacao,
+        grupoConta: grupoContaSelecionado,
+        subGrupoConta: subGrupoContaSelecionado,
+        conta: contaSelecionado,
+        observacao: observacaoSelecionado,
+        obraGrupoCode: obraGrupoCodeSelecionado,
+      });
+      atualizaTransacao('Atualiza transacoes');
+      dialog.close();
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setSaving(false);
     }
+  };
 
-    function getFileFromInput(file: File): Promise<any> {
-        return new Promise(function (resolve, reject) {
-            const reader = new FileReader();
-            reader.onerror = reject;
-            reader.onload = function () { resolve(reader.result); };
-            reader.readAsBinaryString(file);
-        });
+  const inativarTransacao = async () => {
+    setSaving(true);
+    try {
+      await axios.post(URL_API + '/inativaTransacoes', { idTransacao });
+      atualizaTransacao('Atualiza transacoes');
+      dialog.close();
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const getArquivosPasta = (idTransacao: string) => {
-        axios.post (URL_API+"/getArquivo", {
-            idTransacao: idTransacao,
-        })
-        .then((response) => {
-            const { data } = response
-            setFileName(data[0])
-            setLinkFile(URL_API+"/LinkFile?fileName="+data[0])
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-    }
+  // ======= File input handlers =======
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const f = files[0];
+    if (!f) return;
+    fileToBinary(f)
+      .then((bin) => {
+        setFile(f);
+        setBinary(bin);
+      })
+      .catch((reason) => {
+        console.log('Error during upload', reason);
+        event.target.value = '';
+      });
+  };
 
-    const getParcelasTransacao = (idTransacao: string) => {
-        setShowParcelas(!showParcelas)
-        axios.post (URL_API+"/getParcelasTransacao", {
-            idTransacao: idTransacao,
-        })
-        .then((response) => {
-            const { data } = response
-            setParcelasTransacao(JSON.parse(data))
-        })
-        .catch((error) => {
-          console.log(error)
-        })
+  function fileToBinary(f: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsBinaryString(f);
+    });
+  }
 
-    }
+  // ======= Options (label/value) =======
+  const grupoContaOptions: Option[] = useMemo(() => {
+    const unique = Array.from(new Set(grupoContaContabeis.map((i) => i.grupoContaContabil)));
+    return unique.map((v) => ({ label: v, value: v }));
+  }, [grupoContaContabeis]);
 
-    const dadoFiltrado = useMemo(() => {
-        let dadoFiltrado = []
-        dadoFiltrado = parcelasTransacao
-        return dadoFiltrado
-    },[parcelasTransacao]);
+  const subGrupoContaOptions: Option[] = useMemo(() => {
+    const filtered = grupoContaContabeis.filter((i) => i.grupoContaContabil === grupoContaSelecionado);
+    const unique = Array.from(new Set(filtered.map((i) => i.subGrupoContaContabil)));
+    return unique.map((v) => ({ label: v, value: v }));
+  }, [grupoContaContabeis, grupoContaSelecionado]);
 
-    const valorTotalDadoFiltrado = useMemo(() => {
-        let total: number = 0.00;
-        dadoFiltrado.forEach(item => {
-            try{
-                total += Number(item.ValorParcela)
-            }catch{
-                throw new Error('Invalid amount! Amount must be number.')
-            }
-        });
+  const contaOptions: Option[] = useMemo(() => {
+    const filtered = grupoContaContabeis.filter(
+      (i) => i.grupoContaContabil === grupoContaSelecionado && i.subGrupoContaContabil === subGrupoContaSelecionado
+    );
+    return filtered.map((i) => ({ label: i.contaContabil, value: i.contaContabil }));
+  }, [grupoContaContabeis, grupoContaSelecionado, subGrupoContaSelecionado]);
 
-        return Math.round(total);
+  const obraGrupoCodeOptions: Option[] = useMemo(() => {
+    // Mantive sua lógica: filtra pelo subgrupo da conta selecionada
+    const filtered = obraGrupoCodeData.filter((i) => contaSelecionado?.includes(i.subGrupoContaContabil));
+    return filtered.map((i) => ({ label: i.descricao, value: i.descricao }));
+  }, [contaSelecionado, obraGrupoCodeData]);
 
-        // return 0;
-    }, [dadoFiltrado])
+  // ======= Totais =======
+  const valorTotalParcelas = useMemo(() => {
+    let total = 0;
+    parcelasTransacao.forEach((p) => {
+      const n = Number(p.ValorParcela);
+      if (!Number.isNaN(n)) total += n;
+    });
+    return total;
+  }, [parcelasTransacao]);
 
-    useEffect(() => {
-        getArquivosPasta (idTransacao);
-        getContasContabeis();
-        getObraGrupoCode();
-    },[]);
-    return (
-        <div style = {{ margin: "20px", height: "465px"  }} >
-            <input/>
-            <div>
-                <Select
-                    defaultInputValue = { grupoContaSelecionado }
-                    onChange={(e) => { setGrupoContaSelecionado(e!.label) }}
-                    options={ grupoConta }
-                    />
-            </div>
-            <br/>
-            <div>
+  // ======= Effects =======
+  useEffect(() => {
+    getArquivosPasta(idTransacao);
+    getContasContabeis();
+    getObraGrupoCode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Wrapper>
+      {/* Header */}
+      <HeaderCard>
+        <HeaderLeft>
+          <h3>{descricao || 'Transação'}</h3>
+          <span>
+            {formatDate(data, 0)} • #{idTransacao}
+          </span>
+        </HeaderLeft>
+
+        <HeaderRight>
+          <strong>
+            <NumberFormat
+              value={valor}
+              displayType="text"
+              prefix="R$ "
+              fixedDecimalScale
+              decimalScale={2}
+              thousandSeparator="."
+              decimalSeparator=","
+            />
+          </strong>
+          <div>
+            <TagDot $color={tagColor || '#bdbdbd'} />
+            <small>{contaContabilCode}</small>
+          </div>
+        </HeaderRight>
+      </HeaderCard>
+
+      {/* Form */}
+      <SectionCard>
+        <SectionTitleRow>Classificação</SectionTitleRow>
+
+        <Grid2>
+          <div>
+            <FieldLabel>Grupo</FieldLabel>
             <Select
-                    defaultInputValue = { subGrupoContaSelecionado }
-                    onChange={(e) => { setSubGrupoContaSelecionado(e!.label) }}
-                    options={ subGrupoConta }
-                    />
-            </div>
-            <br/>
+              classNamePrefix="react-select"
+              value={grupoContaOptions.find((o) => o.value === grupoContaSelecionado) ?? null}
+              onChange={(opt) => setGrupoContaSelecionado(opt?.value ?? '')}
+              options={grupoContaOptions}
+              placeholder="Selecione o grupo"
+              isClearable={false}
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Subgrupo</FieldLabel>
+            <Select
+              classNamePrefix="react-select"
+              value={subGrupoContaOptions.find((o) => o.value === subGrupoContaSelecionado) ?? null}
+              onChange={(opt) => setSubGrupoContaSelecionado(opt?.value ?? '')}
+              options={subGrupoContaOptions}
+              placeholder="Selecione o subgrupo"
+              isClearable={false}
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Conta contábil</FieldLabel>
+            <Select
+              classNamePrefix="react-select"
+              value={contaOptions.find((o) => o.value === contaSelecionado) ?? null}
+              onChange={(opt) => setContaSelecionado(opt?.value ?? '')}
+              options={contaOptions}
+              placeholder="Selecione a conta"
+              isClearable={false}
+            />
+          </div>
+
+          {subGrupoContaSelecionado === 'Construção' && (
             <div>
-                <Select
-                    defaultInputValue = { contaSelecionado }
-                    onChange={(e) => { setContaSelecionado(e!.label) }}
-                    options={ contas }
-                    />
+              <FieldLabel>Obra / Grupo</FieldLabel>
+              <Select
+                classNamePrefix="react-select"
+                value={obraGrupoCodeOptions.find((o) => o.value === obraGrupoCodeSelecionado) ?? null}
+                onChange={(opt) => setObraGrupoCodeSelecionado(opt?.value ?? '')}
+                options={obraGrupoCodeOptions}
+                placeholder="Selecione a obra"
+                isClearable={false}
+              />
             </div>
-            <br/>
-            {(() => {
-                if (subGrupoContaSelecionado === "Construção"){
-                    return <Select
-                            defaultInputValue = { obraGrupoCodeSelecionado }
-                            onChange={(e) => { setObraGrupoCodeSelecionado(e!.label) }}
-                            options={ obraGrupoCodeList }
-                            />
-                }
-            })()}
-            <br/>
-            <div className="col">
-                    <textarea style = {{width: "100%",
-                                        border:"solid 1px grey",
-                                    }}
-                        defaultValue={ observacao as string}
-                        onChange={(e) => { setObservacaoSelecionado (e!.target.value) }}
-                        />
-            </div>
-            <br/>
-            <br/>
+          )}
+        </Grid2>
+      </SectionCard>
+
+      {/* Observação */}
+      <SectionCard>
+        <SectionTitleRow>Observação</SectionTitleRow>
+        <NoteTextArea
+        $size="sm"             // ← deixa baixinho
+        rows={3}               // opcional: ajuda a definir a altura inicial
+        value={observacaoSelecionado}
+        onChange={(e) => setObservacaoSelecionado(e.target.value)}
+        placeholder="Digite observações sobre a transação"
+        />
+      </SectionCard>
+
+      {/* Anexos */}
+      <SectionCard>
+        <SectionTitleRow>Anexo</SectionTitleRow>
+        <AttachRow>
+          <Button variant="outlined" component="label">
+            Anexar arquivo
             <input
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                id="fileName"
-                multiple = { true }
-                type="file"
-                defaultValue= { fileName }
-                onChange={ handleFileChange } />
-                { fileName ?
-            <a
-                style = {{ fontSize:"80%"  }}
-                href={ LinkFile }
-                target="_blank"
-                rel="noreferrer noopener"
-                >
-                Arquivo: { fileName }
-            </a>
-            : <br/>}
+              hidden
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+              id="fileName"
+              type="file"
+              onChange={handleFileChange}
+            />
+          </Button>
 
-            <Button
-                onClick={async () => {getParcelasTransacao(idTransacao);}}
-                style={{float: "right"}}
-                >
-                        Parcelas
-            </Button>
-            <br/>
-            {( showParcelas ? 
-                <table style={{"borderWidth":"1px", 'borderColor':"black", 'borderStyle':'solid'}}>
-                    <thead >
-                    <tr>
-                        <th>Data</th>
-                        <th>Valor</th>
-                        <th>Descrição</th>
-                    </tr>
-                    </thead>
-                    <tbody>             
-                    {
-                        dadoFiltrado.map((item, key) => {                          
-                            return (
-                                <tr 
-                                    key = {key} 
-                                    style={{ "backgroundColor": formatDate(item.DataParcela, 0) === formatDate(data, 0)? "#BEBEBE" : ""}} 
-                                    
-                                    >
-                                    <td>{formatDate(item.DataParcela, 0)}</td>
-                                    <td>
-                                    &nbsp;
-                                            <NumberFormat
-                                                value = {item.ValorParcela}
-                                                displayType={'text'}
-                                                prefix={"R$"}
-                                                fixedDecimalScale={true}
-                                                decimalScale={2}
-                                                thousandSeparator={"."}
-                                                decimalSeparator={","}
-                                                />
-                                    </td>
-                                    <td>&nbsp;{item.Descricao}</td>
-                                </tr>
-                            )
-                            })
-                    }           <tr style = {{ "fontStyle": "bold"}}>
-                                    <td>Total</td>
-                                    <td>
-                                        <NumberFormat
-                                                value = {valorTotalDadoFiltrado}
-                                                displayType={'text'}
-                                                prefix={"R$"}
-                                                fixedDecimalScale={true}
-                                                decimalScale={2}
-                                                thousandSeparator={"."}
-                                                decimalSeparator={","}
-                                                />
-                                    </td>                                    
-                                </tr>
-                                    
-                    </tbody>
-                </table>
-                : <></>
+          {fileName && linkFile ? (
+            <FileChip href={linkFile} target="_blank" rel="noreferrer noopener">
+              {fileName}
+            </FileChip>
+          ) : (
+            <EmptyHint>Nenhum anexo encontrado</EmptyHint>
+          )}
+        </AttachRow>
+      </SectionCard>
+
+      {/* Parcelas */}
+      <SectionCard>
+        <ParcelasHeader>
+          <SectionTitleRow>Parcelas</SectionTitleRow>
+          <ParcelasToggle onClick={() => getParcelasTransacao(idTransacao)}>
+            {showParcelas ? 'Esconder' : 'Mostrar'}
+          </ParcelasToggle>
+        </ParcelasHeader>
+
+        {showParcelas && (
+          <TableWrap>
+            {loadingParcelas ? (
+              <EmptyHint>Carregando...</EmptyHint>
+            ) : (
+              <StyledTable>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Valor</th>
+                    <th>Descrição</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parcelasTransacao.map((item, idx) => {
+                    const isHoje = formatDate(item.DataParcela, 0) === formatDate(data, 0);
+                    return (
+                      <tr key={idx} data-today={isHoje ? '1' : '0'}>
+                        <td>{formatDate(item.DataParcela, 0)}</td>
+                        <td>
+                          <NumberFormat
+                            value={item.ValorParcela}
+                            displayType="text"
+                            prefix="R$ "
+                            fixedDecimalScale
+                            decimalScale={2}
+                            thousandSeparator="."
+                            decimalSeparator=","
+                          />
+                        </td>
+                        <td>{item.Descricao}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="total">
+                    <td>Total</td>
+                    <td>
+                      <NumberFormat
+                        value={valorTotalParcelas}
+                        displayType="text"
+                        prefix="R$ "
+                        fixedDecimalScale
+                        decimalScale={2}
+                        thousandSeparator="."
+                        decimalSeparator=","
+                      />
+                    </td>
+                    <td />
+                  </tr>
+                </tbody>
+              </StyledTable>
             )}
-            <br/>
-            <br/>
-            <br/>
-            
-            <div>
-                <Button
-                    style = {{
-                        border:"solid 1px black",
-                        float: "left",
-                        minHeight: "100%",
-                    }}
-                    color="primary"
-                    onClick={() => {
-                        inativarTransacao();
-                        }}
-                        >
-                        Inativar
-                </Button>
+          </TableWrap>
+        )}
+      </SectionCard>
 
-                <Button
-                    style = {{
-                        border:"solid 1px black",
-                        float: "right",
-                            }}
-                    color="primary"
-                    onClick={() => {
-                            alteraTransacao();
-                        }}
-                        >
-                        Confirmar
-                </Button>
-            </div>
+      {/* Ações */}
+      <ActionsRow>
+        <Button variant="outlined" color="error" onClick={inativarTransacao} disabled={saving}>
+          Inativar
+        </Button>
+        <Button variant="contained" color="primary" onClick={alteraTransacao} disabled={saving}>
+          {saving ? 'Salvando...' : 'Confirmar'}
+        </Button>
+      </ActionsRow>
 
-            <br/>
-            <br/>
-
-        </div>
-        )
-    }
+      <FooterNote>Última atualização: {new Date().toLocaleString()}</FooterNote>
+    </Wrapper>
+  );
+};
 
 export default HistoryFinanceModal;
-
-
-

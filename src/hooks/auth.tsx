@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, PropsWithChildren  } from 'react';
 import { URL_API } from '../repositories/baseAPI';
 
 interface IAuthContext {
@@ -14,7 +14,7 @@ interface IAuthContext {
 
 const AuthContext = createContext<IAuthContext>({} as IAuthContext);
 
-const AuthProvider: React.FC = ({ children }) => {
+const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
 
     const [logged, setLogged] = useState<boolean>(() => {
         const isLogged = localStorage.getItem('@minha-carteira:logged');
@@ -99,9 +99,7 @@ const AuthProvider: React.FC = ({ children }) => {
 }
 
 function useAuth(): IAuthContext {
-    const context = useContext(AuthContext);
-
-    return context;
+  return useContext(AuthContext);
 }
 
-export { AuthProvider, useAuth };
+export { AuthProvider, useAuth, AuthContext };

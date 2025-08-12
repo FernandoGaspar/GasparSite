@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, PropsWithChildren  } from 'react';
 
 interface IShowNumberContext {
     buttonShowNumber(): void;
@@ -7,7 +7,7 @@ interface IShowNumberContext {
 
 const ShowNumberContext = createContext<IShowNumberContext>({} as IShowNumberContext);
 
-const ShowNumberProvider: React.FC = ({ children }) => {
+const ShowNumberProvider: React.FC<PropsWithChildren> = ({ children }) => {
     const [showNumber, setShowNumber] = useState<boolean>(() => {
         const showNumberSaved = localStorage.getItem('@minha-carteira:showNumber');
         if(!showNumberSaved) {
@@ -34,11 +34,8 @@ const ShowNumberProvider: React.FC = ({ children }) => {
     )
 }
 
-function useShowNumber(): IShowNumberContext {
-    const context = useContext(ShowNumberContext);
-
-    return context;
+export function useShowNumber(): IShowNumberContext {
+  return useContext(ShowNumberContext);
 }
 
-
-export { ShowNumberProvider, useShowNumber };
+export { ShowNumberContext, ShowNumberProvider };

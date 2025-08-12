@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
 import { ModalContent, useDialog } from 'react-st-modal';
-import Button from '@material-ui/core/Button';
+import { Button } from '@mui/material';
 
 import axios from 'axios';
 import { URL_API } from '../../repositories/baseAPI';

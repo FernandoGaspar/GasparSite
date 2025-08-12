@@ -163,8 +163,7 @@ const Home: React.FC = () => {
                         listaDispositivos = { homeDevices }
                         setStatusCasa = { setStatusCasa }
                         statusCasa = { statusCasa }
-                        >
-                    </DevicesHomeGroup>
+                        />
                 ))
             }   
 
