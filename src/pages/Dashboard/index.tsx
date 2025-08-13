@@ -220,29 +220,35 @@ const Dashboard: React.FC = () => {
           console.log(error)
         })
     }
-    
+        
     const getSaldo = async (idUsuario: string) => {
-        // axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
-        await axios.post (URL_API+"/saldo", {
-            headers: {"Access-Control-Allow-Origin": "*"},
-            usuario: idUsuario,
-            token: token
-        }, 
-        )
-        .then((response) => {
-            const { data } = response
-            let saldo = Math.round(JSON.parse(data)[0].Saldo) 
-            setSaldoPost(saldo.toString())   
-            setDataSaldo(JSON.parse(data)[0].DataAtualizado)     
-        })
-        .catch((error) => {
-          console.log(error)
-          if (error.response.status === 401) {
-            signOut()
-          }
-        })
-        return saldoPost;
+    try {
+        const response = await axios.post(
+        `${URL_API}/saldo`,
+        { usuario: idUsuario, token: token },
+        { headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+
+        const parsed = JSON.parse(response.data);
+        const saldo = Math.round(parsed[0].Saldo);
+
+        setSaldoPost(saldo.toString());
+        setDataSaldo(parsed[0].DataAtualizado);
+
+        return saldo.toString();
+    } catch (error: any) {
+        console.error("Erro ao buscar saldo:", error);
+
+        // Só acessa .status se realmente existir
+        const status = error?.response?.status ?? null;
+        if (status === 401) {
+        signOut();
+        }
+
+        return saldoPost; // fallback
     }
+    };
+
 
     const getGastosAgrupados = async (anoMes: string, idUsuario: string, meses: string) => {
         await axios.post (URL_API+"/gastosAgrupados", {
@@ -403,7 +409,7 @@ const Dashboard: React.FC = () => {
             <Content>
                 <WalletBox 
                     title="saldo"
-                    color="#4E41F0"
+                    color="#06D6A0"
                     amount={ Number(saldoPost) }
                     footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
                     icon="dolar"
@@ -411,7 +417,7 @@ const Dashboard: React.FC = () => {
 
                 <WalletBox 
                     title="entradas"
-                    color="#F7931B"
+                    color="#FFD166"
                     amount={totalGains}
                     footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
                     icon="arrowUp"
@@ -419,7 +425,7 @@ const Dashboard: React.FC = () => {
                 
                 <WalletBox 
                     title="saídas"
-                    color="#E44C4E"
+                    color="#EF476F"
                     amount={ totalExpenses }
                     footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
                     icon="arrowDown"
