@@ -10,7 +10,7 @@ const Layout: React.FC<PropsWithChildren> = ({ children }) => (
     <MainHeader />
     <Aside />
     <Content>{children}</Content>
-    <Chat />
+    {/* <Chat /> */}
   </Grid>
 );
 
