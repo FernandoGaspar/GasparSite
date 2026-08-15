@@ -22,4 +22,13 @@ export const Container = styled.div`
     ::-webkit-scrollbar-track {
         background-color: ${props => props.theme.colors.tertiary};
     }
+
+    @media(max-width: 900px) {
+        height: calc(100vh - 70px);
+        padding: 20px;
+    }
+
+    @media(max-width: 480px) {
+        padding: 16px;
+    }
 `;

@@ -29,11 +29,19 @@ export const Container = styled.div`
     border-radius: 7px;
     animation: ${animate} .5s;
     display: flex;
+    align-items: stretch;
     overflow-y: visible;
+
+    > .recharts-responsive-container {
+        flex: 1 1 0;
+        min-width: 0;
+    }
 
     > section {
         display: flex;
         width: 120px;
+        flex: 0 0 120px;
+        min-width: 0;
         flex-wrap: wrap;
         flex-direction: row;
         margin: 10px 15px;
@@ -59,14 +67,46 @@ export const Container = styled.div`
         ::-webkit-scrollbar {
             width: 10px;
         }
-    
+
         ::-webkit-scrollbar-thumb {
             background-color: ${props => props.theme.colors.secondary};
             border-radius: 10px;
         }
-    
+
         ::-webkit-scrollbar-track {
             background-color: ${props => props.theme.colors.tertiary};
+        }
+    }
+
+    /* Abaixo de ~640px o layout lado-a-lado (legenda fixa em 120px + gráfico
+       flex) não cabe: a pizza é empurrada para fora do card. Empilha tudo
+       verticalmente em vez de tentar espremer o layout desktop. */
+    @media (max-width: 640px) {
+        flex-direction: column;
+        height: auto;
+        overflow: hidden;
+
+        > .recharts-responsive-container {
+            width: 100% !important;
+            flex: 0 0 auto;
+        }
+
+        > section {
+            width: 100%;
+            flex: 1 1 auto;
+            margin: 14px 16px 0;
+        }
+
+        > section span {
+            margin: 0;
+        }
+
+        > section main {
+            margin: 10px 0 0;
+            height: auto;
+            max-height: 180px;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
     }
 `;

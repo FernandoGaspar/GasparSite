@@ -41,19 +41,22 @@ const WalletBox: React.FC<IWalletBoxProps> = ({
 
     return (
         <Container color={color}>
-            <span>{title}</span>
+            <span className="icon-chip">
+                <i style={{ WebkitMaskImage: `url(${iconSelected})`, maskImage: `url(${iconSelected})` }} />
+            </span>
+            <span className="label">{title}</span>
             <h1>
                 <strong>R$ </strong>
 
-                { showNumber ? 
-                    <NumberFormat 
+                { showNumber ?
+                    <NumberFormat
                         value={amount}
                         displayType={'text'}
                         decimalSeparator=","
                         thousandSeparator="."
                     />
                     :
-                    <NumberFormat 
+                    <NumberFormat
                         value={amount}
                         displayType={'text'}
                         format={"*****"}
@@ -62,7 +65,6 @@ const WalletBox: React.FC<IWalletBoxProps> = ({
 
             </h1>
             <small>{footerlabel}</small>
-            <img src={iconSelected} alt={title} />
         </Container>
     );
 }

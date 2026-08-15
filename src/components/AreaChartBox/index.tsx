@@ -85,7 +85,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
           {
             showNumber?
               isMobile?
-                <ResponsiveContainer width="100%" height="95%">
+                <ResponsiveContainer width="100%" height={210} debounce={100}>
                   <AreaChart
                     data={dataFinal}
                     margin={{
@@ -117,7 +117,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                   </AreaChart>
                 </ResponsiveContainer>
                 :
-                <ResponsiveContainer width="100%" height="95%">
+                <ResponsiveContainer width="100%" height={210} debounce={100}>
                 <AreaChart
                   data={dataFinal}
                   margin={{
@@ -152,7 +152,7 @@ const AreaChartBox: React.FC<IAreaChartProps> = ({ data }) => {
                 </AreaChart>
                 </ResponsiveContainer>  
               :
-              <ResponsiveContainer width="100%" height="95%">
+              <ResponsiveContainer width="100%" height={210} debounce={100}>
               <AreaChart
                 data={dataFinal}
                 margin={{

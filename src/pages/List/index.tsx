@@ -18,11 +18,15 @@ import {DialogTitle} from '@mui/material' ;
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import { 
-    Container, 
-    Content, 
-    Filters, 
-    Refresh
+import {
+    Container,
+    Toolbar,
+    Content,
+    Filters,
+    RefreshButton,
+    SummaryBar,
+    ToggleButton,
+    TotalValue
 } from './styles';
 
 interface IDataPost {
@@ -370,31 +374,19 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                     defaultValue={yearSelected-2018}
                 />
             </ContentHeader>
-            <FaSearchengin
-                style={{
-                    fontSize: "35px"
-                }}   
-                onClick={() => {
-                    handleSearch ()
-                        }}
-                />
-            <input 
-                className={`
-                    ${ classCSSSearch }`}
-                onChange={(e) => setFiltroTexto(e.target.value)}
-                >
-            </input>
-
-            <Refresh>
-                <FaSyncAlt
-                    className={`
-                    ${ classCSSRefresh }`}
-                    onClick={() => {
-                                atualizaTransacoesBancos()
-                            }}
-
+            <Toolbar>
+                <div className="search-box">
+                    <FaSearchengin onClick={() => handleSearch()} />
+                    <input
+                        className={`${ classCSSSearch }`}
+                        placeholder="Buscar transação..."
+                        onChange={(e) => setFiltroTexto(e.target.value)}
                     />
-            </Refresh>
+                </div>
+                <RefreshButton onClick={() => atualizaTransacoesBancos()} title="Atualizar transações">
+                    <FaSyncAlt className={`${ classCSSRefresh }`} />
+                </RefreshButton>
+            </Toolbar>
             <Filters>
                 {
                     subGrupoContaContabilDistinct.map(item => (
@@ -416,7 +408,6 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 }   
                 
             </Filters>
-            <br/>
             <Content>
                 {
                     dadoFiltrado.map(item => (
@@ -442,61 +433,38 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                     ))
                 }     
             </Content>  
-            <div>   
             {(() => {
                 if (filtroTexto !== ""){
                     return (
-                        <Button 
-                            onClick={ consultarSemFiltroDeData } color="primary">
-                            Ver mais
-                        </Button>)
+                        <div style={{ textAlign: "center", marginBottom: 16 }}>
+                            <Button
+                                onClick={ consultarSemFiltroDeData } color="primary">
+                                Ver mais
+                            </Button>
+                        </div>)
                 }
                 })()}
-                
-            </div>
-            
-            <div
-                style={{
-                    textAlign: "center"
-                }}
-            >
-                <button
-                style={{
-                    padding: "8px 16px",
-                    fontSize: "16px",
-                    cursor: "pointer",
-                    backgroundColor: "#007BFF",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "5px"
-                }}
-                onClick={() => setApenasGastosDoMes(!apenasGastosDoMes)}
-                >
-                {apenasGastosDoMes ? "Visão caixa" : "Visão gasto"}
-                </button>
-            </div>
-            
-            
-            <div
-                style={{
-                    float: "right"
-                }}
-            >
-                Valor total: {
-                    
+
+            <SummaryBar>
+                <ToggleButton onClick={() => setApenasGastosDoMes(!apenasGastosDoMes)}>
+                    {apenasGastosDoMes ? "Visão caixa" : "Visão gasto"}
+                </ToggleButton>
+
+                <TotalValue>
+                    <span className="label">Valor total</span>
+                    <span className="value">
                         <NumberFormat
-                        value={valorTotalDadoFiltrado}
-                        displayType={'text'}
-                        prefix={'R$ '}
-                        fixedDecimalScale={true}
-                        decimalScale={2}
-                        thousandSeparator={"."}
-                        decimalSeparator={","}
-                    />
-                    
-                    }
-            </div>
-            
+                            value={valorTotalDadoFiltrado}
+                            displayType={'text'}
+                            prefix={'R$ '}
+                            fixedDecimalScale={true}
+                            decimalScale={2}
+                            thousandSeparator={"."}
+                            decimalSeparator={","}
+                        />
+                    </span>
+                </TotalValue>
+            </SummaryBar>
         </Container>
     );
 }

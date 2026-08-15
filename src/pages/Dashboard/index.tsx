@@ -2,7 +2,6 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import { URL_API } from '../../repositories/baseAPI';
 
-import ContentHeader from '../../components/ContentHeader';
 import SelectInput from '../../components/SelectInput';
 import WalletBox from '../../components/WalletBox';
 import MessageBox from '../../components/MessageBox';
@@ -73,6 +72,12 @@ interface IDataPostValorFatura {
     Valor: number
 }
 
+interface IDataBudgetVrsRealizado {
+    subGrupoContaContabil: string
+    ValorOrcado: number
+    ValorRealizado: number
+}
+
 
 const Dashboard: React.FC = () => {
     const [monthSelected, setMonthSelected] = useState<number>(new Date().getMonth() + 1);
@@ -84,6 +89,8 @@ const Dashboard: React.FC = () => {
 
     const [custoAgrupado, setCustoAgrupado] = useState<IDataPostAgrupado[]>([]);
     const [valoresFatura, setValoresFatura] = useState<IDataPostValorFatura[]>([]);
+    const [budgetStatus, setBudgetStatus] = useState<IDataBudgetVrsRealizado[]>([]);
+    const [previousCosts, setPreviousCosts] = useState<IDataPost[]>([]);
 
     const [custoHistoricoAgrupado, setCustoHistoricoAgrupado] = useState<IDataPostAgrupado[]>([]);
 
@@ -381,20 +388,91 @@ const Dashboard: React.FC = () => {
         })
     }
 
+    const getBudgetStatus = async (anoMes: string, idUsuario: string) => {
+        try {
+            const response = await axios.post(URL_API + "/budgetvrsRealizado", {
+                headers: {"Access-Control-Allow-Origin": "*"},
+                anomes: anoMes,
+                usuario: idUsuario
+            });
+            setBudgetStatus(JSON.parse(response.data));
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const getPreviousCosts = async (anoMes: string, idUsuario: string) => {
+        try {
+            const response = await axios.post(URL_API + "/gastos", {
+                headers: {"Access-Control-Allow-Origin": "*"},
+                anomes: anoMes,
+                usuario: idUsuario,
+                tipo: "Custo",
+                token: token
+            });
+            setPreviousCosts(JSON.parse(response.data));
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const alerts = useMemo(() => {
+        const messages: { type: 'warning' | 'attention' | 'info', title: string, description: string }[] = [];
+        const budgetExceeded = budgetStatus.filter(item => Math.abs(Number(item.ValorRealizado)) > Math.abs(Number(item.ValorOrcado)));
+
+        if (budgetExceeded.length) {
+            const accountNames = budgetExceeded.slice(0, 2).map(item => item.subGrupoContaContabil).join(' e ');
+            const complement = budgetExceeded.length > 2 ? ` e mais ${budgetExceeded.length - 2}` : '';
+            messages.push({ type: 'warning', title: `Orçamento ultrapassado em ${budgetExceeded.length} ${budgetExceeded.length === 1 ? 'categoria' : 'categorias'}`, description: `${accountNames}${complement} já passaram do valor planejado para este mês.` });
+        }
+
+        const electricityPattern = /luz|energia|eletric/i;
+        const hadElectricityLastMonth = previousCosts.some(item => electricityPattern.test(`${item.Descricao} ${item.contaContabil} ${item.subGrupoContaContabil}`));
+        const hasElectricityThisMonth = custo.some(item => electricityPattern.test(`${item.Descricao} ${item.contaContabil} ${item.subGrupoContaContabil}`));
+        if (hadElectricityLastMonth && !hasElectricityThisMonth) {
+            messages.push({ type: 'attention', title: 'Pagamento de energia não identificado', description: 'Encontramos uma conta de luz no mês anterior, mas nenhum lançamento correspondente neste mês.' });
+        }
+
+        const invoiceByMonth = valoresFatura.reduce((total, item) => ({ ...total, [item.AnoMesFatura]: (total[item.AnoMesFatura] || 0) + Number(item.Valor) }), {} as Record<number, number>);
+        const invoiceMonths = Object.keys(invoiceByMonth).map(Number).sort((a, b) => a - b);
+        if (invoiceMonths.length > 1) {
+            const currentInvoice = invoiceByMonth[invoiceMonths[0]];
+            const nextInvoice = invoiceByMonth[invoiceMonths[1]];
+            if (currentInvoice > 0 && nextInvoice > currentInvoice * 1.2) {
+                const increase = Math.round(((nextInvoice / currentInvoice) - 1) * 100);
+                messages.push({ type: 'attention', title: `Próxima fatura ${increase}% maior`, description: 'A fatura seguinte está bem acima da atual. Vale conferir as compras parceladas e recorrentes.' });
+            }
+        }
+
+        if (!messages.length) messages.push({ type: 'info', title: 'Tudo sob controle por enquanto', description: 'Não identificamos alertas importantes neste período. Continue acompanhando seu orçamento.' });
+        return messages.slice(0, 3);
+    }, [budgetStatus, previousCosts, custo, valoresFatura]);
+
     useEffect(() => {        
         getSaldo (idUsuario)
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Receita") 
         getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Custo")        
         getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "12") 
         getValoresFatura (yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario)
+        getBudgetStatus(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario)
+        const previousDate = new Date(yearSelected, monthSelected - 2, 1);
+        getPreviousCosts(`${previousDate.getFullYear()}${String(previousDate.getMonth() + 1).padStart(2, '0')}`, idUsuario)
 
         getEvolucaoInvestimento ()
 
     },[monthSelected, yearSelected]); 
 
     return (
-        <Container>               
-            <ContentHeader title="Dashboard" lineColor="#F7931B">
+        <Container>
+            <header className="dashboard-hero">
+                <div>
+                    <span className="eyebrow">VISÃO GERAL</span>
+                    <h1>Seu dinheiro, em perspectiva.</h1>
+                    <p>Acompanhe suas decisões e mantenha o controle da sua vida financeira.</p>
+                </div>
+                <div className="period-picker">
+                    <span>Período</span>
+                    <div>
                 <SelectInput 
                     options={months}
                     onChange={(e) => handleMonthSelected(e.target.value)} 
@@ -405,54 +483,82 @@ const Dashboard: React.FC = () => {
                     onChange={(e) => handleYearSelected(e.target.value)} 
                     defaultValue={yearSelected-2018}
                 />
-            </ContentHeader>
+                    </div>
+                </div>
+            </header>
             <Content>
-                <WalletBox 
-                    title="saldo"
-                    color="#06D6A0"
-                    amount={ Number(saldoPost) }
-                    footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
-                    icon="dolar"
-                />
+                <div className="summary-cards">
+                    <WalletBox
+                        title="saldo"
+                        color="#06D6A0"
+                        amount={ Number(saldoPost) }
+                        footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
+                        icon="dolar"
+                    />
 
-                <WalletBox 
-                    title="entradas"
-                    color="#FFD166"
-                    amount={totalGains}
-                    footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
-                    icon="arrowUp"
-                />
-                
-                <WalletBox 
-                    title="saídas"
-                    color="#EF476F"
-                    amount={ totalExpenses }
-                    footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
-                    icon="arrowDown"
-                />
-                
-                <BudgetBar anoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
+                    <WalletBox
+                        title="entradas"
+                        color="#FFD166"
+                        amount={totalGains}
+                        footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
+                        icon="arrowUp"
+                    />
 
-                <section>
+                    <WalletBox
+                        title="saídas"
+                        color="#EF476F"
+                        amount={ totalExpenses }
+                        footerlabel={"Última atualização em " + formatDate(dataSaldo!, 1) }
+                        icon="arrowDown"
+                    />
+                </div>
+
+                <section className="alerts" aria-label="Alertas financeiros">
+                    <div className="alerts-heading">
+                        <div>
+                            <span className="eyebrow">PRECISA DA SUA ATENÇÃO</span>
+                            <h2>Alertas financeiros</h2>
+                        </div>
+                        <span>{alerts.length} {alerts.length === 1 ? 'alerta' : 'alertas'}</span>
+                    </div>
+                    <div className="alerts-list">
+                        {alerts.map(alert => (
+                            <article className={`alert ${alert.type}`} key={alert.title}>
+                                <span className="alert-icon">{alert.type === 'warning' ? '!' : alert.type === 'attention' ? '↑' : '✓'}</span>
+                                <div><h3>{alert.title}</h3><p>{alert.description}</p></div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+                
+                <div className="budget-section">
+                    <BudgetBar anoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
+                </div>
+
+                <section className="insights-row">
                     <PieChartBox titulo = {"Custo por categoria"} data={ custoAjustadoGraficoPizza } />
                     <CardBill data={ valoresFatura } anomes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') }  />
                 </section>
 
-                    
-                <AreaChartBox data={ custoHistoricoAgrupado } />
-                
-                <InvestmentEvolution evolucaoInvestimentos = { evolucaoInvestimentos } />
-                <section>
-                        <PieChartBox titulo = {"Investimento"} data ={ investimentoAjustadoGraficoPizza } />
-                </section>
-                    
+                <div className="trend-section">
+                    <AreaChartBox data={ custoHistoricoAgrupado } />
+                </div>
 
-                <MessageBox
-                    title={message.title}
-                    description={message.description}
-                    footerText={message.footerText}
-                    icon={message.icon}
-                />
+                <div className="investment-section">
+                    <InvestmentEvolution evolucaoInvestimentos = { evolucaoInvestimentos } />
+                </div>
+                <section className="investment-pie-section">
+                    <PieChartBox titulo = {"Investimento"} data ={ investimentoAjustadoGraficoPizza } />
+                </section>
+
+                <div className="message-section">
+                    <MessageBox
+                        title={message.title}
+                        description={message.description}
+                        footerText={message.footerText}
+                        icon={message.icon}
+                    />
+                </div>
 
 
             </Content>

@@ -1,15 +1,5 @@
 import styled, { keyframes } from 'styled-components';
 
-/* ====== Tokens simples ====== */
-const radius = 16;
-const shadow = '0 6px 18px rgba(17, 24, 39, 0.08)';
-const border = '1px solid rgba(17, 24, 39, 0.06)';
-const surface = (p: any) => p?.theme?.colors?.secondary || '#fff';
-const textMuted = '#6b7280';
-const text = '#111827';
-const brand = '#6366f1'; // indigo-500
-const brandSoft = '#eef2ff';
-
 /* ====== Animações ====== */
 const subtlePop = keyframes`
   from { transform: translateY(2px); opacity: .0; }
@@ -20,38 +10,27 @@ const subtlePop = keyframes`
 export const Wrapper = styled.div`
   width: 100%;
   max-width: 860px;
-  padding: 20px;
+  padding: 16px;
   animation: ${subtlePop} .25s ease-out;
-  
+  color: ${props => props.theme.colors.white};
+
   @media (min-width: 600px) {
-    padding: 28px;
+    padding: 22px;
   }
 `;
 
 /* ====== Cartões ====== */
 export const SectionCard = styled.div`
-  background: ${surface};
-  border-radius: ${radius}px;
-  border: ${border};
-  box-shadow: ${shadow};
+  background: ${props => props.theme.colors.tertiary};
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.14);
   padding: 18px;
-  margin-bottom: 18px;
-  transition: box-shadow .2s ease, transform .2s ease;
-  
-  &:hover {
-    box-shadow: 0 10px 24px rgba(17,24,39,.10);
-    transform: translateY(-1px);
-  }
+  margin-bottom: 16px;
 `;
 
 /* ====== Header ====== */
 export const HeaderCard = styled(SectionCard)`
-  background: linear-gradient(180deg, #ffffff, #fafbff);
-  padding: 20px;
-
-  @supports (backdrop-filter: blur(6px)) {
-    backdrop-filter: saturate(120%) blur(4px);
-  }
+  background: ${props => props.theme.colors.tertiary};
 
   display: grid;
   grid-template-columns: 1fr auto;
@@ -62,15 +41,15 @@ export const HeaderCard = styled(SectionCard)`
 export const HeaderLeft = styled.div`
   h3 {
     margin: 0;
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
     line-height: 1.25;
-    color: ${text};
+    color: ${props => props.theme.colors.white};
   }
   span {
     display: inline-block;
     margin-top: 6px;
-    color: ${textMuted};
+    color: ${props => props.theme.colors.gray};
     font-size: 12.5px;
   }
 `;
@@ -83,17 +62,17 @@ export const HeaderRight = styled.div`
     font-size: 20px;
     font-weight: 900;
     letter-spacing: .2px;
-    color: ${text};
+    color: ${props => props.theme.colors.white};
   }
 
-  .meta {
+  > div {
     margin-top: 8px;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 
     small {
-      color: ${textMuted};
+      color: ${props => props.theme.colors.gray};
       font-size: 12px;
     }
   }
@@ -105,7 +84,7 @@ export const TagDot = styled.span<{ $color: string }>`
   height: 12px;
   border-radius: 50%;
   background: var(--c);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 12%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent);
 `;
 
 /* ====== Títulos de seção / campos ====== */
@@ -114,12 +93,12 @@ export const SectionTitleRow = styled.div`
   font-size: 13.5px;
   letter-spacing: .2px;
   margin-bottom: 14px;
-  color: ${text};
+  color: ${props => props.theme.colors.white};
 `;
 
 export const FieldLabel = styled.div`
   font-size: 12px;
-  color: ${textMuted};
+  color: ${props => props.theme.colors.gray};
   margin-bottom: 8px;
 `;
 
@@ -133,16 +112,79 @@ export const Grid2 = styled.div`
     grid-template-columns: 1fr 1fr;
   }
 
-  /* harmoniza o react-select */
+  /* harmoniza o react-select com o tema escuro */
   .react-select__control {
     border-radius: 10px !important;
     min-height: 42px;
-    border-color: rgba(17,24,39,.12) !important;
+    background: ${props => props.theme.colors.secondary} !important;
+    border-color: rgba(148,163,184,.25) !important;
     box-shadow: none !important;
   }
   .react-select__control--is-focused {
-    border-color: ${brand} !important;
-    box-shadow: 0 0 0 3px rgba(99,102,241,.15) !important;
+    border-color: ${props => props.theme.colors.success} !important;
+    box-shadow: 0 0 0 3px rgba(6,214,160,.15) !important;
+  }
+  .react-select__single-value {
+    color: ${props => props.theme.colors.white} !important;
+  }
+  .react-select__input-container {
+    color: ${props => props.theme.colors.white} !important;
+  }
+  .react-select__placeholder {
+    color: ${props => props.theme.colors.gray} !important;
+  }
+  .react-select__menu {
+    background: ${props => props.theme.colors.secondary} !important;
+    border: 1px solid rgba(148,163,184,.2);
+  }
+  .react-select__option {
+    background: transparent !important;
+    color: ${props => props.theme.colors.white} !important;
+  }
+  .react-select__option--is-focused {
+    background: ${props => props.theme.colors.tertiary} !important;
+  }
+  .react-select__option--is-selected {
+    background: ${props => props.theme.colors.success} !important;
+    color: ${props => props.theme.colors.black} !important;
+  }
+  .react-select__indicator-separator {
+    background: rgba(148,163,184,.25) !important;
+  }
+`;
+
+/* ====== Sugestões rápidas ====== */
+export const SuggestionsRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+`;
+
+export const SuggestionChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(6,214,160,.35);
+  background: rgba(6,214,160,.1);
+  color: ${props => props.theme.colors.white};
+
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+
+  &:hover {
+    background: rgba(6,214,160,.2);
+    transform: translateY(-1px);
+  }
+
+  small {
+    color: ${props => props.theme.colors.success};
+    font-weight: 700;
   }
 `;
 
@@ -153,13 +195,19 @@ export const NoteTextArea = styled.textarea<{ $size?: 'sm' | 'md' | 'lg' }>`
   padding: ${({ $size }) => ($size === 'sm' ? '8px 10px' : '12px 14px')};
   font-size: ${({ $size }) => ($size === 'sm' ? '13px' : '14px')};
   resize: vertical;
-  border: 1px solid rgba(17,24,39,.12);
+  border: 1px solid rgba(148,163,184,.25);
   border-radius: 12px;
   outline: none;
-  background: linear-gradient(180deg, #fff, #fcfcff);
+  background: ${props => props.theme.colors.secondary};
+  color: ${props => props.theme.colors.white};
+
+  &::placeholder {
+    color: ${props => props.theme.colors.gray};
+  }
+
   &:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 4px rgba(99,102,241,.15);
+    border-color: ${props => props.theme.colors.success};
+    box-shadow: 0 0 0 4px rgba(6,214,160,.15);
   }
 `;
 
@@ -175,9 +223,9 @@ export const FileChip = styled.a`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: ${brandSoft};
-  border: 1px solid #c7d2fe;
-  color: #4338ca;
+  background: rgba(6,214,160,.1);
+  border: 1px solid rgba(6,214,160,.35);
+  color: ${props => props.theme.colors.success};
   text-decoration: none;
   font-size: 12.5px;
   padding: 7px 12px;
@@ -185,13 +233,13 @@ export const FileChip = styled.a`
   transition: transform .15s ease, background .15s ease;
 
   &:hover {
-    background: #e0e7ff;
+    background: rgba(6,214,160,.2);
     transform: translateY(-1px);
   }
 `;
 
 export const EmptyHint = styled.div`
-  color: ${textMuted};
+  color: ${props => props.theme.colors.gray};
   font-size: 12.5px;
 `;
 
@@ -203,23 +251,24 @@ export const ParcelasHeader = styled.div`
 `;
 
 export const ParcelasToggle = styled.button`
-  border: 1px solid rgba(17,24,39,.12);
-  background: #fff;
+  border: 1px solid rgba(148,163,184,.25);
+  background: ${props => props.theme.colors.secondary};
+  color: ${props => props.theme.colors.white};
   border-radius: 10px;
   font-size: 12.5px;
   padding: 7px 12px;
   cursor: pointer;
-  transition: background .15s ease, transform .15s ease;
+  transition: border-color .15s ease, transform .15s ease;
 
   &:hover {
-    background: #f9fafb;
+    border-color: ${props => props.theme.colors.success};
     transform: translateY(-1px);
   }
 `;
 
 export const TableWrap = styled.div`
   margin-top: 12px;
-  border: 1px solid rgba(17,24,39,.08);
+  border: 1px solid rgba(148,163,184,.16);
   border-radius: 14px;
   overflow: hidden;
 `;
@@ -229,36 +278,40 @@ export const StyledTable = styled.table`
   border-collapse: separate;
   border-spacing: 0;
   font-size: 14px;
+  color: ${props => props.theme.colors.white};
 
   thead {
     position: sticky;
     top: 0;
     z-index: 1;
-    background: linear-gradient(180deg, #f8fafc, #f3f4f6);
+    background: ${props => props.theme.colors.secondary};
   }
 
   th, td {
     padding: 12px 14px;
-    border-bottom: 1px solid rgba(17,24,39,.06);
+    border-bottom: 1px solid rgba(148,163,184,.14);
     text-align: left;
     vertical-align: middle;
   }
 
-  tbody tr:nth-child(odd) {
-    background: #fcfcff;
+  th {
+    color: ${props => props.theme.colors.gray};
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
   }
 
   tbody tr[data-today='1'] {
-    background: #f5f7ff;
+    background: rgba(6,214,160,.08);
   }
 
   tbody tr:hover td {
-    background: #f9fafb;
+    background: rgba(148,163,184,.06);
   }
 
   tbody tr.total td {
     font-weight: 900;
-    background: linear-gradient(180deg, #f8fafc, #f3f4f6);
+    background: ${props => props.theme.colors.secondary};
     border-bottom: none;
   }
 `;
@@ -266,22 +319,26 @@ export const StyledTable = styled.table`
 /* ====== Ações (barra fixa) ====== */
 export const ActionsRow = styled.div`
   position: sticky;
-  bottom: -20px; /* fica “coladinho” ao fim do modal */
-  margin-top: 10px;
+  bottom: 0;
+  z-index: 2;
+  margin: 10px -16px -16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 0 4px;
+  padding: 14px 16px;
 
-  @supports (backdrop-filter: blur(6px)) {
-    background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,1));
-    backdrop-filter: blur(6px);
+  background: ${props => props.theme.colors.secondary};
+  border-top: 1px solid rgba(148,163,184,.14);
+
+  @media (min-width: 600px) {
+    margin: 10px -22px -22px;
+    padding: 14px 22px;
   }
 `;
 
 export const FooterNote = styled.div`
   margin-top: 8px;
   font-size: 11.5px;
-  color: ${textMuted};
+  color: ${props => props.theme.colors.gray};
 `;

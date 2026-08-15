@@ -21,7 +21,7 @@ export const Container = styled.div<IContainerProps>`
 
     position: relative;
 
-    @media(max-width: 6000px){
+    @media(max-width: 900px){
         padding-left: 20px;
         position: fixed;
         z-index: 2;
@@ -49,7 +49,7 @@ export const LogImg = styled.img`
     height: 40px;
     width: 40px;
 
-    @media(max-width: 6000px){        
+    @media(max-width: 900px){        
         display: none;
     }
 `;
@@ -58,7 +58,7 @@ export const Title = styled.h3`
     color: ${props => props.theme.colors.white};
     margin-left: 10px;
 
-    @media(max-width: 6000px){
+    @media(max-width: 900px){
         display: none;
     }
 `;
@@ -135,7 +135,7 @@ export const ToggleMenu = styled.button`
 
     display: none;
 
-    @media(max-width: 6000px){
+    @media(max-width: 900px){
         display: flex;
         justify-content: center;
         align-items: center;
@@ -147,7 +147,7 @@ export const ThemeToggleFooter = styled.footer<IThemeToggleFooterProps>`
     position: absolute;
     bottom: 30px;
     
-    @media(max-width: 6000px){
+    @media(max-width: 900px){
         display: ${props => props.menuIsOpen ? 'flex' : 'none'};
     }
 

@@ -299,7 +299,7 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
         </Filters>
       { carregou ? 
 
-        <ResponsiveContainer width="100%" height="70%">
+        <ResponsiveContainer width="100%" height={210} debounce={100}>
           <ComposedChart width={1000} height={250} data={dataFinal}
                     margin={{
                       top: 30,

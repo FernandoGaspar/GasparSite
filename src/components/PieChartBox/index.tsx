@@ -101,7 +101,7 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
             </section>
 
 
-            <ResponsiveContainer >
+            <ResponsiveContainer width="100%" height={240} debounce={100}>
                 <PieChart >
                 <Tooltip formatter={(value) => new Intl.NumberFormat([], {
                                                                             style: 'currency',

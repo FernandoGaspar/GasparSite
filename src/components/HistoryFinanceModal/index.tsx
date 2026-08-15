@@ -18,6 +18,8 @@ import {
   SectionTitleRow,
   FieldLabel,
   Grid2,
+  SuggestionsRow,
+  SuggestionChip,
   NoteTextArea,
   AttachRow,
   FileChip,
@@ -63,6 +65,20 @@ interface IparcelasTransacao {
   Descricao: string;
 }
 
+interface ITransacaoHistorico {
+  idTransacoes: string;
+  grupoContaContabil: string;
+  subGrupoContaContabil: string;
+  contaContabil: string;
+}
+
+interface ISugestaoConta {
+  grupo: string;
+  subGrupo: string;
+  conta: string;
+  ocorrencias: number;
+}
+
 type Option = { label: string; value: string };
 
 const STORAGE = {
@@ -102,6 +118,8 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
   const [obraGrupoCodeSelecionado, setObraGrupoCodeSelecionado] = useState<string>(obraGrupoCode || '');
   const [showParcelas, setShowParcelas] = useState<boolean>(false);
 
+  const [sugestoesConta, setSugestoesConta] = useState<ISugestaoConta[]>([]);
+
   // ======= Upload state =======
   const [file, setFile] = useState<File>();
   const [binary, setBinary] = useState<string>();
@@ -111,12 +129,20 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
   const idUsuario = localStorage.getItem(STORAGE.usuarioId) as string;
 
   // ======= API calls =======
-  const getContasContabeis = async () => {
+  // O backend local não lida bem com várias chamadas simultâneas (a conexão
+  // com o banco parece ser compartilhada), o que faz essa chamada falhar
+  // aleatoriamente e deixar os selects vazios. Como é a mais importante do
+  // popup, tentamos de novo uma vez antes de desistir.
+  const getContasContabeis = async (tentativa = 1) => {
     try {
       const { data } = await axios.post(URL_API + '/contasContabeisTabela', { usuario: idUsuario });
       setGrupoContaContabeis(JSON.parse(data));
     } catch (e) {
-      console.log(e);
+      if (tentativa < 3) {
+        setTimeout(() => getContasContabeis(tentativa + 1), 600 * tentativa);
+      } else {
+        console.log(e);
+      }
     }
   };
 
@@ -127,6 +153,62 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
     } catch (e) {
       console.log(e);
     }
+  };
+
+  // Sugere Grupo/Subgrupo/Conta a partir de transações antigas com descrição parecida,
+  // reaproveitando o /gastosSemFiltro (mesma busca usada na tela de listagem).
+  // Esse endpoint parece ser lento/instável no backend local, então uma
+  // falha aqui merece uma segunda tentativa antes de desistir em silêncio.
+  const getSugestoesConta = async (tentativa = 1) => {
+    const termoBusca = (descricao || '').replace(/\s*-\s*\d+\/\d+\s*$/, '').trim();
+    if (!termoBusca) return;
+
+    try {
+      const { data } = await axios.post(URL_API + '/gastosSemFiltro', {
+        usuario: idUsuario,
+        tipo: grupoContaContabil,
+        filtro: termoBusca,
+      });
+
+      const historico: ITransacaoHistorico[] = JSON.parse(data);
+      const contagem = new Map<string, ISugestaoConta>();
+
+      historico.forEach((item) => {
+        if (String(item.idTransacoes) === String(idTransacao)) return;
+        if (!item.contaContabil) return;
+
+        const chave = `${item.grupoContaContabil}|${item.subGrupoContaContabil}|${item.contaContabil}`;
+        const atual = contagem.get(chave);
+        if (atual) {
+          atual.ocorrencias += 1;
+        } else {
+          contagem.set(chave, {
+            grupo: item.grupoContaContabil,
+            subGrupo: item.subGrupoContaContabil,
+            conta: item.contaContabil,
+            ocorrencias: 1,
+          });
+        }
+      });
+
+      const top3 = Array.from(contagem.values())
+        .sort((a, b) => b.ocorrencias - a.ocorrencias)
+        .slice(0, 3);
+
+      setSugestoesConta(top3);
+    } catch (e) {
+      if (tentativa < 2) {
+        setTimeout(() => getSugestoesConta(tentativa + 1), 800);
+      } else {
+        console.log(e);
+      }
+    }
+  };
+
+  const aplicarSugestao = (sugestao: ISugestaoConta) => {
+    setGrupoContaSelecionado(sugestao.grupo);
+    setSubGrupoContaSelecionado(sugestao.subGrupo);
+    setContaSelecionado(sugestao.conta);
   };
 
   const getArquivosPasta = async (id: string) => {
@@ -271,9 +353,22 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
 
   // ======= Effects =======
   useEffect(() => {
-    getArquivosPasta(idTransacao);
-    getContasContabeis();
-    getObraGrupoCode();
+    let cancelado = false;
+
+    // Chamadas em sequência (não em paralelo) porque o backend local não
+    // segura bem várias requisições simultâneas nessa tela — disparar tudo
+    // junto derrubava a chamada mais importante (contasContabeisTabela) e
+    // deixava os selects vazios.
+    (async () => {
+      await getContasContabeis();
+      if (cancelado) return;
+
+      getArquivosPasta(idTransacao);
+      getObraGrupoCode();
+      getSugestoesConta();
+    })();
+
+    return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -362,6 +457,24 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
             </div>
           )}
         </Grid2>
+
+        {sugestoesConta.length > 0 && (
+          <>
+            <FieldLabel style={{ marginTop: 16 }}>Sugestão com base em transações parecidas — clique para aplicar</FieldLabel>
+            <SuggestionsRow>
+              {sugestoesConta.map((s) => (
+                <SuggestionChip
+                  key={`${s.grupo}|${s.subGrupo}|${s.conta}`}
+                  type="button"
+                  onClick={() => aplicarSugestao(s)}
+                  title={`${s.grupo} · ${s.subGrupo}`}
+                >
+                  {s.conta} <small>×{s.ocorrencias}</small>
+                </SuggestionChip>
+              ))}
+            </SuggestionsRow>
+          </>
+        )}
       </SectionCard>
 
       {/* Observação */}

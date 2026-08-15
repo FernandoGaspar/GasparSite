@@ -102,7 +102,7 @@ const CardBill: React.FC<IAreaChartProps> = ({
             showNumber?
               // isMobile?
 
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={205} debounce={100}>
               <BarChart
                 width={500}
                 height={300}
@@ -132,7 +132,7 @@ const CardBill: React.FC<IAreaChartProps> = ({
             </ResponsiveContainer>
           :
                           
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={205} debounce={100}>
             <BarChart
               width={500}
               height={300}

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
+import { ThemeProvider } from 'styled-components';
 
+import { useTheme } from '../../hooks/theme';
 import logoBradesco from '../../assets/bradesco.svg';
 import logoNubank from '../../assets/nubank.svg';
 import logoItau from '../../assets/itau.svg';
@@ -53,6 +55,8 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
     atualizaTransacaoList
 
 })  => {
+    const { theme } = useTheme();
+
     const banco = useMemo(() => {
         switch (tabelaOrigem) {
             case 'tbItauConta':
@@ -95,26 +99,26 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
             <div 
                 onClick={async () => {
                     await CustomDialog(
-                        <HistoryFinanceModal
-                            key = { idTransacao }
-                            idTransacao = { idTransacao }
-                            data={ data }
-                            descricao = { descricao }
-                            valor= { valor }
-                            contaContabilCode = { contaContabilCode }
-                            grupoContaContabil = { grupoContaContabil }
-                            subGrupoContaContabil = { subGrupoContaContabil }
-                            contaContabil = { contaContabil }
-                            observacao = { observacao }
-                            tagColor = { "" }
-                            obraGrupoCode = { obraGrupoCode }
-                            atualizaTransacao = {atualizaTransacaoList}
-
-
-                        />, {
+                        <ThemeProvider theme={theme}>
+                            <HistoryFinanceModal
+                                key = { idTransacao }
+                                idTransacao = { idTransacao }
+                                data={ data }
+                                descricao = { descricao }
+                                valor= { valor }
+                                contaContabilCode = { contaContabilCode }
+                                grupoContaContabil = { grupoContaContabil }
+                                subGrupoContaContabil = { subGrupoContaContabil }
+                                contaContabil = { contaContabil }
+                                observacao = { observacao }
+                                tagColor = { tagColor }
+                                obraGrupoCode = { obraGrupoCode }
+                                atualizaTransacao = {atualizaTransacaoList}
+                            />
+                        </ThemeProvider>, {
                             title: descricao,
                             showCloseIcon: true,
-                        });    
+                        });
                         }}                
                         >
                 <div>
