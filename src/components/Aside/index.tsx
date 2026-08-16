@@ -7,11 +7,13 @@ import {
     MdArrowUpward,
     MdExitToApp,
     MdClose,
-    MdMenu, 
+    MdMenu,
     MdTrendingUp,
     MdDirectionsBike,
     MdHome,
     MdSettingsInputAntenna,
+    MdSettings,
+    MdChatBubble,
 } from 'react-icons/md';
 
 import logoImg from '../../assets/logo.svg';
@@ -19,17 +21,30 @@ import logoImg from '../../assets/logo.svg';
 import { useAuth } from '../../hooks/auth';
 import { useTheme } from '../../hooks/theme';
 
-import { 
+import {
     Container,
     Header,
     LogImg,
     Title,
     MenuContainer,
     MenuItemLink,
+    MenuFooter,
     MenuItemButton,
     ToggleMenu,
     ThemeToggleFooter,
 }  from './styles';
+
+const menuItems = [
+    { to: '/', label: 'Dashboard', icon: MdDashboard, exact: true },
+    { to: '/list/entry-balance', label: 'Entradas', icon: MdArrowUpward },
+    { to: '/list/exit-balance', label: 'Saídas', icon: MdArrowDownward },
+    { to: '/investment', label: 'Investimentos', icon: MdTrendingUp },
+    { to: '/home', label: 'Casa', icon: MdHome },
+    { to: '/tracker', label: 'Rastreador', icon: MdSettingsInputAntenna },
+    { to: '/assistant', label: 'Assistente', icon: MdChatBubble },
+    { to: '/settings', label: 'Configurações', icon: MdSettings },
+    { to: '/health', label: 'Saúde', icon: MdDirectionsBike },
+];
 
 const Aside: React.FC = () => {
     const { signOut } = useAuth();
@@ -62,46 +77,26 @@ const Aside: React.FC = () => {
             </Header>
 
             <MenuContainer>
-                <MenuItemLink href="/">
-                    <MdDashboard />
-                    Dashboard
-                </MenuItemLink>
+                {menuItems.map(item => (
+                    <MenuItemLink
+                        key={item.to}
+                        to={item.to}
+                        exact={item.exact}
+                        activeClassName="active"
+                        onClick={() => setToggleMenuIsOpened(false)}
+                    >
+                        <item.icon />
+                        {item.label}
+                    </MenuItemLink>
+                ))}
+            </MenuContainer>
 
-                <MenuItemLink href="/list/entry-balance">
-                    <MdArrowUpward />
-                    Entradas
-                </MenuItemLink>
-
-                <MenuItemLink href="/list/exit-balance">
-                    <MdArrowDownward />
-                    Saídas
-                </MenuItemLink>
-
-                <MenuItemLink href="/investment">
-                    <MdTrendingUp />
-                    Investimentos
-                </MenuItemLink>
-                
-                <MenuItemLink href="/home">
-                    <MdHome />
-                    Casa
-                </MenuItemLink>
-                
-                <MenuItemLink href="/tracker">
-                    <MdSettingsInputAntenna />
-                    Rastreador
-                </MenuItemLink>
-
-                <MenuItemLink href="/health">
-                    <MdDirectionsBike />
-                    Saúde
-                </MenuItemLink>
-
+            <MenuFooter>
                 <MenuItemButton onClick={signOut}>
                     <MdExitToApp />
                     Sair
                 </MenuItemButton>
-            </MenuContainer>
+            </MenuFooter>
 
             <ThemeToggleFooter menuIsOpen={toggleMenuIsOpened}>
                 <Toggle

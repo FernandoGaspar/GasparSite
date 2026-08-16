@@ -30,19 +30,11 @@ const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         return retorno
     });
 
-    const [senha, setSenha] = useState<string>(() => {
-        const isSenha = localStorage.getItem('@minha-carteira:senha');
-        let retorno = ""
-        if (isSenha){
-            retorno = isSenha
-        }
-        return retorno
-    });
+    const [senha, setSenha] = useState<string>('');
 
 
     const signIn = async (email: string, password: string) : Promise<boolean> => {
         localStorage.setItem('@minha-carteira:email', email);
-        localStorage.setItem('@minha-carteira:senha', password);
 
         const { data } = await axios.post(URL_API + '/login', {
             headers: {"Access-Control-Allow-Origin": "*"},
@@ -69,7 +61,6 @@ const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
             localStorage.removeItem('@minha-carteira:token');
 
             localStorage.removeItem('@minha-carteira:email');
-            localStorage.removeItem('@minha-carteira:senha');
 
             alert('Usuário ou senha incorretos!');
 
@@ -84,7 +75,6 @@ const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         localStorage.removeItem('@minha-carteira:token');
 
         localStorage.removeItem('@minha-carteira:email');
-        localStorage.removeItem('@minha-carteira:senha');
 
         setLogged(false);
         setEmail("");

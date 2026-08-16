@@ -54,6 +54,8 @@ const WalletBox: React.FC<IWalletBoxProps> = ({
                         displayType={'text'}
                         decimalSeparator=","
                         thousandSeparator="."
+                        fixedDecimalScale={true}
+                        decimalScale={2}
                     />
                     :
                     <NumberFormat

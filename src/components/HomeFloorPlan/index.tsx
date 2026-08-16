@@ -267,7 +267,7 @@ const HomeFloorPlan: React.FC<Props> = ({
     const previousZoom = zoom;
     const centerX = scroll ? scroll.scrollLeft + scroll.clientWidth / 2 : 0;
     const centerY = scroll ? scroll.scrollTop + scroll.clientHeight / 2 : 0;
-    const limitedZoom = Math.min(3, Math.max(1, nextZoom));
+    const limitedZoom = Math.min(3, Math.max(0.5, nextZoom));
     setZoom(limitedZoom);
     window.requestAnimationFrame(() => {
       if (!scroll || previousZoom === 0) return;

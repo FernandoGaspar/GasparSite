@@ -38,33 +38,63 @@ interface IDataDetalhe {
 
 
 const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => { 
-    const [dataAgrupado, setDataAgrupado] = useState<IDataAgrupado[]>([]);
-    const [dataDetalhe, setDataDetalhe] = useState<IDataDetalhe[]>([]);
+    const [grupoSelecionado, setGrupoSelecionado] = useState<string | null>(null);
     const { showNumber } = useShowNumber();
 
+    const dadosNormalizados = useMemo(() => data
+        .map((item) => ({
+            grupo: String(item.grupo || 'Sem categoria'),
+            subGrupo: String(item.subGrupo || item.grupo || 'Sem categoria'),
+            Cor: item.Cor || '#4F8CFF',
+            Valor: Math.abs(Number(item.Valor) || 0),
+        }))
+        .filter((item) => item.Valor > 0), [data]);
 
-    function agruparDado () {
-        const groupBy = require('group-by-with-sum');
-        const agrupado = groupBy(data, 'grupo, Cor', 'Valor');
-        let agrupadoOrdenado = agrupado.sort((a: any,b: any) => b.Valor - a.Valor)
-        setDataAgrupado(agrupadoOrdenado)
-    }
+    const dataAgrupado = useMemo(() => {
+        const grupos = new Map<string, IDataAgrupado>();
 
-    function detalharGrupo (grupo: string){
-        const dadoFiltrado = data.filter(item => item.grupo === grupo);
-        const groupBy = require('group-by-with-sum');
-        const agrupado = groupBy(dadoFiltrado, 'grupo, subGrupo, Cor', 'Valor');
-        setDataDetalhe(agrupado)
-    }
+        dadosNormalizados.forEach((item) => {
+            const atual = grupos.get(item.grupo);
+            grupos.set(item.grupo, {
+                grupo: item.grupo,
+                Cor: atual?.Cor || item.Cor,
+                Valor: (atual?.Valor || 0) + item.Valor,
+            });
+        });
+
+        return Array.from(grupos.values()).sort((a, b) => b.Valor - a.Valor);
+    }, [dadosNormalizados]);
+
+    const dataDetalhe = useMemo(() => {
+        const detalhes = new Map<string, IDataDetalhe>();
+        const itens = grupoSelecionado
+            ? dadosNormalizados.filter((item) => item.grupo === grupoSelecionado)
+            : dadosNormalizados;
+
+        itens.forEach((item) => {
+            const chave = `${item.grupo}-${item.subGrupo}`;
+            const atual = detalhes.get(chave);
+            detalhes.set(chave, {
+                grupo: item.grupo,
+                subGrupo: item.subGrupo,
+                Cor: atual?.Cor || item.Cor,
+                Valor: (atual?.Valor || 0) + item.Valor,
+            });
+        });
+
+        return Array.from(detalhes.values()).sort((a, b) => b.Valor - a.Valor);
+    }, [dadosNormalizados, grupoSelecionado]);
+
+    useEffect(() => {
+        if (grupoSelecionado && !dataAgrupado.some((item) => item.grupo === grupoSelecionado)) {
+            setGrupoSelecionado(null);
+        }
+    }, [dataAgrupado, grupoSelecionado]);
     
     const valorTotalDadoFiltrado = useMemo(() => {
         let total: number = 0;
         dataAgrupado.forEach(item => {
-            try{
-                total += Number(item.Valor)
-            }catch{
-                throw new Error('Invalid amount! Amount must be number.')
-            }
+            total += Number(item.Valor) || 0;
         });
 
         return Math.round(total);
@@ -72,9 +102,6 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
         // return 0;
     }, [dataAgrupado])
 
-    useEffect(() => {
-        agruparDado ()
-    },[data]); 
     return (
         <Container>
 
@@ -87,12 +114,12 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
                         dataAgrupado.map((item) => (
                             <TituloGrupo 
                                 lineColor={item.Cor}
-                                onClick={() => {detalharGrupo(item.grupo)}} >
+                                onClick={() => setGrupoSelecionado(item.grupo === grupoSelecionado ? null : item.grupo)} >
                                 <footer>
                                     { item.grupo }
                                 </footer>
                                 <h1>
-                                    { Math.round (item.Valor/valorTotalDadoFiltrado*100) + "%" }
+                                    { valorTotalDadoFiltrado ? Math.round(item.Valor / valorTotalDadoFiltrado * 100) + "%" : "0%" }
                                 </h1>
                             </TituloGrupo>
                         ))
@@ -119,7 +146,7 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
                         {
                             dataDetalhe.map((indicator) => (
                                 <Cell 
-                                    key={indicator.subGrupo} 
+                                    key={`${indicator.grupo}-${indicator.subGrupo}`}
                                     fill={indicator.Cor} 
                                     
                                     />
@@ -151,7 +178,7 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
                                 <Cell 
                                     key={indicator.grupo} 
                                     fill={indicator.Cor} 
-                                    onClick={() => {detalharGrupo(indicator.grupo)}}
+                                    onClick={() => setGrupoSelecionado(indicator.grupo === grupoSelecionado ? null : indicator.grupo)}
                                     />
                             ))
                         }

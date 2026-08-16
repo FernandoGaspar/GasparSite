@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
+import { URL_API } from '../../repositories/baseAPI';
 
 interface NewsItem {
   title: string;
@@ -12,6 +13,7 @@ interface NewsItem {
 
 interface NewsFeedProps {
   ticker?: string;
+  query?: string; // free-text search, takes precedence over ticker (used for general market news)
   items?: NewsItem[]; // optional pre-fetched list (may include other ticks)
 }
 
@@ -70,33 +72,27 @@ const Placeholder = styled.div`
   color: #666;
 `;
 
-const NewsFeed: React.FC<NewsFeedProps> = ({ ticker, items }) => {
+const NewsFeed: React.FC<NewsFeedProps> = ({ ticker, query, items }) => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const searchTerm = query || ticker;
+
   useEffect(() => {
-    console.log('NewsFeed effect run', { ticker, items });
+    console.log('NewsFeed effect run', { ticker, query, items });
     // if caller gave items we can use them immediately while a fetch may follow
     if (items) {
       setNews(items);
     }
 
-    if (ticker) {
+    if (searchTerm) {
       // fetch remote articles to get images/dates or live updates
-      const apiKey = "d394c4f38e1c49789d41305b66cf526c"
-      console.log('NewsFeed apiKey', apiKey);
-      if (!apiKey) {
-        console.warn('NewsFeed: no API key, skipping request');
-        return;
-      }
-
       setLoading(true);
       axios
         // request multiple articles
-        .get(`https://newsapi.org/v2/everything?q=${ticker}&pageSize=10&apiKey=${apiKey}`)
+        .get(`${URL_API}/news`, { params: { query: searchTerm } })
         .then((resp) => {
-          console.log('NewsAPI response', resp.data);
           const articles = resp.data.articles || [];
           const parsed = articles.map((a: any) => ({
             title: a.title,
@@ -119,13 +115,11 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ ticker, items }) => {
         })
         .finally(() => setLoading(false));
     }
-  }, [ticker, items]);
+  }, [searchTerm, items]);
 
   if (loading) return <Placeholder>Carregando notícias...</Placeholder>;
   if (error) return <Placeholder>{error}</Placeholder>;
-  if (!news || news.length === 0) return <Placeholder>Nenhuma notícia de {ticker || 'valor'} disponível</Placeholder>;
-  console.log ("Entrou!")
-  console.log (news)
+  if (!news || news.length === 0) return <Placeholder>Nenhuma notícia {query ? 'de mercado' : `de ${ticker || 'valor'}`} disponível</Placeholder>;
   return (
     <Wrapper>
       <List>
