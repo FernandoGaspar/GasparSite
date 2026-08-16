@@ -10,6 +10,7 @@ import {
   FiEyeOff,
   FiHome,
   FiLoader,
+  FiMap,
   FiPlus,
   FiPower,
   FiRefreshCw,
@@ -21,6 +22,9 @@ import {
   FiWind,
   FiX,
 } from "react-icons/fi";
+import HomeFloorPlan, {
+  FloorPlanLight,
+} from "../../components/HomeFloorPlan";
 import { URL_API } from "../../repositories/baseAPI";
 import { Container } from "./styles";
 
@@ -58,7 +62,6 @@ const controllableDomains = [
 const deviceTypeLabels: Record<string, string> = {
   all: "Todos os tipos",
   light: "Iluminação",
-  switch: "Interruptores",
   fan: "Ventiladores",
   climate: "Ar-condicionado",
   media_player: "Televisões",
@@ -125,7 +128,7 @@ const iconFor = (device: Device) => {
     return <FiWind />;
   if (/cafe|peixe|gato/i.test(device.name)) return <FiCoffee />;
   if (device.domain === "media_player") return <TvIcon />;
-  return device.domain === "light" ? <FiSun /> : <FiPower />;
+  return ["light", "switch"].includes(device.domain) ? <FiSun /> : <FiPower />;
 };
 const readStoredJson = <T,>(key: string, fallback: T): T => {
   try {
@@ -552,6 +555,7 @@ const Home: React.FC = () => {
   const [roomUpdating, setRoomUpdating] = useState(false);
   const [error, setError] = useState("");
   const [organizing, setOrganizing] = useState(false);
+  const [floorPlanOpen, setFloorPlanOpen] = useState(false);
   const [newRoom, setNewRoom] = useState("");
   const [roomAssignments, setRoomAssignments] = useState<
     Record<string, string>
@@ -728,7 +732,10 @@ const Home: React.FC = () => {
         )
         .filter(
           (item) =>
-            (deviceType === "all" || item.domain === deviceType) &&
+            (deviceType === "all" ||
+              (deviceType === "light"
+                ? ["light", "switch"].includes(item.domain)
+                : item.domain === deviceType)) &&
             `${item.name} ${item.room}`
               .toLowerCase()
               .includes(search.toLowerCase()) &&
@@ -812,7 +819,7 @@ const Home: React.FC = () => {
     (device) => device.isOn && !hiddenDevices[device.entity_id],
   );
   const totalLights = devices.filter(
-    (device) => device.domain === "light",
+    (device) => ["light", "switch"].includes(device.domain),
   ).length;
 
   const persistAssignments = (next: Record<string, string>) => {
@@ -943,6 +950,28 @@ const Home: React.FC = () => {
   };
   const toggleDevice = async (device: Device) =>
     setDeviceState(device, device.isOn ? "off" : "on");
+  const setFloorLightState = async (
+    entityId: string,
+    state: "on" | "off",
+  ) => {
+    try {
+      await axios.post(`${URL_API}/home-assistant/service`, {
+        entity_id: entityId,
+        state,
+      });
+      setStates((current) =>
+        current.map((item) =>
+          item.entity_id === entityId ? { ...item, state } : item,
+        ),
+      );
+    } catch (requestError: any) {
+      setError(
+        requestError.response?.data?.message ||
+          "Não foi possível atualizar a luz pela planta.",
+      );
+      throw requestError;
+    }
+  };
   const setClimateTemperature = async (device: Device, temperature: number) => {
     setUpdating(device.entity_id);
     try {
@@ -1033,6 +1062,9 @@ const Home: React.FC = () => {
           <span className="connection">
             <i /> <FiWifi /> Home Assistant local
           </span>
+          <button type="button" onClick={() => setFloorPlanOpen(true)}>
+            <FiMap /> Ver planta
+          </button>
           <button onClick={() => loadStates(true)} disabled={refreshing}>
             <FiRefreshCw className={refreshing ? "spin" : ""} /> Atualizar
           </button>
@@ -1068,7 +1100,9 @@ const Home: React.FC = () => {
             <strong>
               {
                 devices.filter(
-                  (device) => device.domain === "light" && device.isOn,
+                  (device) =>
+                    ["light", "switch"].includes(device.domain) &&
+                    device.isOn,
                 ).length
               }
               <b> / {totalLights}</b>
@@ -1479,6 +1513,23 @@ const Home: React.FC = () => {
           )}
         </>
       )}
+      <HomeFloorPlan
+        open={floorPlanOpen}
+        usuarioId={usuarioId}
+        registeredRooms={roomOptions}
+        lights={states
+          .filter((state) =>
+            /^(light|switch)\./.test(state.entity_id),
+          )
+          .map((state) => ({
+            ...state,
+            room:
+              roomAssignments[state.entity_id] ||
+              roomFromName(state.attributes?.friendly_name || state.entity_id),
+          })) as FloorPlanLight[]}
+        onClose={() => setFloorPlanOpen(false)}
+        onSetLight={setFloorLightState}
+      />
     </Container>
   );
 };

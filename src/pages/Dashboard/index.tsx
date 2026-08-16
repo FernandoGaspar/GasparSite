@@ -467,7 +467,6 @@ const Dashboard: React.FC = () => {
             <header className="dashboard-hero">
                 <div>
                     <span className="eyebrow">VISÃO GERAL</span>
-                    <h1>Seu dinheiro, em perspectiva.</h1>
                     <p>Acompanhe suas decisões e mantenha o controle da sua vida financeira.</p>
                 </div>
                 <div className="period-picker">
