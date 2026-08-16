@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useMemo, useState } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import { FaFileImport, FaPlus, FaSync } from 'react-icons/fa';
 import { CustomDialog } from 'react-st-modal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -33,6 +33,7 @@ interface IPapelMonitorado {
     ultimoDividendo: number
     dataUltimoDiv: string
     tipoPapel: string
+    origem?: string
 }
 
 interface IEvolucaoInvestimentoData {
@@ -49,6 +50,7 @@ interface IEvolucaoInvestimentoData {
     ValorCotacaoPonderado: number
     ValorM1Ponderado: number
     ValorDividendoPonderado: number
+    Origem?: string
 }
 
 interface IIndicador {
@@ -63,6 +65,16 @@ interface ISuggestion {
     description: string;
 }
 
+interface IB3Preview {
+    arquivo: string;
+    totalLinhas: number;
+    validas: number;
+    ignoradas: number;
+    previa: Array<{ data: string; operacao: string; codigo: string; quantidade: number; precoUnitario: number; valorTotal: number; instituicao: string }>;
+}
+
+type InvestmentOriginFilter = 'TODOS' | 'SEM_MANUAIS' | 'B3' | 'PLUGGY';
+
 function getCorInvestimento(tipo: string) {
     switch (tipo) {
         case 'FUNDOS IMOBILIÁRIOS': return "#02b022"
@@ -75,13 +87,81 @@ function getCorInvestimento(tipo: string) {
 }
 
 const Investment: React.FC = () => {
-    const [papeisMonitorados, setPapeisMonitorados] = useState<IPapelMonitorado[]>([]);
+    const [legacyPositions, setLegacyPositions] = useState<IPapelMonitorado[]>([]);
+    const [b3Positions, setB3Positions] = useState<IPapelMonitorado[]>([]);
+    const [pluggyPositions, setPluggyPositions] = useState<IPapelMonitorado[]>([]);
+    const [originFilter, setOriginFilter] = useState<InvestmentOriginFilter>('SEM_MANUAIS');
     const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
     const [indicadores, setIndicadores] = useState<IIndicador[]>([]);
-    const [periodoSelected, setPeriodoSelected] = useState<number>(1);
+    const [periodoSelected, setPeriodoSelected] = useState<number>(6);
     const [selectedCodigo, setSelectedCodigo] = useState<string>('');
+    const [importOpen, setImportOpen] = useState(false);
+    const [b3File, setB3File] = useState<File>();
+    const [b3Preview, setB3Preview] = useState<IB3Preview>();
+    const [integrationBusy, setIntegrationBusy] = useState(false);
+    const [integrationMessage, setIntegrationMessage] = useState('');
 
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
+
+    const papeisMonitorados = useMemo(() => {
+        if (originFilter === 'SEM_MANUAIS') return [...b3Positions, ...pluggyPositions];
+        if (originFilter === 'B3') return b3Positions;
+        if (originFilter === 'PLUGGY') return pluggyPositions;
+        return [...legacyPositions, ...pluggyPositions];
+    }, [originFilter, legacyPositions, b3Positions, pluggyPositions]);
+
+    const filteredEvolution = useMemo(() => {
+        if (originFilter === 'TODOS') return evolucaoInvestimentos;
+        if (originFilter === 'PLUGGY' || originFilter === 'SEM_MANUAIS') {
+            return evolucaoInvestimentos.filter(item => item.Origem === 'PLUGGY');
+        }
+        return [];
+    }, [evolucaoInvestimentos, originFilter]);
+
+    const uploadB3 = async (confirm = false) => {
+        if (!b3File) return;
+        setIntegrationBusy(true);
+        setIntegrationMessage('');
+        const form = new FormData();
+        form.append('file', b3File);
+        form.append('idUsuario', idUsuario);
+        try {
+            const { data } = await axios.post(
+                `${URL_API}/investments/b3/import?confirm=${confirm}`,
+                form,
+            );
+            if (confirm) {
+                setIntegrationMessage(`${data.importadas} movimentações importadas; ${data.duplicadas} duplicadas ignoradas.`);
+                setB3Preview(undefined);
+                setB3File(undefined);
+                atualizaPapeisMonitorados();
+                getEvolucaoInvestimento();
+            } else {
+                setB3Preview(data);
+            }
+        } catch (error: any) {
+            setIntegrationMessage(error.response?.data?.message || 'Não foi possível processar o arquivo da B3.');
+        } finally {
+            setIntegrationBusy(false);
+        }
+    };
+
+    const syncPluggyInvestments = async () => {
+        setIntegrationBusy(true);
+        setIntegrationMessage('');
+        try {
+            const { data } = await axios.post(`${URL_API}/investments/pluggy/sync`, {
+                idUsuario: Number(idUsuario),
+            });
+            setIntegrationMessage(`${data.posicoes} posições da Pluggy sincronizadas com sucesso.`);
+            atualizaPapeisMonitorados();
+            getEvolucaoInvestimento();
+        } catch (error: any) {
+            setIntegrationMessage(error.response?.data?.message || 'Não foi possível sincronizar a Pluggy.');
+        } finally {
+            setIntegrationBusy(false);
+        }
+    };
 
     const periodos = useMemo(() => {
         return listOfPeriodos.map((month, index) => ({
@@ -98,14 +178,25 @@ const Investment: React.FC = () => {
     }
 
     const atualizaPapeisMonitorados = () => {
-        axios.post(URL_API + "/papeisMonitorados", {
+        Promise.all([
+            axios.post(URL_API + "/papeisMonitorados", {
             headers: { "Access-Control-Allow-Origin": "*" },
             idUsuario: idUsuario,
             periodo: periodoSelected
-        })
-            .then((response) => {
-                const { data } = response
-                setPapeisMonitorados(JSON.parse(data))
+            }),
+            axios.get(`${URL_API}/investments/pluggy/portfolio`, {
+                params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
+            }),
+            axios.get(`${URL_API}/investments/b3/portfolio`, {
+                params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
+            }),
+        ])
+            .then(([legacyResponse, pluggyResponse, b3Response]) => {
+                const legacy = JSON.parse(legacyResponse.data) as IPapelMonitorado[];
+                const pluggy = pluggyResponse.data.posicoes as IPapelMonitorado[];
+                setLegacyPositions(legacy.map(item => ({ ...item, origem: 'MANUAL' })));
+                setPluggyPositions(pluggy);
+                setB3Positions(b3Response.data.posicoes as IPapelMonitorado[]);
             })
             .catch((error) => {
                 console.log(error)
@@ -113,13 +204,18 @@ const Investment: React.FC = () => {
     }
 
     const getEvolucaoInvestimento = () => {
-        axios.post(URL_API + "/evolucaoInvestimento", {
+        Promise.all([
+            axios.post(URL_API + "/evolucaoInvestimento", {
             headers: { "Access-Control-Allow-Origin": "*" },
             idUsuario: idUsuario,
-        })
-            .then((response) => {
-                const { data } = response
-                setEvolucaoInvestimentos(JSON.parse(data))
+            }),
+            axios.get(`${URL_API}/investments/pluggy/portfolio`, {
+                params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
+            }),
+        ])
+            .then(([legacyResponse, pluggyResponse]) => {
+                const legacy = JSON.parse(legacyResponse.data) as IEvolucaoInvestimentoData[];
+                setEvolucaoInvestimentos([...legacy, ...pluggyResponse.data.evolucao]);
             })
             .catch((error) => {
                 console.log(error)
@@ -311,6 +407,24 @@ const Investment: React.FC = () => {
                             defaultValue={periodoSelected}
                         />
                     </div>
+                    <label className="origin-filter">
+                        <span>Origem</span>
+                        <select
+                            value={originFilter}
+                            onChange={event => setOriginFilter(event.target.value as InvestmentOriginFilter)}
+                        >
+                            <option value="SEM_MANUAIS">Carteira atual</option>
+                            <option value="TODOS">Todos (inclui manuais antigos)</option>
+                            <option value="B3">Somente B3</option>
+                            <option value="PLUGGY">Somente Pluggy</option>
+                        </select>
+                    </label>
+                    <button
+                        className="import-button"
+                        onClick={() => setImportOpen(value => !value)}
+                    >
+                        <FaFileImport /> Importar B3
+                    </button>
                     <button
                         className="add-asset-button"
                         onClick={async () => {
@@ -331,6 +445,57 @@ const Investment: React.FC = () => {
             </header>
 
             <Content>
+                {importOpen && (
+                    <section className="integration-panel section-card">
+                        <div className="section-heading">
+                            <div>
+                                <h2>Integrações da carteira</h2>
+                                <p>Importe o histórico da B3 e mantenha renda fixa e fundos atualizados pela Pluggy.</p>
+                            </div>
+                            <button disabled={integrationBusy} onClick={syncPluggyInvestments}>
+                                <FaSync /> Sincronizar Pluggy agora
+                            </button>
+                        </div>
+                        <div className="b3-upload">
+                            <label>
+                                Arquivo da Área do Investidor B3
+                                <input
+                                    type="file"
+                                    accept=".csv,.xls,.xlsx"
+                                    onChange={event => {
+                                        setB3File(event.target.files?.[0]);
+                                        setB3Preview(undefined);
+                                        setIntegrationMessage('');
+                                    }}
+                                />
+                            </label>
+                            <button disabled={!b3File || integrationBusy} onClick={() => uploadB3(false)}>
+                                Gerar prévia
+                            </button>
+                        </div>
+                        {integrationMessage && <div className="integration-message">{integrationMessage}</div>}
+                        {b3Preview && (
+                            <div className="import-preview">
+                                <header>
+                                    <div><strong>{b3Preview.arquivo}</strong><span>{b3Preview.validas} válidas de {b3Preview.totalLinhas} linhas • {b3Preview.ignoradas} ignoradas</span></div>
+                                    <button disabled={integrationBusy} onClick={() => uploadB3(true)}>Confirmar importação</button>
+                                </header>
+                                <div className="preview-table-wrap">
+                                    <table>
+                                        <thead><tr><th>Data</th><th>Operação</th><th>Ativo</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Instituição</th></tr></thead>
+                                        <tbody>{b3Preview.previa.map((item, index) => (
+                                            <tr key={`${item.codigo}-${item.data}-${index}`}>
+                                                <td>{new Date(item.data).toLocaleDateString('pt-BR')}</td><td>{item.operacao}</td><td>{item.codigo}</td>
+                                                <td>{item.quantidade}</td><td>{item.precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                                <td>{item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>{item.instituicao || '—'}</td>
+                                            </tr>
+                                        ))}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </section>
+                )}
                 <div className="summary-cards">
                     <WalletBox
                         title="total investido"
@@ -382,7 +547,7 @@ const Investment: React.FC = () => {
                         <PieChartBox titulo="Alocação da carteira" data={alocacaoCarteira} />
                     </div>
                     <div className="section-card">
-                        <InvestmentEvolution evolucaoInvestimentos={evolucaoInvestimentos} />
+                        <InvestmentEvolution evolucaoInvestimentos={filteredEvolution} />
                     </div>
                 </section>
 
@@ -394,7 +559,7 @@ const Investment: React.FC = () => {
                     <div className="holdings-grid">
                         {papeisMonitorados.length ? papeisMonitorados.map(item => (
                             <InvestimentBox
-                                key={item.codigo}
+                                key={`${item.origem || 'MANUAL'}-${item.codigo}`}
                                 papel={item.codigo}
                                 tipo={item.tipo}
                                 papelGrafico={item.codigoGrafico}
@@ -405,6 +570,7 @@ const Investment: React.FC = () => {
                                 ultimoDividendo={item.ultimoDividendo}
                                 dataUltimoDiv={item.dataUltimoDiv}
                                 tipoPapel={item.tipoPapel}
+                                origem={item.origem}
                                 atualizaPapeisMonitorados={atualizaPapeisMonitorados}
                             />
                         )) : <div className="holdings-empty">Nenhum ativo monitorado ainda. Clique em "Adicionar ativo" para começar.</div>}
@@ -418,7 +584,7 @@ const Investment: React.FC = () => {
                     <div className="ticker-row">
                         {papeisMonitorados.map(item => (
                             <span
-                                key={item.codigo}
+                                key={`${item.origem || 'MANUAL'}-${item.codigo}`}
                                 className={`ticker-chip ${item.codigo === selectedCodigo ? 'active' : ''}`}
                                 onClick={() => setSelectedCodigo(item.codigo)}
                             >

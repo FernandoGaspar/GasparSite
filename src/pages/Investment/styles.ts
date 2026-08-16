@@ -18,11 +18,11 @@ export const Container = styled.div`
     .investment-hero p { max-width: 520px; color: ${props => props.theme.colors.gray}; font-size: 14px; line-height: 1.55; }
 
     .hero-controls { display: flex; align-items: center; gap: 12px; }
-    .period-picker { min-width: 190px; padding: 13px 14px; border: 1px solid ${props => props.theme.colors.tertiary}; border-radius: 12px; background: ${props => props.theme.colors.secondary}; }
-    .period-picker > span { display: block; color: ${props => props.theme.colors.gray}; font-size: 11px; font-weight: 700; margin: 0 0 7px 7px; text-transform: uppercase; letter-spacing: .08em; }
-    .period-picker select { color: ${props => props.theme.colors.white}; background: ${props => props.theme.colors.tertiary}; font-weight: 600; }
+    .period-picker, .origin-filter { min-width: 190px; padding: 13px 14px; border: 1px solid ${props => props.theme.colors.tertiary}; border-radius: 12px; background: ${props => props.theme.colors.secondary}; }
+    .period-picker > span, .origin-filter > span { display: block; color: ${props => props.theme.colors.gray}; font-size: 11px; font-weight: 700; margin: 0 0 7px 7px; text-transform: uppercase; letter-spacing: .08em; }
+    .period-picker select, .origin-filter select { width: 100%; min-height: 34px; padding: 0 8px; border: 0; border-radius: 8px; color: ${props => props.theme.colors.white}; background: ${props => props.theme.colors.tertiary}; font-weight: 600; }
 
-    .add-asset-button {
+    .add-asset-button, .import-button {
         display: flex; align-items: center; gap: 8px;
         padding: 13px 18px; height: fit-content;
         border: none; border-radius: 12px;
@@ -33,11 +33,12 @@ export const Container = styled.div`
         transition: transform .15s ease, box-shadow .15s ease;
     }
     .add-asset-button:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(6,214,160,.25); }
+    .import-button { background: ${props => props.theme.colors.tertiary}; color: ${props => props.theme.colors.white}; border: 1px solid ${props => props.theme.colors.tertiary}; cursor: pointer; }
 
     @media(max-width: 600px) {
         .investment-hero { align-items: flex-start; flex-direction: column; padding-bottom: 22px; }
         .hero-controls { width: 100%; flex-direction: column; align-items: stretch; }
-        .period-picker { width: 100%; }
+        .period-picker, .origin-filter { width: 100%; box-sizing: border-box; }
     }
 `;
 
@@ -56,6 +57,24 @@ export const Content = styled.main`
     .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .section-heading h2 { color: ${props => props.theme.colors.white}; font-size: 18px; letter-spacing: -.02em; }
     .section-heading span { color: ${props => props.theme.colors.gray}; font-size: 12px; }
+
+    .integration-panel .section-heading { align-items: flex-start; gap: 16px; }
+    .integration-panel .section-heading p { margin-top: 5px; color: ${props => props.theme.colors.gray}; font-size: 12px; }
+    .integration-panel button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 9px; color: ${props => props.theme.colors.primary}; background: ${props => props.theme.colors.success}; font-weight: 700; cursor: pointer; }
+    .integration-panel button:disabled { cursor: wait; opacity: .5; }
+    .b3-upload { display: flex; align-items: flex-end; gap: 12px; padding: 14px; border-radius: 10px; background: ${props => props.theme.colors.tertiary}; }
+    .b3-upload label { flex: 1; color: ${props => props.theme.colors.gray}; font-size: 11px; font-weight: 700; }
+    .b3-upload input { display: block; width: 100%; margin-top: 7px; color: ${props => props.theme.colors.white}; }
+    .integration-message { margin-top: 12px; padding: 11px; border-radius: 9px; color: ${props => props.theme.colors.white}; background: ${props => props.theme.colors.tertiary}; font-size: 12px; }
+    .import-preview { margin-top: 14px; }
+    .import-preview > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .import-preview > header strong, .import-preview > header span { display: block; }
+    .import-preview > header strong { color: ${props => props.theme.colors.white}; font-size: 13px; }
+    .import-preview > header span { margin-top: 3px; color: ${props => props.theme.colors.gray}; font-size: 11px; }
+    .preview-table-wrap { max-height: 330px; overflow: auto; border: 1px solid ${props => props.theme.colors.tertiary}; border-radius: 10px; }
+    .preview-table-wrap table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    .preview-table-wrap th, .preview-table-wrap td { padding: 9px 10px; border-bottom: 1px solid ${props => props.theme.colors.tertiary}; color: ${props => props.theme.colors.gray}; font-size: 11px; text-align: left; white-space: nowrap; }
+    .preview-table-wrap th { position: sticky; top: 0; color: ${props => props.theme.colors.white}; background: ${props => props.theme.colors.primary}; }
 
     .allocation-evolution-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px; }
     .allocation-evolution-row .section-card > div { width: 100%; margin: 0; }
@@ -114,5 +133,6 @@ export const Content = styled.main`
         padding-top: 20px;
         .summary-cards { grid-template-columns: 1fr; }
         .section-card { padding: 14px; }
+        .b3-upload, .integration-panel .section-heading, .import-preview > header { align-items: stretch; flex-direction: column; }
     }
 `;

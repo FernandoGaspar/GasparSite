@@ -21,6 +21,7 @@ interface IInvestmentBoxProps {
   ultimoDividendo: number;
   dataUltimoDiv: string
   tipoPapel: string
+  origem?: string
   atualizaPapeisMonitorados: (arg: string) => void
 }
 
@@ -35,6 +36,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
   ultimoDividendo,
   dataUltimoDiv,
   tipoPapel,
+  origem,
   atualizaPapeisMonitorados
 
 }) => {
@@ -105,7 +107,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
 
   return (
         <Container
-          onClick={() => window.open(linkGrafico)}
+          onClick={() => origem !== 'PLUGGY' && window.open(linkGrafico)}
         >
           <header>
 
@@ -115,6 +117,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
               }}>
               {tipoPapelIcone} &nbsp;
               {papel}  &nbsp; &nbsp;
+              {origem === 'PLUGGY' && <small style={{ color: '#06D6A0', fontSize: 9 }}>PLUGGY</small>}
               <div
                 style={{
                   float: "right",
@@ -221,7 +224,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
             </p>
             : "" }
             <small>{ "Última atualização em " + formatDate(dataAtualizacao!, 1) } </small>          
-            <FaLowVision
+            {origem !== 'PLUGGY' && <FaLowVision
                 onClick={() => {
                       alteraListaPapel (papel, "0")
                         }}
@@ -229,7 +232,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
                           // fontSize : "35px",
                           float: "right"
                       }}   
-                />
+                />}
           </footer>
         </Container>
         
