@@ -34,6 +34,7 @@ interface IPapelMonitorado {
     dataUltimoDiv: string
     tipoPapel: string
     origem?: string
+    banco?: string
 }
 
 interface IEvolucaoInvestimentoData {
@@ -59,6 +60,19 @@ interface IIndicador {
     Valor: number
 }
 
+interface IMarketIndicator {
+    atual: number | null
+    acumulado12m: number | null
+    variacaoPeriodo: number | null
+}
+
+interface IMarketOverview {
+    ibovespa: IMarketIndicator
+    dolar: IMarketIndicator
+    ipca: IMarketIndicator
+    cdi: IMarketIndicator
+}
+
 interface ISuggestion {
     type: 'buy' | 'hold' | 'sell';
     label: string;
@@ -73,7 +87,7 @@ interface IB3Preview {
     previa: Array<{ data: string; operacao: string; codigo: string; quantidade: number; precoUnitario: number; valorTotal: number; instituicao: string }>;
 }
 
-type InvestmentOriginFilter = 'TODOS' | 'SEM_MANUAIS' | 'B3' | 'PLUGGY';
+type InvestmentOriginFilter = 'SEM_MANUAIS' | 'PLUGGY' | 'CRIPTO';
 
 function getCorInvestimento(tipo: string) {
     switch (tipo) {
@@ -82,17 +96,18 @@ function getCorInvestimento(tipo: string) {
         case 'EMPRESA LISTADA NA BOLSA INTERNACIONAL': return "#ff8cbe"
         case 'CRIPTOMOEDA': return "#fff48c"
         case 'INDICE': return "#8cfbff"
+        case 'INDICADORES': return "#8cfbff"
         default: return "#4F8CFF";
     }
 }
 
 const Investment: React.FC = () => {
-    const [legacyPositions, setLegacyPositions] = useState<IPapelMonitorado[]>([]);
-    const [b3Positions, setB3Positions] = useState<IPapelMonitorado[]>([]);
     const [pluggyPositions, setPluggyPositions] = useState<IPapelMonitorado[]>([]);
+    const [cryptoPositions, setCryptoPositions] = useState<IPapelMonitorado[]>([]);
     const [originFilter, setOriginFilter] = useState<InvestmentOriginFilter>('SEM_MANUAIS');
     const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
     const [indicadores, setIndicadores] = useState<IIndicador[]>([]);
+    const [marketOverview, setMarketOverview] = useState<IMarketOverview>();
     const [periodoSelected, setPeriodoSelected] = useState<number>(6);
     const [selectedCodigo, setSelectedCodigo] = useState<string>('');
     const [importOpen, setImportOpen] = useState(false);
@@ -104,19 +119,29 @@ const Investment: React.FC = () => {
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
 
     const papeisMonitorados = useMemo(() => {
-        if (originFilter === 'SEM_MANUAIS') return [...b3Positions, ...pluggyPositions];
-        if (originFilter === 'B3') return b3Positions;
+        // A B3 e usada somente para historico. Saldo e cotacao atuais vem da Pluggy.
+        if (originFilter === 'SEM_MANUAIS') return [...pluggyPositions, ...cryptoPositions];
         if (originFilter === 'PLUGGY') return pluggyPositions;
-        return [...legacyPositions, ...pluggyPositions];
-    }, [originFilter, legacyPositions, b3Positions, pluggyPositions]);
+        return cryptoPositions;
+    }, [originFilter, pluggyPositions, cryptoPositions]);
 
     const filteredEvolution = useMemo(() => {
-        if (originFilter === 'TODOS') return evolucaoInvestimentos;
-        if (originFilter === 'PLUGGY' || originFilter === 'SEM_MANUAIS') {
-            return evolucaoInvestimentos.filter(item => item.Origem === 'PLUGGY');
-        }
-        return [];
-    }, [evolucaoInvestimentos, originFilter]);
+        const origemFiltrada = originFilter === 'PLUGGY'
+            ? evolucaoInvestimentos.filter(item => item.Origem === 'PLUGGY')
+            : originFilter === 'SEM_MANUAIS' ? evolucaoInvestimentos : [];
+
+        if (periodoSelected === 9999 || !origemFiltrada.length) return origemFiltrada;
+
+        // A evolução é mensal. Mantemos um mês anterior como base para que o
+        // retorno de 30 dias/1 ano seja calculado contra a cotação anterior.
+        const ultimoAnoMes = Math.max(...origemFiltrada.map(item => Number(item.AnoMes)));
+        const ultimoAno = Math.floor(ultimoAnoMes / 100);
+        const ultimoMes = ultimoAnoMes % 100;
+        const mesesDeHistorico = periodoSelected === 7 ? 12 : 1;
+        const dataCorte = new Date(ultimoAno, ultimoMes - mesesDeHistorico - 1, 1);
+        const anoMesCorte = dataCorte.getFullYear() * 100 + (dataCorte.getMonth() + 1);
+        return origemFiltrada.filter(item => Number(item.AnoMes) >= anoMesCorte);
+    }, [evolucaoInvestimentos, originFilter, periodoSelected]);
 
     const uploadB3 = async (confirm = false) => {
         if (!b3File) return;
@@ -179,24 +204,17 @@ const Investment: React.FC = () => {
 
     const atualizaPapeisMonitorados = () => {
         Promise.all([
-            axios.post(URL_API + "/papeisMonitorados", {
-            headers: { "Access-Control-Allow-Origin": "*" },
-            idUsuario: idUsuario,
-            periodo: periodoSelected
-            }),
             axios.get(`${URL_API}/investments/pluggy/portfolio`, {
                 params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
             }),
-            axios.get(`${URL_API}/investments/b3/portfolio`, {
-                params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
+            axios.get(`${URL_API}/investments/crypto/portfolio`, {
+                params: { idUsuario: Number(idUsuario) },
             }),
         ])
-            .then(([legacyResponse, pluggyResponse, b3Response]) => {
-                const legacy = JSON.parse(legacyResponse.data) as IPapelMonitorado[];
+            .then(([pluggyResponse, cryptoResponse]) => {
                 const pluggy = pluggyResponse.data.posicoes as IPapelMonitorado[];
-                setLegacyPositions(legacy.map(item => ({ ...item, origem: 'MANUAL' })));
                 setPluggyPositions(pluggy);
-                setB3Positions(b3Response.data.posicoes as IPapelMonitorado[]);
+                setCryptoPositions(cryptoResponse.data.posicoes as IPapelMonitorado[]);
             })
             .catch((error) => {
                 console.log(error)
@@ -222,6 +240,18 @@ const Investment: React.FC = () => {
             })
     }
 
+    const getMarketOverview = () => {
+        axios.get(`${URL_API}/investments/market-overview`, {
+            params: { periodo: periodoSelected },
+        })
+            .then((response) => {
+                setMarketOverview(response.data);
+            })
+            .catch((error) => {
+                console.log(error)
+            })
+    }
+
     const getIndicadoresEconomicos = () => {
         axios.post(URL_API + "/evolucaoIndicadores", {
             headers: { "Access-Control-Allow-Origin": "*" },
@@ -237,12 +267,13 @@ const Investment: React.FC = () => {
 
     useEffect(() => {
         atualizaPapeisMonitorados()
+        getMarketOverview()
     }, [idUsuario, periodoSelected]);
 
     useEffect(() => {
         getEvolucaoInvestimento()
         getIndicadoresEconomicos()
-    }, [idUsuario]);
+    }, [idUsuario, periodoSelected]);
 
     useEffect(() => {
         if (!selectedCodigo && papeisMonitorados.length > 0) {
@@ -287,13 +318,21 @@ const Investment: React.FC = () => {
             .slice(-1)[0];
     }
 
-    const sentimentoCarteira = useMemo(() => {
-        const acoesBovespa = papeisMonitorados.filter(item => item.tipo === 'BOVESPA' && item.saldoAtual > 0);
-        const saldoBovespa = acoesBovespa.reduce((total, item) => total + item.saldoAtual, 0);
-        if (!saldoBovespa) return null;
-        const media = acoesBovespa.reduce((total, item) => total + (item.saldoAtual * item.variacao), 0) / saldoBovespa;
-        return media * 100;
-    }, [papeisMonitorados]);
+    const periodoLabel = useMemo(() => {
+        return periodoSelected === 9999 ? 'Final' : (listOfPeriodos[periodoSelected - 1] || '');
+    }, [periodoSelected]);
+
+    const marketCards: { key: keyof IMarketOverview, label: string, formatAtual: (valor: number) => string }[] = [
+        { key: 'ibovespa', label: 'IBOVESPA', formatAtual: valor => valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) },
+        { key: 'dolar', label: 'Dólar', formatAtual: valor => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+        { key: 'ipca', label: 'IPCA', formatAtual: valor => `${valor.toFixed(2)}%` },
+        { key: 'cdi', label: 'CDI', formatAtual: valor => `${valor.toFixed(2)}%` },
+    ];
+
+    const formatVariacao = (valor: number | null | undefined) => {
+        if (valor === null || valor === undefined) return '—';
+        return `${valor >= 0 ? '+' : ''}${valor.toFixed(2)}%`;
+    }
 
     const alertasCarteira = useMemo(() => {
         const mensagens: { type: 'warning' | 'attention' | 'info', title: string, description: string }[] = [];
@@ -414,9 +453,8 @@ const Investment: React.FC = () => {
                             onChange={event => setOriginFilter(event.target.value as InvestmentOriginFilter)}
                         >
                             <option value="SEM_MANUAIS">Carteira atual</option>
-                            <option value="TODOS">Todos (inclui manuais antigos)</option>
-                            <option value="B3">Somente B3</option>
                             <option value="PLUGGY">Somente Pluggy</option>
+                            <option value="CRIPTO">Somente criptomoedas</option>
                         </select>
                     </label>
                     <button
@@ -542,6 +580,40 @@ const Investment: React.FC = () => {
                     </div>
                 </section>
 
+                <section className="section-card">
+                    <div className="section-heading">
+                        <h2>Mercado hoje</h2>
+                        <span>Indicadores econômicos e desempenho da carteira em ações</span>
+                    </div>
+                    <div className="market-grid">
+                        {marketCards.map(({ key, label, formatAtual }) => {
+                            const dado = marketOverview?.[key];
+                            const variacaoPeriodo = dado?.variacaoPeriodo ?? null;
+                            return (
+                                <div className="market-card" key={key}>
+                                    <span className="label">{label}</span>
+                                    <span className="value">{dado?.atual != null ? formatAtual(dado.atual) : '—'}</span>
+                                    <div className="market-card-metrics">
+                                        <div className="metric">
+                                            <span className="metric-label">Acumulado 12 meses</span>
+                                            <span className="metric-value">{formatVariacao(dado?.acumulado12m)}</span>
+                                        </div>
+                                        <div className="metric highlight">
+                                            <span className="metric-label">Variação {periodoLabel ? `(${periodoLabel})` : 'do período'}</span>
+                                            <span
+                                                className="metric-value"
+                                                style={{ color: variacaoPeriodo === null ? undefined : (variacaoPeriodo >= 0 ? '#06D6A0' : '#EF476F') }}
+                                            >
+                                                {formatVariacao(variacaoPeriodo)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+
                 <section className="allocation-evolution-row">
                     <div className="section-card">
                         <PieChartBox titulo="Alocação da carteira" data={alocacaoCarteira} />
@@ -626,30 +698,6 @@ const Investment: React.FC = () => {
                     ) : (
                         <div className="chart-placeholder-text">Nenhum ativo selecionado.</div>
                     )}
-                </section>
-
-                <section className="section-card">
-                    <div className="section-heading">
-                        <h2>Mercado hoje</h2>
-                        <span>Indicadores econômicos e desempenho da carteira em ações</span>
-                    </div>
-                    <div className="market-grid">
-                        {['selic', 'ipca', 'cdi', 'cdb'].map(nome => {
-                            const latest = getLatestIndicador(nome);
-                            return (
-                                <div className="market-card" key={nome}>
-                                    <span className="label">{nome}</span>
-                                    <span className="value">{latest ? `${latest.Valor.toFixed(2)}%` : '—'}</span>
-                                </div>
-                            );
-                        })}
-                        <div className="market-card">
-                            <span className="label">Sentimento da carteira</span>
-                            <span className="value" style={{ color: sentimentoCarteira === null ? undefined : (sentimentoCarteira >= 0 ? '#06D6A0' : '#EF476F') }}>
-                                {sentimentoCarteira === null ? '—' : `${sentimentoCarteira >= 0 ? '+' : ''}${sentimentoCarteira.toFixed(2)}%`}
-                            </span>
-                        </div>
-                    </div>
                 </section>
 
                 <section className="section-card">

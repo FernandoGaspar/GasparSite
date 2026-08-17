@@ -56,10 +56,12 @@ interface Props {
 
 const floorId = "upper-floor";
 const imagePath = "/assets/floor-plans/upper-floor.jpg";
+const groundFloorId = "ground-floor";
+const groundFloorImagePath = "/assets/floor-plans/ground-floor.png";
 
 const defaultPlan: FloorPlan = {
   id: floorId,
-  name: "Pavimento superior",
+  name: "Segundo andar",
   image: imagePath,
   rooms: [
     {
@@ -217,6 +219,32 @@ const defaultPlan: FloorPlan = {
   ],
 };
 
+const groundFloorPlan: FloorPlan = {
+  id: groundFloorId,
+  name: "Primeiro andar",
+  image: groundFloorImagePath,
+  rooms: [
+    { id: "deposito", name: "Depósito", polygon: [{ x: .02, y: .02 }, { x: .08, y: .02 }, { x: .08, y: .15 }, { x: .02, y: .15 }], labelPosition: { x: .05, y: .085 }, entities: [] },
+    { id: "sauna", name: "Sauna", polygon: [{ x: .08, y: .02 }, { x: .15, y: .02 }, { x: .15, y: .15 }, { x: .08, y: .15 }], labelPosition: { x: .115, y: .085 }, entities: [] },
+    { id: "piscina-prainha", name: "Piscina e prainha", polygon: [{ x: .03, y: .11 }, { x: .2, y: .11 }, { x: .2, y: .65 }, { x: .24, y: .65 }, { x: .24, y: .93 }, { x: .03, y: .93 }], labelPosition: { x: .12, y: .5 }, entities: [] },
+    { id: "espaco-gourmet", name: "Espaço gourmet", polygon: [{ x: .29, y: .14 }, { x: .53, y: .14 }, { x: .53, y: .49 }, { x: .29, y: .49 }], labelPosition: { x: .42, y: .36 }, entities: [] },
+    { id: "banho-gourmet", name: "Banho gourmet", polygon: [{ x: .29, y: .14 }, { x: .38, y: .14 }, { x: .38, y: .27 }, { x: .29, y: .27 }], labelPosition: { x: .335, y: .2 }, entities: [] },
+    { id: "sala-jantar", name: "Sala de jantar", polygon: [{ x: .53, y: .2 }, { x: .7, y: .2 }, { x: .7, y: .53 }, { x: .53, y: .53 }], labelPosition: { x: .615, y: .36 }, entities: [] },
+    { id: "sala-estar", name: "Sala de estar", polygon: [{ x: .7, y: .14 }, { x: .96, y: .14 }, { x: .96, y: .55 }, { x: .7, y: .55 }], labelPosition: { x: .83, y: .35 }, entities: [] },
+    { id: "espaco-spa", name: "Espaço spa", polygon: [{ x: .24, y: .49 }, { x: .34, y: .49 }, { x: .34, y: .82 }, { x: .24, y: .82 }], labelPosition: { x: .29, y: .65 }, entities: [] },
+    { id: "cozinha", name: "Cozinha", polygon: [{ x: .34, y: .49 }, { x: .57, y: .49 }, { x: .57, y: .82 }, { x: .34, y: .82 }], labelPosition: { x: .45, y: .66 }, entities: [] },
+    { id: "area-servico", name: "Área de serviço", polygon: [{ x: .49, y: .6 }, { x: .58, y: .6 }, { x: .58, y: .79 }, { x: .49, y: .79 }], labelPosition: { x: .535, y: .7 }, entities: [] },
+    { id: "suite-hospede", name: "Suíte hóspede", polygon: [{ x: .58, y: .55 }, { x: .7, y: .55 }, { x: .7, y: .82 }, { x: .58, y: .82 }], labelPosition: { x: .64, y: .68 }, entities: [] },
+    { id: "banho-hospede", name: "Banho hóspede", polygon: [{ x: .7, y: .55 }, { x: .79, y: .55 }, { x: .79, y: .82 }, { x: .7, y: .82 }], labelPosition: { x: .745, y: .68 }, entities: [] },
+    { id: "garagem", name: "Garagem", polygon: [{ x: .79, y: .55 }, { x: .99, y: .55 }, { x: .99, y: .95 }, { x: .79, y: .95 }], labelPosition: { x: .89, y: .74 }, entities: [] },
+  ],
+};
+
+const floorPlans: Record<string, FloorPlan> = {
+  [groundFloorId]: groundFloorPlan,
+  [floorId]: defaultPlan,
+};
+
 const clonePlan = (plan: FloorPlan): FloorPlan =>
   JSON.parse(JSON.stringify(plan));
 
@@ -236,9 +264,10 @@ const HomeFloorPlan: React.FC<Props> = ({
   onClose,
   onSetLight,
 }) => {
-  const [plan, setPlan] = useState<FloorPlan>(() => clonePlan(defaultPlan));
+  const [selectedFloorId, setSelectedFloorId] = useState(groundFloorId);
+  const [plan, setPlan] = useState<FloorPlan>(() => clonePlan(groundFloorPlan));
   const [savedPlan, setSavedPlan] = useState<FloorPlan>(() =>
-    clonePlan(defaultPlan),
+    clonePlan(groundFloorPlan),
   );
   const [editing, setEditing] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
@@ -279,21 +308,22 @@ const HomeFloorPlan: React.FC<Props> = ({
 
   useEffect(() => {
     if (!open) return;
+    const basePlan = floorPlans[selectedFloorId];
     setLoading(true);
     setMessage("");
     axios
-      .get<FloorPlan>(`${URL_API}/home-assistant/floor-plans/${floorId}`, {
+      .get<FloorPlan>(`${URL_API}/home-assistant/floor-plans/${basePlan.id}`, {
         params: { usuarioId },
       })
       .then(({ data }) => {
         const loaded = data.rooms?.length
-          ? { ...data, image: imagePath }
-          : clonePlan(defaultPlan);
+          ? { ...data, image: basePlan.image }
+          : clonePlan(basePlan);
         setPlan(loaded);
         setSavedPlan(clonePlan(loaded));
       })
       .catch(() => {
-        const initial = clonePlan(defaultPlan);
+        const initial = clonePlan(basePlan);
         setPlan(initial);
         setSavedPlan(clonePlan(initial));
         setMessage(
@@ -301,7 +331,7 @@ const HomeFloorPlan: React.FC<Props> = ({
         );
       })
       .finally(() => setLoading(false));
-  }, [open, usuarioId]);
+  }, [open, usuarioId, selectedFloorId]);
 
   useEffect(() => {
     if (!open) {
@@ -430,10 +460,10 @@ const HomeFloorPlan: React.FC<Props> = ({
     setMessage("");
     try {
       const { data } = await axios.put<FloorPlan>(
-        `${URL_API}/home-assistant/floor-plans/${floorId}`,
+        `${URL_API}/home-assistant/floor-plans/${plan.id}`,
         { usuarioId, plan },
       );
-      const saved = { ...data, image: imagePath };
+      const saved = { ...data, image: floorPlans[plan.id].image };
       setPlan(saved);
       setSavedPlan(clonePlan(saved));
       setEditing(false);
@@ -512,7 +542,7 @@ const HomeFloorPlan: React.FC<Props> = ({
   };
 
   return (
-    <Container role="dialog" aria-modal="true" aria-label="Planta superior">
+    <Container role="dialog" aria-modal="true" aria-label={plan.name}>
       <button className="floor-backdrop" onClick={close} aria-label="Fechar" />
       <section className="floor-modal">
         <header className="floor-header">
@@ -520,11 +550,21 @@ const HomeFloorPlan: React.FC<Props> = ({
             <span><FiHome /></span>
             <div>
               <small>CASA INTELIGENTE</small>
-              <h2>Planta superior</h2>
+              <h2>{plan.name}</h2>
               <p>Clique em um cômodo para controlar suas luzes.</p>
             </div>
           </div>
           <div className="floor-actions">
+            <button
+              className={selectedFloorId === groundFloorId ? "" : "secondary"}
+              disabled={loading || editing}
+              onClick={() => setSelectedFloorId(groundFloorId)}
+            >Primeiro andar</button>
+            <button
+              className={selectedFloorId === floorId ? "" : "secondary"}
+              disabled={loading || editing}
+              onClick={() => setSelectedFloorId(floorId)}
+            >Segundo andar</button>
             {editing ? (
               <>
                 <button className="secondary" onClick={addRoom}><FiPlus /> Cômodo</button>
@@ -572,7 +612,7 @@ const HomeFloorPlan: React.FC<Props> = ({
                 className={`floor-canvas ${portrait ? "portrait" : "landscape"}`}
                 style={{ width: `${zoom * 100}%` }}
               >
-                <img src={plan.image || imagePath} alt="Planta do pavimento superior" />
+                <img src={plan.image || floorPlans[plan.id].image} alt={`Planta do ${plan.name.toLowerCase()}`} />
                 <svg
                   ref={svgRef}
                   className={editing ? "editing" : "navigating"}

@@ -115,10 +115,15 @@ export const Content = styled.main`
     .alert.attention .alert-icon { color: #ff7c99; background: rgba(239, 71, 111, .14); }
     .alert.info .alert-icon { color: #06D6A0; background: rgba(6, 214, 160, .14); }
 
-    .market-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-    .market-card { padding: 14px; border-radius: 10px; background: ${props => props.theme.colors.tertiary}; text-align: center; }
+    .market-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .market-card { padding: 16px; border-radius: 10px; background: ${props => props.theme.colors.tertiary}; text-align: center; }
     .market-card .label { display: block; color: ${props => props.theme.colors.gray}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-    .market-card .value { font-size: 18px; font-weight: 700; color: ${props => props.theme.colors.white}; }
+    .market-card > .value { font-size: 20px; font-weight: 700; color: ${props => props.theme.colors.white}; }
+    .market-card-metrics { display: flex; justify-content: center; gap: 18px; margin-top: 14px; padding-top: 12px; border-top: 1px solid ${props => props.theme.colors.secondary}; }
+    .market-card-metrics .metric { display: flex; flex-direction: column; gap: 4px; }
+    .market-card-metrics .metric-label { color: ${props => props.theme.colors.gray}; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+    .market-card-metrics .metric-value { font-size: 13px; font-weight: 700; color: ${props => props.theme.colors.white}; }
+    .market-card-metrics .highlight .metric-value { font-size: 17px; }
 
     @media(max-width: 1100px) {
         .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }

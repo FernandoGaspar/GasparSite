@@ -111,128 +111,89 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   }, [evolucaoInvestimentos]);
 
   const dataAjustada = useMemo(() => {
-    let dadoFiltrado = evolucaoInvestimentos
-    if (tipoFiltro.length > 0){
-      dadoFiltrado = dadoFiltrado.filter(item => {
-        return tipoFiltro.includes(item.Tipo);
-      });
-    }
-    let dividendo = 0
-    dadoFiltrado.forEach(item => {
-      item.ValorMedioPonderado = item.ValorMedio*item.Saldo
-      item.ValorM1Ponderado = item.ValorCotacaoM1*item.Saldo
-      item.ValorDividendoPonderado = item.dividendo*item.Saldo
+    const dadosFiltrados = tipoFiltro.length
+      ? evolucaoInvestimentos.filter((item) => tipoFiltro.includes(item.Tipo))
+      : evolucaoInvestimentos;
 
-      if (dividendo !== null){
-        item.ValorCotacaoPonderado = (item.ValorCotacao+item.dividendo)*item.Saldo
-      }else {
-        item.ValorCotacaoPonderado = item.ValorCotacao*item.Saldo
-      }
-      // item.ValorCotacaoPonderado = item.ValorCotacao*item.Saldo
-    })
-
-    return dadoFiltrado
+    // Não altere a série retornada pela API: ela também é usada por outros gráficos.
+    // Dividendos são uma série própria (colunas) e não devem inflar a cotação.
+    return dadosFiltrados.map((item) => {
+      const saldo = Number(item.Saldo) || 0;
+      return {
+        ...item,
+        ValorMedioPonderado: (Number(item.ValorMedio) || 0) * saldo,
+        ValorCotacaoPonderado: (Number(item.ValorCotacao) || 0) * saldo,
+        ValorM1Ponderado: (Number(item.ValorCotacaoM1) || 0) * saldo,
+        ValorDividendoPonderado: (Number(item.dividendo) || 0) * saldo,
+      };
+    });
 
   },[evolucaoInvestimentos, tipoFiltro]);
 
   const dataFinal = useMemo(() => {
-    const groupBy = require('group-by-with-sum');
-    const agrupado = groupBy(dataAjustada, 'AnoMes', 'ValorMedioPonderado, ValorCotacaoPonderado, ValorM1Ponderado, ValorDividendoPonderado');
-    let primeiroMes = 999999;
-    let investimentosAgrupados: [{
-      AnoMes: number,
-      Tipo: string,
-      Saldo: number,
-      ValorCotacaoPonderado: number,
-      ValorMedioPonderado: number,
-      ValorM1Ponderado:number,
-      ValorDividendoPonderado: number,
-      rentabilidadePerc: number,
-      variacaoPerc: number,
-      dividendoPerc: number,
+    const indicadoresPorMes = new Map<string, Record<string, number>>();
+    evolucaoIndicadores.forEach((item) => {
+      const anoMes = String(item.AnoMes);
+      const indicadores = indicadoresPorMes.get(anoMes) || {};
+      indicadores[item.Nome.toLowerCase()] = Number(item.Valor) || 0;
+      indicadoresPorMes.set(anoMes, indicadores);
+    });
 
-      variacaoPercAcumulado: number,
+    const porMes = new Map<number, any>();
+    dataAjustada.forEach((item) => {
+      const anoMes = Number(item.AnoMes);
+      if (!Number.isFinite(anoMes)) return;
+      const acumulado = porMes.get(anoMes) || {
+        AnoMes: anoMes,
+        ValorMedioPonderado: 0,
+        ValorCotacaoPonderado: 0,
+        ValorM1Ponderado: 0,
+        ValorDividendoPonderado: 0,
+      };
+      acumulado.ValorMedioPonderado += Number(item.ValorMedioPonderado) || 0;
+      acumulado.ValorCotacaoPonderado += Number(item.ValorCotacaoPonderado) || 0;
+      acumulado.ValorM1Ponderado += Number(item.ValorM1Ponderado) || 0;
+      acumulado.ValorDividendoPonderado += Number(item.ValorDividendoPonderado) || 0;
+      porMes.set(anoMes, acumulado);
+    });
 
-      rentabilidadeValor: number,
-      variacaoValor: number,
-      dividendoValor: number,
+    const acumulados = { variacao: 0, selic: 0, ipca: 0, cdb: 0, cdi: 0 };
+    return [...porMes.values()]
+      .sort((a, b) => a.AnoMes - b.AnoMes)
+      .map((item, indice) => {
+        const indicadores = indicadoresPorMes.get(String(item.AnoMes)) || {};
+        const rentabilidadePerc = item.ValorMedioPonderado
+          ? ((item.ValorCotacaoPonderado / item.ValorMedioPonderado) - 1) * 100
+          : 0;
+        const variacaoPerc = indice && item.ValorM1Ponderado
+          ? ((item.ValorCotacaoPonderado / item.ValorM1Ponderado) - 1) * 100
+          : 0;
+        acumulados.variacao = ((1 + acumulados.variacao) * (1 + variacaoPerc / 100)) - 1;
+        (['selic', 'ipca', 'cdb', 'cdi'] as const).forEach((nome) => {
+          acumulados[nome] = ((1 + acumulados[nome]) * (1 + (indicadores[nome] || 0) / 100)) - 1;
+        });
 
-      selic: number
-      ipca: number
-      cdb: number
-      cdi: number
-      base: number
-    }] = agrupado
+        return {
+          ...item,
+          rentabilidadePerc,
+          variacaoPerc,
+          dividendoPerc: item.ValorCotacaoPonderado
+            ? (item.ValorDividendoPonderado / item.ValorCotacaoPonderado) * 100
+            : 0,
+          // Sem o "- 1": ele criava um prejuízo artificial de R$ 1 em cada mês.
+          rentabilidadeValor: item.ValorCotacaoPonderado - item.ValorMedioPonderado,
+          variacaoValor: item.ValorCotacaoPonderado - item.ValorM1Ponderado,
+          dividendoValor: item.ValorDividendoPonderado,
+          variacaoPercAcumulado: acumulados.variacao * 100,
+          selic: acumulados.selic * 100,
+          ipca: acumulados.ipca * 100,
+          cdb: acumulados.cdb * 100,
+          cdi: acumulados.cdi * 100,
+          base: 0,
+        };
+      });
 
-    investimentosAgrupados.forEach(item => {
-      if (primeiroMes > item.AnoMes){
-        primeiroMes = item.AnoMes;
-      }
-      item.rentabilidadePerc = (item.ValorCotacaoPonderado/item.ValorMedioPonderado-1)*100
-      item.variacaoPerc = (item.ValorCotacaoPonderado/item.ValorM1Ponderado-1)*100
-      item.dividendoPerc = (item.ValorDividendoPonderado/item.ValorCotacaoPonderado)*100
-      
-      item.rentabilidadeValor = (item.ValorCotacaoPonderado-item.ValorMedioPonderado-1)
-      item.variacaoValor = (item.ValorCotacaoPonderado-item.ValorM1Ponderado-1)
-      item.dividendoValor = (item.ValorDividendoPonderado)
-      
-      try {
-        item.selic = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "selic"})[0].Valor
-      }catch{
-      }
-      try {
-        item.ipca = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "ipca"})[0].Valor
-      }catch{
-      }
-      try {
-        item.cdb = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "cdb"})[0].Valor
-      }catch{
-      }
-      try {
-        item.cdi = evolucaoIndicadores.filter((i, index) => {return i.AnoMes.toString() == item.AnoMes.toString() && i.Nome == "cdi"})[0].Valor
-      }catch{
-      }
-
-      item.base = 0
-      
-    })
-    
-    investimentosAgrupados.forEach(item => {
-      if (primeiroMes == item.AnoMes){
-        item.variacaoPerc = 0;
-      }
-    })
-    let variacaoPercAcumuladoVar = 0
-    let selicAcumulado = 0
-    let ipcaAcumulado = 0
-    let cdbAcumulado = 0
-    let cdiAcumulado = 0
-    
-    investimentosAgrupados.forEach(item => {
-      if (item.variacaoPercAcumulado === undefined){
-        item.variacaoPercAcumulado = item.variacaoPerc/100
-      }
-      variacaoPercAcumuladoVar = ((1+variacaoPercAcumuladoVar) * (1+(item.variacaoPerc/100)))-1
-      item.variacaoPercAcumulado = variacaoPercAcumuladoVar*100
-      
-      selicAcumulado = ((1+selicAcumulado) * (1+(item.selic/100)))-1
-      item.selic = selicAcumulado*100
-
-      ipcaAcumulado = ((1+ipcaAcumulado) * (1+(item.ipca/100)))-1
-      item.ipca = ipcaAcumulado*100
-
-      cdbAcumulado = ((1+cdbAcumulado) * (1+(item.cdb/100)))-1
-      item.cdb = cdbAcumulado*100
-
-      cdiAcumulado = ((1+cdiAcumulado) * (1+(item.cdi/100)))-1
-      item.cdi = cdiAcumulado*100
-      
-    })
-    
-
-    return investimentosAgrupados 
-
-  },[dataAjustada, evolucaoInvestimentos, evolucaoIndicadores, distinctIndicadores]);
+  },[dataAjustada, evolucaoIndicadores]);
 
   const carregou = useMemo(() => { 
     if (dataFinal.length > 0){
@@ -340,10 +301,8 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
             :
             <>
               <Bar dataKey="dividendoPerc" name='Dividendo' barSize={20} fill="#a8a8a8" radius={[5, 5, 0, 0]} yAxisId={2} />
-              <Line type="monotone" dataKey="rentabilidadePerc" name='Rentabilidade histórica' stroke="#8884d8" yAxisId={1}/>
+              <Line type="monotone" dataKey="variacaoPercAcumulado" name='Rentabilidade do período' stroke="#8884d8" yAxisId={1}/>
               <Line type="monotone" dataKey="variacaoPerc" name='Variação' stroke="red" yAxisId={1}/>
-
-              <Line type="monotone" dataKey="variacaoPercAcumulado" name='Variação acumulada' stroke="green" yAxisId={1}/>
               
               <Line type="monotone" dataKey="base" stroke="black" yAxisId={1} />
               
