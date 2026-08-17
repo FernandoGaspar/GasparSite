@@ -137,7 +137,31 @@ export const Content = styled.main`
         gap: 16px;
         padding-top: 20px;
         .summary-cards { grid-template-columns: 1fr; }
-        .section-card { padding: 14px; }
+        .section-card { padding: 14px; overflow: hidden; }
+        .section-heading { align-items: flex-start; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+        .section-heading h2 { font-size: 19px; line-height: 1.15; }
+        .section-heading span { line-height: 1.4; }
+        .market-grid { grid-template-columns: 1fr; gap: 10px; }
+        .market-card { padding: 15px 16px; text-align: left; }
+        .market-card .label { margin-bottom: 5px; }
+        .market-card > .value { display: block; font-size: 22px; }
+        .market-card-metrics {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            justify-content: stretch;
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 11px;
+        }
+        .market-card-metrics .metric { min-width: 0; }
+        .market-card-metrics .metric-label {
+            white-space: normal;
+            font-size: 9px;
+            line-height: 1.3;
+        }
+        .market-card-metrics .metric-value,
+        .market-card-metrics .highlight .metric-value { font-size: 16px; }
+        .allocation-evolution-row { gap: 12px; }
         .b3-upload, .integration-panel .section-heading, .import-preview > header { align-items: stretch; flex-direction: column; }
     }
 `;

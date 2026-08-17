@@ -92,22 +92,32 @@ export const Container = styled.div`
         }
 
         > section {
+            box-sizing: border-box;
             width: 100%;
-            flex: 1 1 auto;
-            margin: 14px 16px 0;
+            flex: 0 0 auto;
+            margin: 0;
+            padding: 16px 16px 0;
         }
 
         > section span {
             margin: 0;
+            width: 100%;
+            font-size: 16px;
         }
 
         > section main {
-            margin: 10px 0 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px 12px;
+            width: 100%;
+            margin: 12px 0 0;
             height: auto;
-            max-height: 180px;
-            overflow-x: hidden;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
         }
+
+        > .recharts-responsive-container { height: 230px !important; }
+        .recharts-pie-labels { display: none; }
     }
 `;
 
@@ -126,15 +136,19 @@ export const TituloGrupo = styled.div<ITitleContainerProps>`
         margin: 0px;
     }
     @media(max-width: 420px){
+        min-width: 0;
+        margin: 0;
+
         > footer {
-                &::after {
-                content: '';
-                display: block;
-                width: 35px;
-                margin: 0px;
-                border-top: 3px solid ${props => props.lineColor};
-            }
+            width: auto;
+            overflow: hidden;
+            font-size: 10px;
+            line-height: 1.3;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
+
+        > h1 { margin-top: 3px; }
     }
 
 `;
