@@ -83,6 +83,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     const notify = (Mensagem: string) => toast(Mensagem);
     const [transacoesIncluidas, setTransacoesIncluidas] = useState<ITransacoesIncluidas[]>([]);
     const token = localStorage.getItem('@minha-carteira:token') as string;
+    const transactionIdFromEmail = new URLSearchParams(window.location.search).get('transactionId');
     
     const [apenasGastosDoMes, setApenasGastosDoMes] = useState<boolean>(false);
     
@@ -429,6 +430,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                             obraGrupoCode = { item.obraGrupoCode }
                             dataTransacao = { item.DataTransacao }
                             dataInserido = { item.dataInserido }
+                            autoOpen = { transactionIdFromEmail === String(item.idTransacoes) }
                         />
                     ))
                 }     

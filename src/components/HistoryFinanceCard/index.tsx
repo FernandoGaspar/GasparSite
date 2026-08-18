@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { ThemeProvider } from 'styled-components';
 
 import { useTheme } from '../../hooks/theme';
@@ -34,6 +34,7 @@ interface IHistoryFinanceCardProps {
     dataTransacao: string;
     dataInserido: string;
     atualizaTransacaoList: (arg: string) => void
+    autoOpen?: boolean
 }
 
 const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
@@ -52,7 +53,8 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
     obraGrupoCode,
     dataTransacao,
     dataInserido,
-    atualizaTransacaoList
+    atualizaTransacaoList,
+    autoOpen = false
 
 })  => {
     const { theme } = useTheme();
@@ -90,36 +92,40 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
     },[dataInserido]);
 
 
+    const openedFromLink = useRef(false);
+    const openTransaction = async () => {
+        await CustomDialog(
+            <ThemeProvider theme={theme}>
+                <HistoryFinanceModal
+                    key={idTransacao}
+                    idTransacao={idTransacao}
+                    data={data}
+                    descricao={descricao}
+                    valor={valor}
+                    contaContabilCode={contaContabilCode}
+                    grupoContaContabil={grupoContaContabil}
+                    subGrupoContaContabil={subGrupoContaContabil}
+                    contaContabil={contaContabil}
+                    observacao={observacao}
+                    tagColor={tagColor}
+                    obraGrupoCode={obraGrupoCode}
+                    atualizaTransacao={atualizaTransacaoList}
+                />
+            </ThemeProvider>, { title: descricao, showCloseIcon: true });
+    };
+
     useEffect(() => {
-    },[]);    
+        if (autoOpen && !openedFromLink.current) {
+            openedFromLink.current = true;
+            openTransaction();
+        }
+    }, [autoOpen]);
     return (
         
         <Container>
             <Tag color={tagColor} />
             <div 
-                onClick={async () => {
-                    await CustomDialog(
-                        <ThemeProvider theme={theme}>
-                            <HistoryFinanceModal
-                                key = { idTransacao }
-                                idTransacao = { idTransacao }
-                                data={ data }
-                                descricao = { descricao }
-                                valor= { valor }
-                                contaContabilCode = { contaContabilCode }
-                                grupoContaContabil = { grupoContaContabil }
-                                subGrupoContaContabil = { subGrupoContaContabil }
-                                contaContabil = { contaContabil }
-                                observacao = { observacao }
-                                tagColor = { tagColor }
-                                obraGrupoCode = { obraGrupoCode }
-                                atualizaTransacao = {atualizaTransacaoList}
-                            />
-                        </ThemeProvider>, {
-                            title: descricao,
-                            showCloseIcon: true,
-                        });
-                        }}                
+                onClick={openTransaction}
                         >
                 <div>
                     <small>{contaContabil}</small>
