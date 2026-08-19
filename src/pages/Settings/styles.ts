@@ -10,6 +10,8 @@ export const Container = styled.div`
   .job-spinner { flex:0 0 auto; width:13px; height:13px; box-sizing:border-box; border:2px solid rgba(91,224,173,.28); border-top-color:#5be0ad; border-radius:50%; animation:job-spin .75s linear infinite; }
   .job.running { background:rgba(91,224,173,.07); }
   .job.running em { color:#5be0ad; font-weight:700; }
+  .button-spinner { width:14px; height:14px; box-sizing:border-box; border:2px solid rgba(255,255,255,.3); border-top-color:currentColor; border-radius:50%; animation:job-spin .7s linear infinite; }
+  .toggle-job:disabled { cursor:wait; opacity:.75; }
 
   @media(max-width:850px) {
     main { grid-template-columns:1fr; }
