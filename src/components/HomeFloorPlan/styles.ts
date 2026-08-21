@@ -110,7 +110,9 @@ export const Container = styled.div`
   .floor-room.state-partial > polygon { fill: rgba(255, 225, 135, .035); stroke: #c88c24; }
   .floor-room.state-off polygon { fill: rgba(18, 57, 91, .1); }
   .floor-room.state-unavailable polygon { fill: rgba(90, 98, 110, .25); stroke: #737b85; }
-  .floor-room.busy { opacity: .55; pointer-events: none; }
+  .floor-room.busy { pointer-events: none; }
+  .floor-room.busy > polygon,
+  .floor-room.busy .room-label { animation: room-loading 1s ease-in-out infinite alternate; }
   .room-light-pools { pointer-events: none; mix-blend-mode: multiply; }
   .state-on .room-light-pools { opacity: .94; filter: drop-shadow(0 0 9px rgba(255, 209, 66, .72)); }
   .state-partial .room-light-pools { opacity: .52; filter: drop-shadow(0 0 5px rgba(255, 193, 55, .42)); }
@@ -172,6 +174,7 @@ export const Container = styled.div`
   .select-room p { max-width: 230px; font-size: 10px; line-height: 1.5; }
   .spin { animation: floor-spin 1s linear infinite; }
   @keyframes floor-spin { to { transform: rotate(360deg); } }
+  @keyframes room-loading { from { opacity: .45; } to { opacity: 1; } }
 
   @media (max-width: 900px) {
     padding: 0;

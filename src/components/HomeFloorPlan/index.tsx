@@ -36,6 +36,7 @@ interface FloorPlan {
   name: string;
   image: string;
   rooms: FloorRoom[];
+  geometryVersion?: number;
 }
 
 export interface FloorPlanLight {
@@ -57,7 +58,11 @@ interface Props {
 const floorId = "upper-floor";
 const imagePath = "/assets/floor-plans/upper-floor.jpg";
 const groundFloorId = "ground-floor";
-const groundFloorImagePath = "/assets/floor-plans/ground-floor.png";
+const groundFloorImagePath = "/assets/floor-plans/ground-floor.jpg";
+const lightUpdateRetryDelays = [500, 1200];
+
+const wait = (milliseconds: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 
 const defaultPlan: FloorPlan = {
   id: floorId,
@@ -223,20 +228,21 @@ const groundFloorPlan: FloorPlan = {
   id: groundFloorId,
   name: "Primeiro andar",
   image: groundFloorImagePath,
+  geometryVersion: 2,
   rooms: [
-    { id: "deposito", name: "Depósito", polygon: [{ x: .02, y: .02 }, { x: .08, y: .02 }, { x: .08, y: .15 }, { x: .02, y: .15 }], labelPosition: { x: .05, y: .085 }, entities: [] },
-    { id: "sauna", name: "Sauna", polygon: [{ x: .08, y: .02 }, { x: .15, y: .02 }, { x: .15, y: .15 }, { x: .08, y: .15 }], labelPosition: { x: .115, y: .085 }, entities: [] },
-    { id: "piscina-prainha", name: "Piscina e prainha", polygon: [{ x: .03, y: .11 }, { x: .2, y: .11 }, { x: .2, y: .65 }, { x: .24, y: .65 }, { x: .24, y: .93 }, { x: .03, y: .93 }], labelPosition: { x: .12, y: .5 }, entities: [] },
-    { id: "espaco-gourmet", name: "Espaço gourmet", polygon: [{ x: .29, y: .14 }, { x: .53, y: .14 }, { x: .53, y: .49 }, { x: .29, y: .49 }], labelPosition: { x: .42, y: .36 }, entities: [] },
-    { id: "banho-gourmet", name: "Banho gourmet", polygon: [{ x: .29, y: .14 }, { x: .38, y: .14 }, { x: .38, y: .27 }, { x: .29, y: .27 }], labelPosition: { x: .335, y: .2 }, entities: [] },
-    { id: "sala-jantar", name: "Sala de jantar", polygon: [{ x: .53, y: .2 }, { x: .7, y: .2 }, { x: .7, y: .53 }, { x: .53, y: .53 }], labelPosition: { x: .615, y: .36 }, entities: [] },
-    { id: "sala-estar", name: "Sala de estar", polygon: [{ x: .7, y: .14 }, { x: .96, y: .14 }, { x: .96, y: .55 }, { x: .7, y: .55 }], labelPosition: { x: .83, y: .35 }, entities: [] },
-    { id: "espaco-spa", name: "Espaço spa", polygon: [{ x: .24, y: .49 }, { x: .34, y: .49 }, { x: .34, y: .82 }, { x: .24, y: .82 }], labelPosition: { x: .29, y: .65 }, entities: [] },
-    { id: "cozinha", name: "Cozinha", polygon: [{ x: .34, y: .49 }, { x: .57, y: .49 }, { x: .57, y: .82 }, { x: .34, y: .82 }], labelPosition: { x: .45, y: .66 }, entities: [] },
-    { id: "area-servico", name: "Área de serviço", polygon: [{ x: .49, y: .6 }, { x: .58, y: .6 }, { x: .58, y: .79 }, { x: .49, y: .79 }], labelPosition: { x: .535, y: .7 }, entities: [] },
-    { id: "suite-hospede", name: "Suíte hóspede", polygon: [{ x: .58, y: .55 }, { x: .7, y: .55 }, { x: .7, y: .82 }, { x: .58, y: .82 }], labelPosition: { x: .64, y: .68 }, entities: [] },
-    { id: "banho-hospede", name: "Banho hóspede", polygon: [{ x: .7, y: .55 }, { x: .79, y: .55 }, { x: .79, y: .82 }, { x: .7, y: .82 }], labelPosition: { x: .745, y: .68 }, entities: [] },
-    { id: "garagem", name: "Garagem", polygon: [{ x: .79, y: .55 }, { x: .99, y: .55 }, { x: .99, y: .95 }, { x: .79, y: .95 }], labelPosition: { x: .89, y: .74 }, entities: [] },
+    { id: "deposito", name: "Depósito", polygon: [{ x: .056, y: .103 }, { x: .104, y: .103 }, { x: .104, y: .205 }, { x: .056, y: .205 }], labelPosition: { x: .08, y: .153 }, entities: [] },
+    { id: "sauna", name: "Sauna", polygon: [{ x: .105, y: .103 }, { x: .149, y: .103 }, { x: .149, y: .205 }, { x: .105, y: .205 }], labelPosition: { x: .127, y: .153 }, entities: [] },
+    { id: "piscina-prainha", name: "Piscina e prainha", polygon: [{ x: .075, y: .202 }, { x: .194, y: .202 }, { x: .194, y: .454 }, { x: .171, y: .454 }, { x: .171, y: .554 }, { x: .099, y: .554 }, { x: .099, y: .638 }, { x: .19, y: .638 }, { x: .19, y: .755 }, { x: .075, y: .755 }], labelPosition: { x: .135, y: .39 }, entities: [] },
+    { id: "espaco-gourmet", name: "Espaço gourmet", polygon: [{ x: .231, y: .185 }, { x: .395, y: .185 }, { x: .395, y: .454 }, { x: .258, y: .454 }, { x: .258, y: .466 }, { x: .231, y: .466 }], labelPosition: { x: .315, y: .345 }, entities: [] },
+    { id: "banho-gourmet", name: "Apoio gourmet", polygon: [{ x: .255, y: .188 }, { x: .28, y: .188 }, { x: .28, y: .235 }, { x: .255, y: .235 }], labelPosition: { x: .267, y: .212 }, entities: [] },
+    { id: "sala-jantar", name: "Sala de jantar", polygon: [{ x: .395, y: .232 }, { x: .521, y: .232 }, { x: .521, y: .184 }, { x: .584, y: .184 }, { x: .584, y: .506 }, { x: .435, y: .506 }, { x: .435, y: .455 }, { x: .395, y: .455 }], labelPosition: { x: .465, y: .335 }, entities: [] },
+    { id: "sala-estar", name: "Sala de estar", polygon: [{ x: .584, y: .185 }, { x: .71, y: .185 }, { x: .71, y: .397 }, { x: .745, y: .397 }, { x: .745, y: .507 }, { x: .584, y: .507 }], labelPosition: { x: .648, y: .31 }, entities: [] },
+    { id: "espaco-spa", name: "Academia", polygon: [{ x: .192, y: .46 }, { x: .259, y: .46 }, { x: .259, y: .718 }, { x: .192, y: .718 }], labelPosition: { x: .226, y: .59 }, entities: [] },
+    { id: "cozinha", name: "Cozinha", polygon: [{ x: .259, y: .455 }, { x: .435, y: .455 }, { x: .435, y: .56 }, { x: .373, y: .56 }, { x: .373, y: .721 }, { x: .259, y: .721 }], labelPosition: { x: .33, y: .603 }, entities: [] },
+    { id: "area-servico", name: "Área de serviço", polygon: [{ x: .374, y: .558 }, { x: .435, y: .558 }, { x: .435, y: .721 }, { x: .374, y: .721 }], labelPosition: { x: .405, y: .64 }, entities: [] },
+    { id: "suite-hospede", name: "Suíte hóspede", polygon: [{ x: .436, y: .508 }, { x: .522, y: .508 }, { x: .522, y: .721 }, { x: .436, y: .721 }], labelPosition: { x: .479, y: .615 }, entities: [] },
+    { id: "banho-hospede", name: "Banho hóspede", polygon: [{ x: .523, y: .508 }, { x: .582, y: .508 }, { x: .582, y: .721 }, { x: .523, y: .721 }], labelPosition: { x: .552, y: .615 }, entities: [] },
+    { id: "garagem", name: "Garagem", polygon: [{ x: .583, y: .508 }, { x: .744, y: .508 }, { x: .744, y: .823 }, { x: .583, y: .823 }], labelPosition: { x: .664, y: .665 }, entities: [] },
   ],
 };
 
@@ -291,6 +297,16 @@ const HomeFloorPlan: React.FC<Props> = ({
   const displayPoint = (point: Point): Point =>
     portrait ? { x: 1 - point.y, y: point.x } : point;
 
+  const fitFloorPlan = () => {
+    setZoom(1);
+    window.requestAnimationFrame(() => {
+      const scroll = scrollRef.current;
+      if (!scroll) return;
+      scroll.scrollLeft = 0;
+      scroll.scrollTop = 0;
+    });
+  };
+
   const changeZoom = (nextZoom: number) => {
     const scroll = scrollRef.current;
     const previousZoom = zoom;
@@ -309,6 +325,7 @@ const HomeFloorPlan: React.FC<Props> = ({
   useEffect(() => {
     if (!open) return;
     const basePlan = floorPlans[selectedFloorId];
+    fitFloorPlan();
     setLoading(true);
     setMessage("");
     axios
@@ -316,9 +333,22 @@ const HomeFloorPlan: React.FC<Props> = ({
         params: { usuarioId },
       })
       .then(({ data }) => {
-        const loaded = data.rooms?.length
+        const savedRooms = new Map((data.rooms || []).map(room => [room.id, room]));
+        const geometryChanged = basePlan.geometryVersion
+          && data.geometryVersion !== basePlan.geometryVersion;
+        const loaded = data.rooms?.length && !geometryChanged
           ? { ...data, image: basePlan.image }
-          : clonePlan(basePlan);
+          : data.rooms?.length
+            ? {
+                ...clonePlan(basePlan),
+                rooms: basePlan.rooms.map(room => ({
+                  ...room,
+                  entities: savedRooms.get(room.id)?.entities || [],
+                  linkedRoom: savedRooms.get(room.id)?.linkedRoom,
+                  color: savedRooms.get(room.id)?.color,
+                })),
+              }
+            : clonePlan(basePlan);
         setPlan(loaded);
         setSavedPlan(clonePlan(loaded));
       })
@@ -417,13 +447,33 @@ const HomeFloorPlan: React.FC<Props> = ({
     setBusyRoom(room.id);
     setMessage("");
     try {
-      await Promise.all(
-        available
-          .filter((light) => light.state !== nextState)
-          .map((light) => onSetLight(light.entity_id, nextState)),
+      const updateLight = async (entityId: string) => {
+        let lastError: unknown;
+        for (let attempt = 0; attempt <= lightUpdateRetryDelays.length; attempt += 1) {
+          try {
+            await onSetLight(entityId, nextState);
+            return;
+          } catch (error) {
+            lastError = error;
+            const retryDelay = lightUpdateRetryDelays[attempt];
+            if (retryDelay === undefined) break;
+            await wait(retryDelay);
+          }
+        }
+        throw lastError;
+      };
+      const lightsToUpdate = available.filter((light) => light.state !== nextState);
+      const results = await Promise.allSettled(
+        lightsToUpdate.map((light) => updateLight(light.entity_id)),
       );
-    } catch {
-      setMessage(`Não foi possível atualizar todas as luzes de ${room.name}.`);
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+      if (failedCount) {
+        setMessage(
+          failedCount === lightsToUpdate.length
+            ? `Não foi possível atualizar as luzes de ${room.name} após novas tentativas.`
+            : `${failedCount} ${failedCount === 1 ? "luz não respondeu" : "luzes não responderam"} em ${room.name}, mesmo após novas tentativas.`,
+        );
+      }
     } finally {
       setBusyRoom("");
     }
@@ -594,9 +644,12 @@ const HomeFloorPlan: React.FC<Props> = ({
             <button type="button" onClick={() => changeZoom(zoom - .25)} aria-label="Diminuir zoom"><FiMinus /></button>
             <strong>{Math.round(zoom * 100)}%</strong>
             <button type="button" onClick={() => changeZoom(zoom + .25)} aria-label="Aumentar zoom"><FiPlus /></button>
-            <button type="button" className="toolbar-text" onClick={() => changeZoom(1)}>Ajustar</button>
+            <button type="button" className="toolbar-text" onClick={fitFloorPlan}>Ajustar</button>
           </div>
-          <button className="toolbar-text" onClick={() => setPortrait((value) => !value)}>
+          <button className="toolbar-text" onClick={() => {
+            setPortrait((value) => !value);
+            fitFloorPlan();
+          }}>
             <FiRotateCw /> {portrait ? "Ver horizontal" : "Ver vertical"}
           </button>
         </div>
@@ -680,7 +733,7 @@ const HomeFloorPlan: React.FC<Props> = ({
                           <rect x="-62" y="-18" width="124" height="36" rx="9" />
                           <text textAnchor="middle" y="-2">{room.name}</text>
                           <text className="room-status" textAnchor="middle" y="11">
-                            {state === "on" ? "Ligado" : state === "partial" ? "Parcial" : state === "off" ? "Desligado" : state === "unavailable" ? "Indisponível" : "Sem luz associada"}
+                            {busyRoom === room.id ? "Atualizando…" : state === "on" ? "Ligado" : state === "partial" ? "Parcial" : state === "off" ? "Desligado" : state === "unavailable" ? "Indisponível" : "Sem luz associada"}
                           </text>
                         </g>
                         {editing && selected && room.polygon.map(displayPoint).map((point, index) => (

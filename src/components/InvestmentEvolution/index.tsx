@@ -30,6 +30,7 @@ interface IAreaChartProps {
     ValorM1Ponderado: number
     ValorDividendoPonderado: number
   }[]
+  indicadoresEconomicos?: IIndicadoresEconomicosData[]
 }
 
 interface IIndicadoresEconomicosData {
@@ -39,7 +40,8 @@ interface IIndicadoresEconomicosData {
 }
 
 const InvestmentEvolution: React.FC<IAreaChartProps> = ({ 
-  evolucaoInvestimentos
+  evolucaoInvestimentos,
+  indicadoresEconomicos,
  }) => { 
   const { showNumber } = useShowNumber();
   const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
@@ -232,8 +234,12 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   }
 
   useEffect(() => {
+    if (indicadoresEconomicos) {
+      setEvolucaoIndicadores(indicadoresEconomicos);
+      return;
+    }
     getIndicadoresEconomicos()
-  },[]); 
+  },[indicadoresEconomicos]);
 
     return (
       <Container>

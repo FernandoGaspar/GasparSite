@@ -237,7 +237,7 @@ const Dashboard: React.FC = () => {
         );
 
         const parsed = JSON.parse(response.data);
-        const saldo = Math.round(parsed[0].Saldo);
+        const saldo = Number(parsed[0].Saldo);
 
         setSaldoPost(saldo.toString());
         setDataSaldo(parsed[0].DataAtualizado);

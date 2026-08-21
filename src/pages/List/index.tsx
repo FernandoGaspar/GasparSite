@@ -72,6 +72,8 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     const [tokenBradesco, setTokenBradesco] = useState<string>("");
 
     const [classCSSRefresh, setClassCSSRefresh] = useState<string>();
+    const [refreshingTransactions, setRefreshingTransactions] = useState(false);
+    const [refreshStatus, setRefreshStatus] = useState("");
     const [classCSSSearch, setClassCSSSearch] = useState<string>('tag-search-close');
 
     const [filtroTexto, setFiltroTexto] = useState<string>("");
@@ -201,43 +203,60 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         }
     };
 
-    const postAtualizaTransacoesBancos = async (): Promise<void> => {
-        await axios.post (URL_API+"/atualizaTransacoesBancos", {
-            idUsuario: idUsuario,
-            tokenBradesco: tokenBradesco
-        })
-        .then((response) => {
-            const { data } = response
-            setTransacoesIncluidas (JSON.parse(data))
-            setClassCSSRefresh('')
-            let transacoes = 0  
-            transacoes = JSON.parse(data).length;
-            console.log (transacoes)
+    const wait = (milliseconds: number) =>
+        new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 
-            let texto = ""
-            if (transacoes == 1){
-                texto = "Uma transação incluída com sucesso!"
-            }
-            else if (transacoes > 1){
-                texto = transacoes + " transações incluídas com sucesso!"
-            } else {
-                texto = "Atualização concluída com sucesso, sem novas transações!"
-            }
-            console.log (texto)
-            notify (texto)
-        })
-        .catch((error) => {
-            notify ("Erro ao atualizar transações!!")
-            console.log(error)
-        })
-        atualizaTransacoesLista()
+    const refreshPluggyItems = async () => {
+        setRefreshStatus("Solicitando dados atualizados aos bancos…");
+        await axios.post(`${URL_API}/pluggy/transactions/refresh`, {
+            idUsuario: Number(idUsuario),
+        });
+
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+            const { data } = await axios.get(`${URL_API}/pluggy/transactions/refresh`, {
+                params: { idUsuario: Number(idUsuario) },
+            });
+            if (data.ready) return;
+            setRefreshStatus("Pluggy está sincronizando as conexões bancárias…");
+            await wait(3000);
+        }
+        throw new Error("A atualização da Pluggy está demorando mais que o esperado.");
+    };
+
+    const postAtualizaTransacoesBancos = async (): Promise<void> => {
+        if (refreshingTransactions) return;
+        setRefreshingTransactions(true);
+        setClassCSSRefresh('tag-refresh-sim');
+        try {
+            await refreshPluggyItems();
+            setRefreshStatus("Importando as transações mais recentes…");
+            const { data } = await axios.post(URL_API+"/atualizaTransacoesBancos", {
+                idUsuario: idUsuario,
+                tokenBradesco: tokenBradesco
+            });
+            const includedTransactions = JSON.parse(data);
+            setTransacoesIncluidas(includedTransactions);
+            const transactionCount = includedTransactions.length;
+            const text = transactionCount === 1
+                ? "Uma transação incluída com sucesso!"
+                : transactionCount > 1
+                    ? `${transactionCount} transações incluídas com sucesso!`
+                    : "Atualização concluída com sucesso, sem novas transações!";
+            notify(text);
+            atualizaTransacoesLista();
+        } catch (error: any) {
+            notify(error.response?.data?.message || error.message || "Erro ao atualizar transações.");
+        } finally {
+            setClassCSSRefresh('');
+            setRefreshStatus("");
+            setRefreshingTransactions(false);
+        }
     }
 
     async function atualizaTransacoesBancos () {
         setClassCSSRefresh('tag-refresh-sim')
         if (await solicitarTokenBradesco === false){
             postAtualizaTransacoesBancos()
-            atualizaTransacoesLista()
         } else {
             setOpenModalToken(true)
         }
@@ -384,7 +403,13 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                         onChange={(e) => setFiltroTexto(e.target.value)}
                     />
                 </div>
-                <RefreshButton onClick={() => atualizaTransacoesBancos()} title="Atualizar transações">
+                {refreshStatus && <span className="refresh-status">{refreshStatus}</span>}
+                <RefreshButton
+                    disabled={refreshingTransactions}
+                    onClick={() => atualizaTransacoesBancos()}
+                    title={refreshStatus || "Atualizar transações"}
+                    aria-label={refreshStatus || "Atualizar transações"}
+                >
                     <FaSyncAlt className={`${ classCSSRefresh }`} />
                 </RefreshButton>
             </Toolbar>

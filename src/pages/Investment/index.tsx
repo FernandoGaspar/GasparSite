@@ -64,6 +64,7 @@ interface IMarketIndicator {
     atual: number | null
     acumulado12m: number | null
     variacaoPeriodo: number | null
+    mesAnterior: number | null
 }
 
 interface IMarketOverview {
@@ -159,8 +160,7 @@ const Investment: React.FC = () => {
                 setIntegrationMessage(`${data.importadas} movimentações importadas; ${data.duplicadas} duplicadas ignoradas.`);
                 setB3Preview(undefined);
                 setB3File(undefined);
-                atualizaPapeisMonitorados();
-                getEvolucaoInvestimento();
+                loadInvestmentData();
             } else {
                 setB3Preview(data);
             }
@@ -179,8 +179,7 @@ const Investment: React.FC = () => {
                 idUsuario: Number(idUsuario),
             });
             setIntegrationMessage(`${data.posicoes} posições da Pluggy sincronizadas com sucesso.`);
-            atualizaPapeisMonitorados();
-            getEvolucaoInvestimento();
+            loadInvestmentData();
         } catch (error: any) {
             setIntegrationMessage(error.response?.data?.message || 'Não foi possível sincronizar a Pluggy.');
         } finally {
@@ -202,7 +201,7 @@ const Investment: React.FC = () => {
         setPeriodoSelected(periodo);
     }
 
-    const atualizaPapeisMonitorados = () => {
+    const loadInvestmentData = () => {
         Promise.all([
             axios.get(`${URL_API}/investments/pluggy/portfolio`, {
                 params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
@@ -210,28 +209,14 @@ const Investment: React.FC = () => {
             axios.get(`${URL_API}/investments/crypto/portfolio`, {
                 params: { idUsuario: Number(idUsuario) },
             }),
+            axios.post(URL_API + "/evolucaoInvestimento", {
+                idUsuario: idUsuario,
+            }),
         ])
-            .then(([pluggyResponse, cryptoResponse]) => {
+            .then(([pluggyResponse, cryptoResponse, legacyResponse]) => {
                 const pluggy = pluggyResponse.data.posicoes as IPapelMonitorado[];
                 setPluggyPositions(pluggy);
                 setCryptoPositions(cryptoResponse.data.posicoes as IPapelMonitorado[]);
-            })
-            .catch((error) => {
-                console.log(error)
-            })
-    }
-
-    const getEvolucaoInvestimento = () => {
-        Promise.all([
-            axios.post(URL_API + "/evolucaoInvestimento", {
-            headers: { "Access-Control-Allow-Origin": "*" },
-            idUsuario: idUsuario,
-            }),
-            axios.get(`${URL_API}/investments/pluggy/portfolio`, {
-                params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
-            }),
-        ])
-            .then(([legacyResponse, pluggyResponse]) => {
                 const legacy = JSON.parse(legacyResponse.data) as IEvolucaoInvestimentoData[];
                 setEvolucaoInvestimentos([...legacy, ...pluggyResponse.data.evolucao]);
             })
@@ -266,14 +251,13 @@ const Investment: React.FC = () => {
     }
 
     useEffect(() => {
-        atualizaPapeisMonitorados()
+        loadInvestmentData()
         getMarketOverview()
     }, [idUsuario, periodoSelected]);
 
     useEffect(() => {
-        getEvolucaoInvestimento()
         getIndicadoresEconomicos()
-    }, [idUsuario, periodoSelected]);
+    }, [idUsuario]);
 
     useEffect(() => {
         if (!selectedCodigo && papeisMonitorados.length > 0) {
@@ -468,7 +452,7 @@ const Investment: React.FC = () => {
                         onClick={async () => {
                             await CustomDialog(
                                 <InvestmentAddModal
-                                    atualizaPapeisMonitorados={atualizaPapeisMonitorados}
+                                    atualizaPapeisMonitorados={loadInvestmentData}
                                 />,
                                 {
                                     title: "descricao",
@@ -588,23 +572,37 @@ const Investment: React.FC = () => {
                     <div className="market-grid">
                         {marketCards.map(({ key, label, formatAtual }) => {
                             const dado = marketOverview?.[key];
-                            const variacaoPeriodo = dado?.variacaoPeriodo ?? null;
+                            const valorInferior = key === 'ipca' || key === 'cdi'
+                                ? dado?.mesAnterior ?? null
+                                : dado?.variacaoPeriodo ?? null;
+                            const negativeStyle = (valor: number | null | undefined) =>
+                                valor != null && valor < 0 ? { color: '#EF476F' } : undefined;
                             return (
                                 <div className="market-card" key={key}>
                                     <span className="label">{label}</span>
-                                    <span className="value">{dado?.atual != null ? formatAtual(dado.atual) : '—'}</span>
+                                    <span className="value" style={negativeStyle(dado?.atual)}>
+                                        {dado?.atual != null ? formatAtual(dado.atual) : '—'}
+                                    </span>
                                     <div className="market-card-metrics">
                                         <div className="metric">
                                             <span className="metric-label">Acumulado 12 meses</span>
-                                            <span className="metric-value">{formatVariacao(dado?.acumulado12m)}</span>
+                                            <span className="metric-value" style={negativeStyle(dado?.acumulado12m)}>
+                                                {formatVariacao(dado?.acumulado12m)}
+                                            </span>
                                         </div>
                                         <div className="metric highlight">
-                                            <span className="metric-label">Variação {periodoLabel ? `(${periodoLabel})` : 'do período'}</span>
+                                            <span className="metric-label">
+                                                {key === 'ipca' || key === 'cdi'
+                                                    ? 'Indicador (mês anterior)'
+                                                    : `Variação ${periodoLabel ? `(${periodoLabel})` : 'do período'}`}
+                                            </span>
                                             <span
                                                 className="metric-value"
-                                                style={{ color: variacaoPeriodo === null ? undefined : (variacaoPeriodo >= 0 ? '#06D6A0' : '#EF476F') }}
+                                                style={negativeStyle(valorInferior)}
                                             >
-                                                {formatVariacao(variacaoPeriodo)}
+                                                {key === 'ipca' || key === 'cdi'
+                                                    ? (valorInferior == null ? '—' : `${valorInferior.toFixed(2)}%`)
+                                                    : formatVariacao(valorInferior)}
                                             </span>
                                         </div>
                                     </div>
@@ -619,7 +617,10 @@ const Investment: React.FC = () => {
                         <PieChartBox titulo="Alocação da carteira" data={alocacaoCarteira} />
                     </div>
                     <div className="section-card">
-                        <InvestmentEvolution evolucaoInvestimentos={filteredEvolution} />
+                        <InvestmentEvolution
+                            evolucaoInvestimentos={filteredEvolution}
+                            indicadoresEconomicos={indicadores}
+                        />
                     </div>
                 </section>
 
@@ -643,7 +644,7 @@ const Investment: React.FC = () => {
                                 dataUltimoDiv={item.dataUltimoDiv}
                                 tipoPapel={item.tipoPapel}
                                 origem={item.origem}
-                                atualizaPapeisMonitorados={atualizaPapeisMonitorados}
+                                atualizaPapeisMonitorados={loadInvestmentData}
                             />
                         )) : <div className="holdings-empty">Nenhum ativo monitorado ainda. Clique em "Adicionar ativo" para começar.</div>}
                     </div>

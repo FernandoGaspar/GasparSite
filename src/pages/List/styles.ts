@@ -38,6 +38,13 @@ export const Toolbar = styled.div`
         }
     }
 
+    .refresh-status {
+        margin-left: auto;
+        color: ${props => props.theme.colors.gray};
+        font-size: 12px;
+        text-align: right;
+    }
+
     > input {
         min-width: 0;
         border: 1px solid transparent;
@@ -91,6 +98,11 @@ export const RefreshButton = styled.button`
 
     &:hover {
         color: ${props => props.theme.colors.white};
+    }
+
+    &:disabled {
+        cursor: wait;
+        opacity: .65;
     }
 
     svg {

@@ -954,23 +954,15 @@ const Home: React.FC = () => {
     entityId: string,
     state: "on" | "off",
   ) => {
-    try {
-      await axios.post(`${URL_API}/home-assistant/service`, {
-        entity_id: entityId,
-        state,
-      });
-      setStates((current) =>
-        current.map((item) =>
-          item.entity_id === entityId ? { ...item, state } : item,
-        ),
-      );
-    } catch (requestError: any) {
-      setError(
-        requestError.response?.data?.message ||
-          "Não foi possível atualizar a luz pela planta.",
-      );
-      throw requestError;
-    }
+    await axios.post(`${URL_API}/home-assistant/service`, {
+      entity_id: entityId,
+      state,
+    });
+    setStates((current) =>
+      current.map((item) =>
+        item.entity_id === entityId ? { ...item, state } : item,
+      ),
+    );
   };
   const setClimateTemperature = async (device: Device, temperature: number) => {
     setUpdating(device.entity_id);
