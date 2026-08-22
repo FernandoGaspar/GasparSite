@@ -69,6 +69,9 @@ export const Content = styled.main`
     .alerts-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
     .alerts-heading h2 { color: ${props => props.theme.colors.white}; font-size: 20px; margin-top: 5px; letter-spacing: -.025em; }
     .alerts-heading > span { color: ${props => props.theme.colors.gray}; font-size: 12px; }
+    .alerts-meta { display:flex; align-items:center; gap:12px; }
+    .alerts-meta a { color:#8fc4ff; font-size:12px; font-weight:700; text-decoration:none; }
+    .alerts-meta a:hover { text-decoration:underline; }
     .alerts-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .alert { display: flex; gap: 11px; min-height: 90px; padding: 14px; border-radius: 10px; background: ${props => props.theme.colors.secondary}; border: 1px solid rgba(148,163,184,.18); }
     .alert-icon { display: grid; place-items: center; flex: 0 0 25px; height: 25px; border-radius: 50%; font-size: 14px; font-weight: 700; }
@@ -78,10 +81,29 @@ export const Content = styled.main`
     .alert.attention .alert-icon { color: #ff7c99; background: rgba(239, 71, 111, .14); }
     .alert.info .alert-icon { color: #06D6A0; background: rgba(6, 214, 160, .14); }
 
+    .recurring-bills { padding: 20px; background: ${props => props.theme.colors.secondary}; border: 1px solid ${props => props.theme.colors.tertiary}; border-radius: 14px; }
+    .recurring-bills-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .recurring-bills-heading h2 { margin-top: 5px; color: ${props => props.theme.colors.white}; font-size: 20px; letter-spacing: -.025em; }
+    .recurring-bills-heading > span { color: ${props => props.theme.colors.gray}; font-size: 12px; }
+    .recurring-bills-list { display: grid; gap: 8px; }
+    .recurring-bills-list > p { padding: 16px 0; color: ${props => props.theme.colors.gray}; font-size: 13px; }
+    .recurring-bill { display: grid; grid-template-columns: minmax(180px, 1.5fr) minmax(120px, .55fr) minmax(130px, .7fr) minmax(100px, .4fr); align-items: center; gap: 14px; min-height: 66px; padding: 12px 14px; border: 1px solid rgba(148,163,184,.15); border-radius: 9px; background: rgba(15, 23, 42, .35); }
+    .recurring-bill-main { display: grid; gap: 4px; }
+    .recurring-bill strong, .recurring-bill b { color: ${props => props.theme.colors.white}; font-size: 13px; }
+    .recurring-bill-main span, .recurring-bill small { color: ${props => props.theme.colors.gray}; font-size: 11px; }
+    .recurring-status { justify-self: start; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+    .recurring-bill.pago .recurring-status { color: #65d7ab; background: rgba(6,214,160,.13); }
+    .recurring-bill.a_vencer .recurring-status, .recurring-bill.pendente .recurring-status { color: #9ecfff; background: rgba(57,148,235,.14); }
+    .recurring-bill.vence_hoje .recurring-status, .recurring-bill.divergente .recurring-status { color: #ffcf6b; background: rgba(255,209,102,.13); }
+    .recurring-bill.atrasado .recurring-status { color: #ff91a8; background: rgba(239,71,111,.14); }
+
     @media(max-width: 900px) {
         .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .insights-row { grid-template-columns: 1fr; }
         .alerts-list { grid-template-columns: 1fr; }
+        .alerts-meta { align-items:flex-end; flex-direction:column; gap:4px; }
+        .recurring-bill { grid-template-columns: 1.5fr .7fr; }
+        .recurring-bill small { display: none; }
     }
 
     @media(max-width: 600px) {
@@ -89,5 +111,9 @@ export const Content = styled.main`
         padding-top: 20px;
         .summary-cards { grid-template-columns: 1fr; }
         .alerts, .insights-row, .investment-pie-section { padding: 14px; }
+        .recurring-bills { padding: 14px; }
+        .recurring-bills-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+        .recurring-bill { grid-template-columns: 1fr; gap: 7px; }
+        .recurring-bill b, .recurring-status { justify-self: start; }
     }
 `;

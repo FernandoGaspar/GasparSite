@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import { URL_API } from '../../repositories/baseAPI';
 
 import SelectInput from '../../components/SelectInput';
@@ -65,6 +66,12 @@ interface IEvolucaoInvestimentoData {
     ValorDividendoPonderado: number
   }
 
+interface IInvestmentPosition {
+    codigo: string
+    saldoAtual: number
+    tipoPapel: string
+}
+
 interface IDataPostValorFatura {
     idUsuario: string
     AnoMesFatura: number
@@ -76,6 +83,18 @@ interface IDataBudgetVrsRealizado {
     subGrupoContaContabil: string
     ValorOrcado: number
     ValorRealizado: number
+}
+
+interface IContaRecorrenteStatus {
+    idContaRecorrente: number
+    descricao: string
+    competencia: string
+    vencimento: string
+    valorPrevisto: number
+    valorEncontrado: number | null
+    status: 'pago' | 'a_vencer' | 'vence_hoje' | 'atrasado' | 'divergente' | 'pendente'
+    diasParaVencimento: number
+    idTransacao: number | null
 }
 
 
@@ -91,6 +110,7 @@ const Dashboard: React.FC = () => {
     const [valoresFatura, setValoresFatura] = useState<IDataPostValorFatura[]>([]);
     const [budgetStatus, setBudgetStatus] = useState<IDataBudgetVrsRealizado[]>([]);
     const [previousCosts, setPreviousCosts] = useState<IDataPost[]>([]);
+    const [contasRecorrentes, setContasRecorrentes] = useState<IContaRecorrenteStatus[]>([]);
 
     const [custoHistoricoAgrupado, setCustoHistoricoAgrupado] = useState<IDataPostAgrupado[]>([]);
 
@@ -98,6 +118,7 @@ const Dashboard: React.FC = () => {
     const token = localStorage.getItem('@minha-carteira:token') as string;
     const { signOut } = useAuth();
     const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
+    const [portfolioPositions, setPortfolioPositions] = useState<IInvestmentPosition[]>([]);
   
     const years = useMemo(() => {
         return listOfYear.map((year, index) => {
@@ -320,40 +341,42 @@ const Dashboard: React.FC = () => {
             case 'EMPRESA LISTADA NA BOLSA BRASILEIRA': return  "#8c98ff"
             case 'EMPRESA LISTADA NA BOLSA INTERNACIONAL': return "#ff8cbe"
             case 'CRIPTOMOEDA': return "#fff48c"
-            case 'INDICE': return "#8cfbff"                            
-            default: return "";
+            case 'INDICE':
+            case 'INDICADORES': return "#8cfbff"
+            default: return "#4F8CFF";
         };
     }
 
     const investimentoAjustadoGraficoPizza = useMemo(() => {
-        let investimentoTratado: [{
-            grupo:      string
-            subGrupo:   string
-            Valor:      number
-            Cor:        string
-        }] = [{            
-            grupo:      "",
-            subGrupo:   "",
-            Valor:      0,
-            Cor:        ""
-        }]
-        investimentoTratado.splice (0)
+        return portfolioPositions
+            .filter(item => Number(item.saldoAtual) > 0)
+            .map(item => ({
+                grupo: item.tipoPapel,
+                subGrupo: item.codigo,
+                Valor: Number(item.saldoAtual),
+                Cor: getCorInvestimento(item.tipoPapel),
+            }));
+    }, [portfolioPositions]);
 
-        evolucaoInvestimentos.forEach(item => {
-            if (item.Saldo > 0 &&
-                item.AnoMes.toString() == yearSelected.toString()+monthSelected.toString().padStart(2, '0')){
-
-                    investimentoTratado.push({
-                    grupo: item.Tipo,
-                    subGrupo: item.Codigo,
-                    Valor: item.Saldo*item.ValorCotacao,
-                    Cor: getCorInvestimento (item.Tipo),
-                })
-            }
-        })
-        return investimentoTratado;
-        
-    },[evolucaoInvestimentos]);
+    const getInvestmentPortfolio = async () => {
+        try {
+            const [pluggyResponse, cryptoResponse] = await Promise.all([
+                axios.get(`${URL_API}/investments/pluggy/portfolio`, {
+                    params: { idUsuario: Number(idUsuario), periodo: 6 },
+                }),
+                axios.get(`${URL_API}/investments/crypto/portfolio`, {
+                    params: { idUsuario: Number(idUsuario) },
+                }),
+            ]);
+            setPortfolioPositions([
+                ...(pluggyResponse.data.posicoes || []),
+                ...(cryptoResponse.data.posicoes || []),
+            ]);
+        } catch (error) {
+            console.log('Não foi possível carregar a carteira atual.', error);
+            setPortfolioPositions([]);
+        }
+    };
 
     const getEvolucaoInvestimento = () => {
         axios.post (URL_API+"/evolucaoInvestimento", {
@@ -416,8 +439,33 @@ const Dashboard: React.FC = () => {
         }
     }
 
+    const getContasRecorrentes = async () => {
+        try {
+            const response = await axios.get<{ items: IContaRecorrenteStatus[] }>(
+                `${URL_API}/contas-recorrentes/status`,
+                { params: { meses: 2 } },
+            );
+            setContasRecorrentes(response.data.items);
+        } catch (error) {
+            console.log('Não foi possível carregar contas recorrentes.', error);
+        }
+    }
+
     const alerts = useMemo(() => {
         const messages: { type: 'warning' | 'attention' | 'info', title: string, description: string }[] = [];
+        const overdueRecurring = contasRecorrentes.filter(item => item.status === 'atrasado');
+        const dueTodayRecurring = contasRecorrentes.filter(item => item.status === 'vence_hoje');
+        const divergentRecurring = contasRecorrentes.filter(item => item.status === 'divergente');
+
+        if (overdueRecurring.length) {
+            messages.push({ type: 'attention', title: `${overdueRecurring.length} ${overdueRecurring.length === 1 ? 'conta recorrente em atraso' : 'contas recorrentes em atraso'}`, description: overdueRecurring.slice(0, 2).map(item => item.descricao).join(' e ') + '. Não encontramos um pagamento compatível.' });
+        }
+        if (dueTodayRecurring.length) {
+            messages.push({ type: 'warning', title: `${dueTodayRecurring.length} conta${dueTodayRecurring.length === 1 ? '' : 's'} vence${dueTodayRecurring.length === 1 ? '' : 'm'} hoje`, description: dueTodayRecurring.slice(0, 2).map(item => item.descricao).join(' e ') + '.' });
+        }
+        if (divergentRecurring.length) {
+            messages.push({ type: 'warning', title: 'Pagamento recorrente para conferir', description: `${divergentRecurring[0].descricao} tem uma transação próxima ao vencimento, mas o valor não bate com o esperado.` });
+        }
         const budgetExceeded = budgetStatus.filter(item => Math.abs(Number(item.ValorRealizado)) > Math.abs(Number(item.ValorOrcado)));
 
         if (budgetExceeded.length) {
@@ -446,7 +494,7 @@ const Dashboard: React.FC = () => {
 
         if (!messages.length) messages.push({ type: 'info', title: 'Tudo sob controle por enquanto', description: 'Não identificamos alertas importantes neste período. Continue acompanhando seu orçamento.' });
         return messages.slice(0, 3);
-    }, [budgetStatus, previousCosts, custo, valoresFatura]);
+    }, [budgetStatus, previousCosts, custo, valoresFatura, contasRecorrentes]);
 
     useEffect(() => {        
         getSaldo (idUsuario)
@@ -457,10 +505,15 @@ const Dashboard: React.FC = () => {
         getBudgetStatus(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario)
         const previousDate = new Date(yearSelected, monthSelected - 2, 1);
         getPreviousCosts(`${previousDate.getFullYear()}${String(previousDate.getMonth() + 1).padStart(2, '0')}`, idUsuario)
+        getContasRecorrentes()
 
         getEvolucaoInvestimento ()
 
     },[monthSelected, yearSelected]); 
+
+    useEffect(() => {
+        getInvestmentPortfolio();
+    }, [idUsuario]);
 
     return (
         <Container>
@@ -518,7 +571,7 @@ const Dashboard: React.FC = () => {
                             <span className="eyebrow">PRECISA DA SUA ATENÇÃO</span>
                             <h2>Alertas financeiros</h2>
                         </div>
-                        <span>{alerts.length} {alerts.length === 1 ? 'alerta' : 'alertas'}</span>
+                        <div className="alerts-meta"><span>{alerts.length} {alerts.length === 1 ? 'alerta' : 'alertas'}</span><Link to="/settings/contas-recorrentes">Gerenciar recorrências</Link></div>
                     </div>
                     <div className="alerts-list">
                         {alerts.map(alert => (
@@ -529,6 +582,30 @@ const Dashboard: React.FC = () => {
                         ))}
                     </div>
                 </section>
+
+                {false && <section className="recurring-bills" aria-label="Contas recorrentes">
+                    <div className="recurring-bills-heading">
+                        <div>
+                            <span className="eyebrow">CONTROLE DE PAGAMENTOS</span>
+                            <h2>Contas recorrentes</h2>
+                        </div>
+                        <span>{contasRecorrentes.filter(item => item.status !== 'pago').length} pendentes de conciliação</span>
+                    </div>
+                    <div className="recurring-bills-list">
+                        {contasRecorrentes.length === 0 && <p>Nenhuma conta recorrente prevista para este período.</p>}
+                        {contasRecorrentes.map(item => (
+                            <article className={`recurring-bill ${item.status}`} key={`${item.idContaRecorrente}-${item.competencia}`}>
+                                <div className="recurring-bill-main">
+                                    <strong>{item.descricao}</strong>
+                                    <span>Vence em {new Date(`${item.vencimento}T12:00:00`).toLocaleDateString('pt-BR')}</span>
+                                </div>
+                                <b>{Math.abs(item.valorPrevisto).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
+                                <span className="recurring-status">{({ pago: 'Pago', a_vencer: `Vence em ${item.diasParaVencimento} dias`, vence_hoje: 'Vence hoje', atrasado: `${Math.abs(item.diasParaVencimento)} dias em atraso`, divergente: 'Conferir valor', pendente: 'Programada' } as Record<string, string>)[item.status]}</span>
+                                {item.idTransacao && <small>Transação #{item.idTransacao}</small>}
+                            </article>
+                        ))}
+                    </div>
+                </section>}
                 
                 <div className="budget-section">
                     <BudgetBar anoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
@@ -547,7 +624,7 @@ const Dashboard: React.FC = () => {
                     <InvestmentEvolution evolucaoInvestimentos = { evolucaoInvestimentos } />
                 </div>
                 <section className="investment-pie-section">
-                    <PieChartBox titulo = {"Investimento"} data ={ investimentoAjustadoGraficoPizza } />
+                    <PieChartBox titulo = {"Alocação da carteira"} data ={ investimentoAjustadoGraficoPizza } />
                 </section>
 
                 <div className="message-section">

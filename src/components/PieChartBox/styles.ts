@@ -1,154 +1,109 @@
 import styled, { keyframes } from 'styled-components';
 
-interface ITitleContainerProps {
-    lineColor: string;
-}
+interface ITitleContainerProps { lineColor: string }
 
 const animate = keyframes`
-    0% {
-        transform: translateX(100px);
-        opacity: 0;
-    }
-    50%{
-        opacity: .3;
-    }
-    100%{
-        transform: translateX(0px);
-        opacity: 1;
-    }
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 `;
-
 
 export const Container = styled.div`
-    width: 100%;
-    height: 260px;
-    margin: 10px 0px 0px 0;
-
-    background-color: ${props => props.theme.colors.tertiary};
+    display: grid;
+    grid-template-columns: minmax(230px, .82fr) minmax(300px, 1.18fr);
+    min-height: 292px;
+    overflow: hidden;
     color: ${props => props.theme.colors.white};
-    border-radius: 7px;
-    animation: ${animate} .5s;
-    display: flex;
-    align-items: stretch;
-    overflow-y: visible;
+    background: ${props => props.theme.colors.tertiary};
+    border-radius: 10px;
+    animation: ${animate} .35s ease-out;
 
-    > .recharts-responsive-container {
-        flex: 1 1 0;
-        min-width: 0;
-    }
-
-    > section {
+    .pie-summary {
         display: flex;
-        width: 120px;
-        flex: 0 0 120px;
-        min-width: 0;
-        flex-wrap: wrap;
-        flex-direction: row;
-        margin: 10px 15px;
-    }
-
-    > section span {
-        font-weight: bold;
-        overflow: visible!important;
-        margin: 0px -90px 0px 0px;
-    }
-
-    > section main {
-        margin: 65px 0px;
-
-        height: 150px;
-        display: flex;
-        flex-wrap: wrap;
-        flex-direction: row;
-
-        padding-bottom: 0;
-        overflow-x: scroll;
-
-        ::-webkit-scrollbar {
-            width: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background-color: ${props => props.theme.colors.secondary};
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background-color: ${props => props.theme.colors.tertiary};
-        }
-    }
-
-    /* Abaixo de ~640px o layout lado-a-lado (legenda fixa em 120px + gráfico
-       flex) não cabe: a pizza é empurrada para fora do card. Empilha tudo
-       verticalmente em vez de tentar espremer o layout desktop. */
-    @media (max-width: 640px) {
         flex-direction: column;
-        height: auto;
-        overflow: hidden;
-
-        > .recharts-responsive-container {
-            width: 100% !important;
-            flex: 0 0 auto;
-        }
-
-        > section {
-            box-sizing: border-box;
-            width: 100%;
-            flex: 0 0 auto;
-            margin: 0;
-            padding: 16px 16px 0;
-        }
-
-        > section span {
-            margin: 0;
-            width: 100%;
-            font-size: 16px;
-        }
-
-        > section main {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px 12px;
-            width: 100%;
-            margin: 12px 0 0;
-            height: auto;
-            max-height: none;
-            overflow: visible;
-        }
-
-        > .recharts-responsive-container { height: 230px !important; }
-        .recharts-pie-labels { display: none; }
+        min-width: 0;
+        padding: 18px;
+        border-right: 1px solid rgba(148, 163, 184, .18);
     }
+    .pie-summary header > span {
+        display: block;
+        color: ${props => props.theme.colors.white};
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -.02em;
+    }
+    .pie-summary header > small {
+        display: block;
+        margin-top: 5px;
+        color: ${props => props.theme.colors.gray};
+        font-size: 11px;
+    }
+    .pie-summary main {
+        display: grid;
+        gap: 4px;
+        margin-top: 16px;
+        overflow: auto;
+    }
+    .pie-chart-area { position: relative; min-height: 292px; }
+    .pie-total-caption {
+        position: absolute;
+        top: calc(50% + 22px);
+        left: 50%;
+        width: 135px;
+        transform: translateX(-50%);
+        color: ${props => props.theme.colors.gray};
+        font-size: 10px;
+        line-height: 1.25;
+        text-align: center;
+    }
+    .pie-total-value { fill: ${props => props.theme.colors.white}; font-size: 13px; font-weight: 700; }
+    .pie-empty { display: grid; place-items: center; height: 100%; color: ${props => props.theme.colors.gray}; font-size: 13px; }
+
+    @media (max-width: 740px) {
+        grid-template-columns: 1fr;
+        .pie-summary { padding: 16px; border-right: 0; border-bottom: 1px solid rgba(148, 163, 184, .18); }
+        .pie-summary main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .pie-chart-area { min-height: 270px; }
+    }
+    @media (max-width: 420px) { .pie-summary main { grid-template-columns: 1fr; } }
 `;
 
-export const TituloGrupo = styled.div<ITitleContainerProps>`
-    margin: 3px; 
-    
-    > footer {
-        border-top: 5px solid ${props => props.lineColor};
-        width: 55px;
-        font-size: 12px;
-        margin: 0px;
-        content: '';
+export const TituloGrupo = styled.button<ITitleContainerProps>`
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    &:hover, &.selected { border-color: ${props => props.lineColor}88; background: ${props => props.lineColor}16; }
+    > i {
+        grid-row: span 2;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: ${props => props.lineColor};
+        box-shadow: 0 0 0 3px ${props => props.lineColor}24;
     }
-    > h1 {
+    > span {
+        overflow: hidden;
+        color: ${props => props.theme.colors.white};
+        font-size: 11px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    > strong { color: ${props => props.lineColor}; font-size: 11px; }
+    > em {
+        grid-column: 2 / 4;
+        margin-top: 2px;
+        color: ${props => props.theme.colors.gray};
         font-size: 10px;
-        margin: 0px;
+        font-style: normal;
     }
-    @media(max-width: 420px){
-        min-width: 0;
-        margin: 0;
-
-        > footer {
-            width: auto;
-            overflow: hidden;
-            font-size: 10px;
-            line-height: 1.3;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        > h1 { margin-top: 3px; }
-    }
-
 `;

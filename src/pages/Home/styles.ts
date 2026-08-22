@@ -586,6 +586,13 @@ export const Container = styled.div`
     object-fit: cover;
     transition: transform 0.2s ease;
   }
+  .camera-live-player video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #07111d;
+  }
   .camera-image span {
     position: absolute;
     top: 9px;
@@ -599,9 +606,33 @@ export const Container = styled.div`
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
+  .camera-image:has(img[data-camera-state="unavailable"])::after {
+    content: "Imagem indisponível · atualize a câmera";
+    position: absolute;
+    inset: auto 9px 9px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    color: #ffd1d7;
+    background: #511d2ad9;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
   .camera-card.is-live .camera-image span {
     color: #b8ffe1;
     background: #0a382ed9;
+  }
+  .stop-camera-live {
+    width: calc(100% - 20px);
+    min-height: 32px;
+    margin: 10px;
+    border: 1px solid #315574;
+    border-radius: 7px;
+    color: #b9d9f8;
+    background: #122b45;
+    font-size: 11px;
+    font-weight: 700;
   }
   .camera-details {
     display: flex;
@@ -1186,8 +1217,11 @@ export const Container = styled.div`
     .camera-grid {
       grid-template-columns: 1fr;
     }
+    .camera-grid:has(.camera-card.is-live) {
+      grid-template-columns: 1fr;
+    }
     .camera-card.is-live {
-      grid-column: auto;
+      grid-column: 1;
     }
     .climate-device {
       grid-column: auto;

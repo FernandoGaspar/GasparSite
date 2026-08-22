@@ -1,43 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useShowNumber } from '../../hooks/showNumber';
-import {
-    PieChart,
-    Pie,
-    Cell,
-    Tooltip,
-    ResponsiveContainer,
-} from 'recharts';
-
-import { 
-    Container,
-    TituloGrupo,
- }  from './styles';
+import { Cell, Label, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Container, TituloGrupo } from './styles';
 
 interface IPieChartProps {
     titulo: string
-    data: {
-        grupo: string
-        subGrupo: string
-        Valor: number
-        Cor: string
-    }[]
+    data: { grupo: string; subGrupo: string; Valor: number; Cor: string }[]
 }
 
-interface IDataAgrupado {
-    grupo: string
-    Cor: string
-    Valor: number
-}
+interface IDataAgrupado { grupo: string; Cor: string; Valor: number }
+interface IDataDetalhe extends IDataAgrupado { subGrupo: string }
 
-interface IDataDetalhe {
-    grupo: string
-    subGrupo: string
-    Cor: string
-    Valor: number
-}
+const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
+}).format(value);
 
-
-const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => { 
+const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
     const [grupoSelecionado, setGrupoSelecionado] = useState<string | null>(null);
     const { showNumber } = useShowNumber();
 
@@ -52,7 +30,6 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
 
     const dataAgrupado = useMemo(() => {
         const grupos = new Map<string, IDataAgrupado>();
-
         dadosNormalizados.forEach((item) => {
             const atual = grupos.get(item.grupo);
             grupos.set(item.grupo, {
@@ -61,7 +38,6 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
                 Valor: (atual?.Valor || 0) + item.Valor,
             });
         });
-
         return Array.from(grupos.values()).sort((a, b) => b.Valor - a.Valor);
     }, [dadosNormalizados]);
 
@@ -70,18 +46,15 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
         const itens = grupoSelecionado
             ? dadosNormalizados.filter((item) => item.grupo === grupoSelecionado)
             : dadosNormalizados;
-
         itens.forEach((item) => {
             const chave = `${item.grupo}-${item.subGrupo}`;
             const atual = detalhes.get(chave);
             detalhes.set(chave, {
-                grupo: item.grupo,
-                subGrupo: item.subGrupo,
+                grupo: item.grupo, subGrupo: item.subGrupo,
                 Cor: atual?.Cor || item.Cor,
                 Valor: (atual?.Valor || 0) + item.Valor,
             });
         });
-
         return Array.from(detalhes.values()).sort((a, b) => b.Valor - a.Valor);
     }, [dadosNormalizados, grupoSelecionado]);
 
@@ -90,104 +63,69 @@ const PieChartBox: React.FC<IPieChartProps> = ({ titulo, data }) => {
             setGrupoSelecionado(null);
         }
     }, [dataAgrupado, grupoSelecionado]);
-    
-    const valorTotalDadoFiltrado = useMemo(() => {
-        let total: number = 0;
-        dataAgrupado.forEach(item => {
-            total += Number(item.Valor) || 0;
-        });
 
-        return Math.round(total);
-
-        // return 0;
-    }, [dataAgrupado])
+    const total = useMemo(() => dataAgrupado.reduce((sum, item) => sum + item.Valor, 0), [dataAgrupado]);
+    const totalSelecionado = grupoSelecionado
+        ? dataAgrupado.find((item) => item.grupo === grupoSelecionado)?.Valor || 0
+        : total;
 
     return (
         <Container>
-
-            <section>
-                <span>
-                    { titulo }
-                </span>
-                <main>
-                    {
-                        dataAgrupado.map((item) => (
-                            <TituloGrupo 
+            <section className="pie-summary">
+                <header>
+                    <span>{titulo}</span>
+                    <small>{grupoSelecionado ? 'Detalhamento do grupo selecionado' : 'Distribuição por classe'}</small>
+                </header>
+                <main aria-label={`Legenda de ${titulo}`}>
+                    {dataAgrupado.map((item) => {
+                        const selecionado = item.grupo === grupoSelecionado;
+                        const percentual = total ? Math.round((item.Valor / total) * 100) : 0;
+                        return (
+                            <TituloGrupo
+                                key={item.grupo}
+                                type="button"
                                 lineColor={item.Cor}
-                                onClick={() => setGrupoSelecionado(item.grupo === grupoSelecionado ? null : item.grupo)} >
-                                <footer>
-                                    { item.grupo }
-                                </footer>
-                                <h1>
-                                    { valorTotalDadoFiltrado ? Math.round(item.Valor / valorTotalDadoFiltrado * 100) + "%" : "0%" }
-                                </h1>
+                                className={selecionado ? 'selected' : ''}
+                                onClick={() => setGrupoSelecionado(selecionado ? null : item.grupo)}
+                                title={`Filtrar ${item.grupo}`}
+                            >
+                                <i />
+                                <span>{item.grupo}</span>
+                                <strong>{percentual}%</strong>
+                                <em>{showNumber ? formatCurrency(item.Valor) : '••••••'}</em>
                             </TituloGrupo>
-                        ))
-                    }      
-                </main>          
+                        );
+                    })}
+                </main>
             </section>
 
-
-            <ResponsiveContainer width="100%" height={240} debounce={100}>
-                <PieChart >
-                <Tooltip formatter={(value) => new Intl.NumberFormat([], {
-                                                                            style: 'currency',
-                                                                            currency: 'BRL',
-                                                                            maximumFractionDigits: 0
-                                                                            }).format(Number(value))} />
-                <Pie
-                    dataKey="Valor"
-                    nameKey="subGrupo"                    
-                    data={ dataDetalhe }
-                    outerRadius={60}
-                >
-                
-
-                        {
-                            dataDetalhe.map((indicator) => (
-                                <Cell 
-                                    key={`${indicator.grupo}-${indicator.subGrupo}`}
-                                    fill={indicator.Cor} 
-                                    
-                                    />
-                            ))
-                        }
-                
-                </Pie>
-                
-                <Pie
-                    dataKey="Valor"
-                    nameKey="grupo"
-                    label={showNumber? (valorGrupo) => new Intl.NumberFormat([], {
-                                                                                style: 'currency',
-                                                                                currency: 'BRL',
-                                                                                maximumFractionDigits: 0
-                                                                                }).format(Number(valorGrupo.payload.Valor))
-                            : false
-                                                                            }
-                    isAnimationActive={ false }
-                    data={ dataAgrupado }
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70} 
-                    outerRadius={90}
-                    paddingAngle={5}
-                >
-                        {
-                            dataAgrupado.map((indicator) => (
-                                <Cell 
-                                    key={indicator.grupo} 
-                                    fill={indicator.Cor} 
-                                    onClick={() => setGrupoSelecionado(indicator.grupo === grupoSelecionado ? null : indicator.grupo)}
-                                    />
-                            ))
-                        }
-                </Pie>
-                <Tooltip />
-                </PieChart>
-                                
-            </ResponsiveContainer>
+            <div className="pie-chart-area">
+                {dataAgrupado.length ? (
+                    <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                        <PieChart>
+                            <Tooltip
+                                formatter={(value: number) => formatCurrency(Number(value))}
+                                labelFormatter={(_, payload) => String(payload?.[0]?.payload?.subGrupo || payload?.[0]?.payload?.grupo || '')}
+                            />
+                            <Pie dataKey="Valor" nameKey="subGrupo" data={dataDetalhe} cx="50%" cy="50%" innerRadius={48} outerRadius={76} paddingAngle={1} stroke="none">
+                                {dataDetalhe.map((item) => <Cell key={`${item.grupo}-${item.subGrupo}`} fill={item.Cor} />)}
+                            </Pie>
+                            <Pie
+                                dataKey="Valor" nameKey="grupo" data={dataAgrupado}
+                                cx="50%" cy="50%" innerRadius={84} outerRadius={108}
+                                paddingAngle={3} stroke="none"
+                                onClick={(item) => setGrupoSelecionado(item.grupo === grupoSelecionado ? null : item.grupo)}
+                            >
+                                <Label value={showNumber ? formatCurrency(totalSelecionado) : '••••••'} position="center" className="pie-total-value" />
+                                {dataAgrupado.map((item) => <Cell key={item.grupo} fill={item.Cor} />)}
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                ) : <p className="pie-empty">Sem dados para este período.</p>}
+                <div className="pie-total-caption">{grupoSelecionado || 'Total investido'}</div>
+            </div>
         </Container>
     );
-}
+};
+
 export default PieChartBox;

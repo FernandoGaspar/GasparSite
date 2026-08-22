@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiActivity,
   FiCamera,
@@ -39,6 +39,7 @@ interface HomeAssistantState {
     supported_features?: number;
     camera_snapshot_url?: string;
     camera_stream_url?: string;
+    camera_webrtc_enabled?: boolean;
   };
 }
 interface Device extends HomeAssistantState {
@@ -136,6 +137,11 @@ const readStoredJson = <T,>(key: string, fallback: T): T => {
   } catch {
     return fallback;
   }
+};
+const mediaAuthQuery = () => {
+  const token = localStorage.getItem("@minha-carteira:token") || "";
+  const userId = localStorage.getItem("@minha-carteira:usuarioId") || "";
+  return `token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}`;
 };
 
 interface ClimateCardProps {
@@ -448,6 +454,85 @@ interface CameraCardProps {
   onToggleLive(entityId: string): void;
 }
 
+const waitForIceGathering = (connection: RTCPeerConnection) =>
+  new Promise<void>((resolve) => {
+    if (connection.iceGatheringState === "complete") return resolve();
+    const timeout = window.setTimeout(resolve, 1500);
+    connection.addEventListener(
+      "icegatheringstatechange",
+      () => {
+        if (connection.iceGatheringState === "complete") {
+          window.clearTimeout(timeout);
+          resolve();
+        }
+      },
+      { once: true },
+    );
+  });
+
+const webrtcConnectTimeoutMs = 8000;
+
+const CameraWebRTC: React.FC<{ entityId: string; name: string; onFailed(): void }> = ({
+  entityId,
+  name,
+  onFailed,
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    let trackReceived = false;
+    const connection = new RTCPeerConnection();
+    const fail = () => {
+      if (cancelled) return;
+      cancelled = true;
+      setError("Stream ao vivo indisponível.");
+      onFailed();
+    };
+    const connectTimeout = window.setTimeout(() => {
+      if (!trackReceived) fail();
+    }, webrtcConnectTimeoutMs);
+    connection.oniceconnectionstatechange = () => {
+      if (["failed", "disconnected", "closed"].includes(connection.iceConnectionState)) fail();
+    };
+    const start = async () => {
+      try {
+        connection.addTransceiver("video", { direction: "recvonly" });
+        connection.ontrack = ({ streams }) => {
+          trackReceived = true;
+          window.clearTimeout(connectTimeout);
+          if (!cancelled && videoRef.current && streams[0]) videoRef.current.srcObject = streams[0];
+        };
+        await connection.setLocalDescription(await connection.createOffer());
+        await waitForIceGathering(connection);
+        const response = await axios.post<string>(
+          `${URL_API}/home-assistant/camera/${encodeURIComponent(entityId)}/webrtc`,
+          connection.localDescription?.sdp,
+          { headers: { "Content-Type": "application/sdp" }, responseType: "text" },
+        );
+        if (!cancelled) await connection.setRemoteDescription({ type: "answer", sdp: response.data });
+      } catch {
+        window.clearTimeout(connectTimeout);
+        fail();
+      }
+    };
+    start();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(connectTimeout);
+      connection.close();
+    };
+  }, [entityId]);
+
+  return (
+    <div className="camera-image camera-live-player">
+      <video ref={videoRef} autoPlay muted playsInline aria-label={`Ao vivo: ${name}`} />
+      <span>{error || "Ao vivo · WebRTC"}</span>
+    </div>
+  );
+};
+
 const CameraCard: React.FC<CameraCardProps> = ({
   camera,
   priority,
@@ -459,25 +544,32 @@ const CameraCard: React.FC<CameraCardProps> = ({
   onToggleLive,
 }) => {
   const [snapshotVersion, setSnapshotVersion] = useState(() => Date.now());
-  const [useProxyFallback, setUseProxyFallback] = useState(false);
-  const proxyUrl = `${URL_API}/home-assistant/camera/${encodeURIComponent(
+  const [webrtcFailed, setWebrtcFailed] = useState(false);
+  const [mediaFailed, setMediaFailed] = useState(false);
+  useEffect(() => {
+    setMediaFailed(false);
+    if (!live) setWebrtcFailed(false);
+  }, [live, snapshotVersion]);
+  const snapshotUrl = `${URL_API}/home-assistant/camera/${encodeURIComponent(
     camera.entity_id,
-  )}?mode=${live ? "stream" : "snapshot"}&v=${snapshotVersion}`;
-  const directUrl = live
-    ? camera.attributes.camera_stream_url
-    : camera.attributes.camera_snapshot_url;
-  const directUrlWithVersion = directUrl
-    ? `${directUrl}${directUrl.includes("?") ? "&" : "?"}v=${snapshotVersion}`
-    : "";
-  const imageUrl =
-    !useProxyFallback && directUrlWithVersion ? directUrlWithVersion : proxyUrl;
-
-  useEffect(() => setUseProxyFallback(false), [camera.entity_id, live]);
+  )}?mode=snapshot&v=${snapshotVersion}&${mediaAuthQuery()}`;
+  const fallbackStreamUrl = `${URL_API}/home-assistant/camera/${encodeURIComponent(
+    camera.entity_id,
+  )}?mode=stream&${mediaAuthQuery()}`;
+  const usesWebRTC =
+    live && !webrtcFailed && !!camera.attributes.camera_webrtc_enabled;
 
   return (
     <article
       className={`camera-card ${hidden ? "is-hidden" : ""} ${live ? "is-live" : ""}`}
     >
+      {usesWebRTC ? (
+        <CameraWebRTC
+          entityId={camera.entity_id}
+          name={camera.name}
+          onFailed={() => setWebrtcFailed(true)}
+        />
+      ) : (
       <button
         type="button"
         className="camera-image"
@@ -487,17 +579,27 @@ const CameraCard: React.FC<CameraCardProps> = ({
         title={live ? "Encerrar transmissão ao vivo" : "Abrir ao vivo"}
       >
         <img
-          src={imageUrl}
+          src={live ? fallbackStreamUrl : snapshotUrl}
           alt={`Imagem da câmera ${camera.name}`}
-          loading="lazy"
+          loading="eager"
           decoding="async"
-          referrerPolicy="no-referrer"
-          onError={() => setUseProxyFallback(true)}
+          onError={() => setMediaFailed(true)}
+          data-camera-state={mediaFailed ? "unavailable" : "ready"}
         />
         <span>
           {live ? "Ao vivo · clique para encerrar" : "Clique para ao vivo"}
         </span>
       </button>
+      )}
+      {usesWebRTC && (
+        <button
+          type="button"
+          className="stop-camera-live"
+          onClick={() => onToggleLive(camera.entity_id)}
+        >
+          Encerrar ao vivo
+        </button>
+      )}
       <div className="camera-details">
         <div>
           <FiCamera />
@@ -576,6 +678,26 @@ const Home: React.FC = () => {
   const [roomToRename, setRoomToRename] = useState("");
   const [renamedRoom, setRenamedRoom] = useState("");
   const usuarioId = Number(localStorage.getItem("@minha-carteira:usuarioId"));
+  const [nvrCameras, setNvrCameras] = useState<
+    Array<{ entity_id: string; name: string }>
+  >([]);
+
+  useEffect(() => {
+    axios
+      .get<Array<{ entity_id: string; name: string }>>(
+        `${URL_API}/home-assistant/nvr-cameras`,
+      )
+      .then((response) => setNvrCameras(response.data))
+      .catch((requestError) => {
+        console.error("Falha ao carregar câmeras do NVR:", requestError);
+        setError(
+          (current) =>
+            current ||
+            requestError.response?.data?.message ||
+            "Não foi possível carregar a lista de câmeras.",
+        );
+      });
+  }, []);
 
   const loadStates = async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
@@ -585,6 +707,8 @@ const Home: React.FC = () => {
         `${URL_API}/home-assistant/states`,
       );
       setStates(response.data);
+      setLoading(false);
+      setRefreshing(false);
       if (usuarioId) {
         const preferences = await axios.get<{
           rooms: Array<{ name: string; order?: number; custom: boolean }>;
@@ -758,10 +882,23 @@ const Home: React.FC = () => {
       hiddenDevices,
     ],
   );
+  const cameraSources = useMemo<HomeAssistantState[]>(() => {
+    const fromStates = states.filter((item) =>
+      item.entity_id.startsWith("camera."),
+    );
+    const knownIds = new Set(fromStates.map((item) => item.entity_id));
+    const fromNvr = nvrCameras
+      .filter((camera) => !knownIds.has(camera.entity_id))
+      .map((camera) => ({
+        entity_id: camera.entity_id,
+        state: "idle",
+        attributes: { friendly_name: camera.name },
+      }));
+    return [...fromStates, ...fromNvr];
+  }, [states, nvrCameras]);
   const cameras = useMemo<Camera[]>(
     () =>
-      states
-        .filter((item) => item.entity_id.startsWith("camera."))
+      cameraSources
         .map((item) => ({
           ...item,
           name:
@@ -779,7 +916,14 @@ const Home: React.FC = () => {
             priorityFor(first.entity_id) - priorityFor(second.entity_id) ||
             first.name.localeCompare(second.name),
         ),
-    [states, search, deviceType, devicePriorities, organizing, hiddenDevices],
+    [
+      cameraSources,
+      search,
+      deviceType,
+      devicePriorities,
+      organizing,
+      hiddenDevices,
+    ],
   );
   const [liveCameras, setLiveCameras] = useState<Record<string, boolean>>({});
   const liveCameraCount = cameras.filter(
@@ -1206,7 +1350,6 @@ const Home: React.FC = () => {
           <FiLoader className="spin" /> Carregando sua casa...
         </div>
       ) : (
-        <>
           <section className="rooms">
             {Object.entries(rooms)
               .filter(([, roomDevices]) => organizing || roomDevices.length > 0)
@@ -1460,50 +1603,49 @@ const Home: React.FC = () => {
               </div>
             )}
           </section>
-          {!!cameras.length && (
-            <section className="monitoring">
-              <header className="monitoring-header">
-                <div>
-                  <span>
-                    <FiCamera />
-                  </span>
-                  <div>
-                    <small>MONITORAMENTO</small>
-                    <h2>Câmeras</h2>
-                    <p>
-                      {cameras.length} câmera{cameras.length > 1 ? "s" : ""}
-                      {liveCameraCount
-                        ? ` com ${liveCameraCount} ao vivo`
-                        : " com snapshot"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className={`live-cameras ${camerasLive ? "is-live" : ""}`}
-                  onClick={toggleAllCamerasLive}
-                >
-                  <i /> {camerasLive ? "Encerrar ao vivo" : "Ao vivo"}
-                </button>
-              </header>
-              <div className="camera-grid">
-                {cameras.map((camera) => (
-                  <CameraCard
-                    key={camera.entity_id}
-                    camera={camera}
-                    priority={devicePriorities[camera.entity_id]}
-                    hidden={!!hiddenDevices[camera.entity_id]}
-                    organizing={organizing}
-                    live={!!liveCameras[camera.entity_id]}
-                    onPriority={setDevicePriority}
-                    onVisibility={toggleDeviceVisibility}
-                    onToggleLive={toggleCameraLive}
-                  />
-                ))}
+      )}
+      {!!cameras.length && (
+        <section className="monitoring">
+          <header className="monitoring-header">
+            <div>
+              <span>
+                <FiCamera />
+              </span>
+              <div>
+                <small>MONITORAMENTO</small>
+                <h2>Câmeras</h2>
+                <p>
+                  {cameras.length} câmera{cameras.length > 1 ? "s" : ""}
+                  {liveCameraCount
+                    ? ` com ${liveCameraCount} ao vivo`
+                    : " com snapshot"}
+                </p>
               </div>
-            </section>
-          )}
-        </>
+            </div>
+            <button
+              type="button"
+              className={`live-cameras ${camerasLive ? "is-live" : ""}`}
+              onClick={toggleAllCamerasLive}
+            >
+              <i /> {camerasLive ? "Encerrar ao vivo" : "Ao vivo"}
+            </button>
+          </header>
+          <div className="camera-grid">
+            {cameras.map((camera) => (
+              <CameraCard
+                key={camera.entity_id}
+                camera={camera}
+                priority={devicePriorities[camera.entity_id]}
+                hidden={!!hiddenDevices[camera.entity_id]}
+                organizing={organizing}
+                live={!!liveCameras[camera.entity_id]}
+                onPriority={setDevicePriority}
+                onVisibility={toggleDeviceVisibility}
+                onToggleLive={toggleCameraLive}
+              />
+            ))}
+          </div>
+        </section>
       )}
       <HomeFloorPlan
         open={floorPlanOpen}
