@@ -45,7 +45,18 @@ interface IHistoryFinanceModalProps {
   tagColor: string;
   obraGrupoCode: string;
   atualizaTransacao: (arg: string) => void;
+  pluggyData?: Record<string, any>;
 }
+
+const PluggyField: React.FC<{ name: string; value: any; depth?: number }> = ({ name, value, depth = 0 }) => {
+  if (Array.isArray(value)) {
+    return <div className="pluggy-branch" style={{ marginLeft: Math.min(depth, 5) * 12 }}><strong>{name}</strong><small>Lista ({value.length})</small>{value.map((item, index) => <PluggyField key={`${name}-${index}`} name={`[${index}]`} value={item} depth={depth + 1} />)}</div>;
+  }
+  if (value && typeof value === 'object') {
+    return <div className="pluggy-branch" style={{ marginLeft: Math.min(depth, 5) * 12 }}><strong>{name}</strong><small>Objeto</small>{Object.entries(value).map(([key, item]) => <PluggyField key={key} name={key} value={item} depth={depth + 1} />)}</div>;
+  }
+  return <div className="pluggy-field" style={{ marginLeft: Math.min(depth, 5) * 12 }}><strong>{name}</strong><span>{value === null ? 'null' : value === '' ? 'vazio' : String(value)}</span></div>;
+};
 
 interface IgrupoContaContabeis {
   idContaContabil: string;
@@ -98,6 +109,7 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
   tagColor,
   obraGrupoCode,
   atualizaTransacao,
+  pluggyData,
 }) => {
   const dialog = useDialog();
 
@@ -117,6 +129,8 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
   const [observacaoSelecionado, setObservacaoSelecionado] = useState<string>(observacao || '');
   const [obraGrupoCodeSelecionado, setObraGrupoCodeSelecionado] = useState<string>(obraGrupoCode || '');
   const [showParcelas, setShowParcelas] = useState<boolean>(false);
+  const [showPluggyDetails, setShowPluggyDetails] = useState<boolean>(false);
+  const [showBankInformation, setShowBankInformation] = useState<boolean>(false);
 
   const [sugestoesConta, setSugestoesConta] = useState<ISugestaoConta[]>([]);
 
@@ -216,7 +230,15 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
       const { data } = await axios.post(URL_API + '/getArquivo', { idTransacao: id });
       if (data?.[0]) {
         setFileName(data[0]);
-        setLinkFile(URL_API + '/LinkFile?fileName=' + data[0]);
+        const response = await axios.get(URL_API + '/LinkFile', {
+          params: { fileName: data[0] },
+          responseType: 'blob',
+        });
+        const objectUrl = URL.createObjectURL(response.data);
+        setLinkFile(previous => {
+          if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous);
+          return objectUrl;
+        });
       }
     } catch (e) {
       console.log(e);
@@ -242,8 +264,9 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
 
   const manageUploadedFile = async (bin: string, f: File, id: string) => {
     try {
-      const slash = f.type.indexOf('/');
-      const ext = slash >= 0 ? f.type.substring(slash + 1, slash + 4) : 'bin';
+      const originalExtension = f.name.includes('.') ? f.name.split('.').pop()!.toLowerCase() : '';
+      const mimeExtension = f.type === 'image/jpeg' ? 'jpg' : f.type.split('/').pop()?.toLowerCase() || '';
+      const ext = originalExtension || mimeExtension;
       const name = `${id}.${ext}`;
 
       const formData = new FormData();
@@ -371,6 +394,10 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => () => {
+    if (linkFile?.startsWith('blob:')) URL.revokeObjectURL(linkFile);
+  }, [linkFile]);
 
   return (
     <Wrapper>
@@ -578,6 +605,34 @@ const HistoryFinanceModal: React.FC<IHistoryFinanceModalProps> = ({
           </TableWrap>
         )}
       </SectionCard>
+
+      {pluggyData && (
+        <SectionCard>
+          <button className="bank-info-toggle" type="button" onClick={() => setShowBankInformation(value => !value)} aria-expanded={showBankInformation}>
+            <span>Informações bancárias</span><b>{showBankInformation ? '−' : '+'}</b>
+          </button>
+          {showBankInformation && <>
+            <div className="pluggy-summary-grid">
+              {pluggyData.status && <div><small>Status</small><strong>{pluggyData.status}</strong></div>}
+              {pluggyData.category && <div><small>Categoria do banco</small><strong>{pluggyData.category}</strong></div>}
+              {pluggyData.operationType && <div><small>Tipo da operação</small><strong>{pluggyData.operationType}</strong></div>}
+              {pluggyData.descriptionRaw && <div><small>Descrição original</small><strong>{pluggyData.descriptionRaw}</strong></div>}
+              {pluggyData.paymentData?.paymentMethod && <div><small>Forma de pagamento</small><strong>{pluggyData.paymentData.paymentMethod}</strong></div>}
+              {pluggyData.merchant && <div><small>Estabelecimento</small><strong>{typeof pluggyData.merchant === 'object' ? (pluggyData.merchant.name || JSON.stringify(pluggyData.merchant)) : pluggyData.merchant}</strong></div>}
+              {pluggyData.paymentData?.payer?.name && <div><small>Pagador</small><strong>{pluggyData.paymentData.payer.name}</strong></div>}
+              {pluggyData.paymentData?.payer?.documentNumber && <div><small>Documento do pagador</small><strong>{pluggyData.paymentData.payer.documentNumber}</strong></div>}
+              {pluggyData.paymentData?.receiver?.name && <div><small>Recebedor</small><strong>{pluggyData.paymentData.receiver.name}</strong></div>}
+              {pluggyData.paymentData?.receiver?.documentNumber && <div><small>Documento do recebedor</small><strong>{pluggyData.paymentData.receiver.documentNumber}</strong></div>}
+              {pluggyData.creditCardMetadata?.installmentNumber && <div><small>Parcela</small><strong>{pluggyData.creditCardMetadata.installmentNumber} de {pluggyData.creditCardMetadata.totalInstallments || '?'}</strong></div>}
+              {pluggyData.creditCardMetadata?.purchaseDate && <div><small>Data da compra</small><strong>{new Date(pluggyData.creditCardMetadata.purchaseDate).toLocaleDateString('pt-BR')}</strong></div>}
+            </div>
+            <button className="pluggy-details-toggle" type="button" onClick={() => setShowPluggyDetails(value => !value)}>
+              {showPluggyDetails ? 'Ocultar detalhes do provedor' : 'Ver detalhes do provedor'}
+            </button>
+            {showPluggyDetails && <div className="pluggy-details"><PluggyField name="transação" value={pluggyData} /></div>}
+          </>}
+        </SectionCard>
+      )}
 
       {/* Ações */}
       <ActionsRow>

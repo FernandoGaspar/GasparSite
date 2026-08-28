@@ -13,8 +13,32 @@ O GasparSite é a interface web do ecossistema pessoal Gaspar. Ele concentra inf
 - rastreamento de dispositivos;
 - chat e recursos de IA;
 - painel de casa inteligente integrado ao Home Assistant.
+- planejamento financeiro com insights, calendário e projeção de saldo.
 
 O front-end consome principalmente o GasparAPI. Endereços externos ou de serviços independentes ficam centralizados em `src/repositories/baseAPI.ts`.
+
+## Regra visual do planejamento financeiro
+
+A tela `src/pages/Planning` representa fluxo de caixa, não o cronograma de compras do cartão:
+
+- mostra receitas, despesas e investimentos programados pendentes como eventos individuais;
+- mantém investimentos separados das despesas nos indicadores, embora ambos reduzam o saldo projetado;
+- não mostra compras ou parcelas futuras do cartão individualmente;
+- mostra somente a fatura consolidada do próximo mês, separada por emissor/cartão;
+- trata a data exibida para a fatura como competência mensal, não como vencimento confirmado;
+- deve manter a observação dessa limitação visível ao usuário.
+
+O contrato correspondente é `GET /financial-planning`. A soma da próxima fatura já inclui as compras do cartão, portanto esses lançamentos não podem ser somados novamente na projeção.
+
+A configuração fica em `/settings/contas-recorrentes`, apresentada ao usuário como **Fluxos programados**. O formulário oferece os tipos Receita, Despesa e Investimento e filtra as categorias contábeis compatíveis com o tipo selecionado. Ao escolher Investimento, um segundo controle define se o fluxo é **Custo** (por exemplo, parcela de imóvel) ou **Receita** (por exemplo, aluguel recebido).
+
+A recorrência pode ser **Mensal**, com dia do mês, ou **Semanal**, com escolha explícita do dia da semana. Cada ocorrência semanal recebe data e identificador próprios no calendário e no acompanhamento.
+
+## Agentes especializados
+
+Os seis especialistas e o Coordenador geral ficam na rota autenticada `/assistant`, acessível pelo item **Assistente** do menu lateral. A tela consulta `GET /assistant/agents` para exibir papel, especialidades, fontes, frequência e prompt completo, e `GET /assistant/agents/status` para mostrar alertas, última execução e próxima execução estimada.
+
+Cada agente tem um histórico visual e persistente separado. A chave local inclui usuário e `AgentCode`, e a API também filtra e grava pelo código do agente. O Coordenador pode receber memória recente da equipe como contexto interno e delegar uma solicitação, mas sua tela continua mostrando apenas a conversa do próprio Coordenador. Alertas do especialista ficam disponíveis dentro de seu chat e podem iniciar uma pergunta contextualizada.
 
 ## Tecnologias
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
 import { URL_API } from '../../repositories/baseAPI';
+import { deduplicatedRequest } from '../../repositories/requestCache';
 
 import SelectInput from '../../components/SelectInput';
 import WalletBox from '../../components/WalletBox';
@@ -24,6 +24,7 @@ import {
 } from './styles';
 import BudgetBar from '../../components/BudgetBar';
 import PieChartBox from '../../components/PieChartBox';
+import FinancialInsights from '../../components/FinancialInsights';
 import { useAuth } from '../../hooks/auth';
 
 
@@ -79,25 +80,6 @@ interface IDataPostValorFatura {
     Valor: number
 }
 
-interface IDataBudgetVrsRealizado {
-    subGrupoContaContabil: string
-    ValorOrcado: number
-    ValorRealizado: number
-}
-
-interface IContaRecorrenteStatus {
-    idContaRecorrente: number
-    descricao: string
-    competencia: string
-    vencimento: string
-    valorPrevisto: number
-    valorEncontrado: number | null
-    status: 'pago' | 'a_vencer' | 'vence_hoje' | 'atrasado' | 'divergente' | 'pendente'
-    diasParaVencimento: number
-    idTransacao: number | null
-}
-
-
 const Dashboard: React.FC = () => {
     const [monthSelected, setMonthSelected] = useState<number>(new Date().getMonth() + 1);
     const [yearSelected, setYearSelected] = useState<number>(new Date().getFullYear());
@@ -106,11 +88,7 @@ const Dashboard: React.FC = () => {
     const [custo, setCusto] = useState<IDataPost[]>([]);
     const [receita, setReceita] = useState<IDataPost[]>([]);
 
-    const [custoAgrupado, setCustoAgrupado] = useState<IDataPostAgrupado[]>([]);
     const [valoresFatura, setValoresFatura] = useState<IDataPostValorFatura[]>([]);
-    const [budgetStatus, setBudgetStatus] = useState<IDataBudgetVrsRealizado[]>([]);
-    const [previousCosts, setPreviousCosts] = useState<IDataPost[]>([]);
-    const [contasRecorrentes, setContasRecorrentes] = useState<IContaRecorrenteStatus[]>([]);
 
     const [custoHistoricoAgrupado, setCustoHistoricoAgrupado] = useState<IDataPostAgrupado[]>([]);
 
@@ -121,9 +99,9 @@ const Dashboard: React.FC = () => {
     const [portfolioPositions, setPortfolioPositions] = useState<IInvestmentPosition[]>([]);
   
     const years = useMemo(() => {
-        return listOfYear.map((year, index) => {
+        return listOfYear.map((year) => {
             return {
-                value: index + 1,
+                value: Number(year),
                 label: year,
             }
         });
@@ -219,7 +197,7 @@ const Dashboard: React.FC = () => {
 
     const handleYearSelected = useCallback((year: string) => {
         try {
-            const parseYear = 2018+Number(year);
+            const parseYear = Number(year);
             setYearSelected(parseYear);
         }
         catch{
@@ -228,13 +206,13 @@ const Dashboard: React.FC = () => {
     },[]);
 
     const getfetchTransacoes = async (anoMes: string, idUsuario: string, tipo: string) => {
-        await axios.post (URL_API+"/gastos", {
+        await deduplicatedRequest(`expenses:${idUsuario}:${anoMes}:${tipo}`, () => axios.post (URL_API+"/gastos", {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
             usuario: idUsuario,
             tipo: tipo,
             token: token
-        })
+        }))
         .then((response) => {
             const { data } = response
             if(tipo === "Custo"){
@@ -251,13 +229,12 @@ const Dashboard: React.FC = () => {
         
     const getSaldo = async (idUsuario: string) => {
     try {
-        const response = await axios.post(
-        `${URL_API}/saldo`,
-        { usuario: idUsuario, token: token },
-        { headers: { "Access-Control-Allow-Origin": "*" } }
+        const response = await deduplicatedRequest(
+            `balance:${idUsuario}`,
+            () => axios.get(`${URL_API}/saldo`, { params: { idUsuario } }),
         );
-
-        const parsed = JSON.parse(response.data);
+        const parsed = Array.isArray(response.data?.items) ? response.data.items : [];
+        if (!parsed.length) throw new Error('Saldo não encontrado.');
         const saldo = Number(parsed[0].Saldo);
 
         setSaldoPost(saldo.toString());
@@ -279,22 +256,16 @@ const Dashboard: React.FC = () => {
 
 
     const getGastosAgrupados = async (anoMes: string, idUsuario: string, meses: string) => {
-        await axios.post (URL_API+"/gastosAgrupados", {
+        await deduplicatedRequest(`grouped-expenses:${idUsuario}:${anoMes}:${meses}`, () => axios.post (URL_API+"/gastosAgrupados", {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
             usuario: idUsuario,
             meses: meses,
             token: token
-        }, 
-         
-        )
+        }))
         .then((response) => {
             const { data } = response
-            if(meses !== "1"){
-                setCustoHistoricoAgrupado(JSON.parse(data))
-            }else{
-                setCustoAgrupado(JSON.parse(data))
-            }                         
+            setCustoHistoricoAgrupado(JSON.parse(data))
         })
         .catch((error) => {
           console.log(error)
@@ -358,50 +329,29 @@ const Dashboard: React.FC = () => {
             }));
     }, [portfolioPositions]);
 
-    const getInvestmentPortfolio = async () => {
+    const getInvestmentDashboard = async () => {
         try {
-            const [pluggyResponse, cryptoResponse] = await Promise.all([
-                axios.get(`${URL_API}/investments/pluggy/portfolio`, {
-                    params: { idUsuario: Number(idUsuario), periodo: 6 },
-                }),
-                axios.get(`${URL_API}/investments/crypto/portfolio`, {
-                    params: { idUsuario: Number(idUsuario) },
-                }),
-            ]);
+            const response = await deduplicatedRequest(`investment-dashboard:${idUsuario}:6`, () =>
+                axios.get(`${URL_API}/investments/dashboard`, { params: { periodo: 6 } }),
+            );
             setPortfolioPositions([
-                ...(pluggyResponse.data.posicoes || []),
-                ...(cryptoResponse.data.posicoes || []),
+                ...(response.data.pluggyPositions || []),
+                ...(response.data.cryptoPositions || []),
             ]);
+            setEvolucaoInvestimentos(response.data.evolution || []);
         } catch (error) {
             console.log('Não foi possível carregar a carteira atual.', error);
             setPortfolioPositions([]);
         }
     };
-
-    const getEvolucaoInvestimento = () => {
-        axios.post (URL_API+"/evolucaoInvestimento", {
-            headers: {"Access-Control-Allow-Origin": "*"},
-            idUsuario: idUsuario,
-            token: token
-        })
-        .then((response) => {
-            const { data } = response
-            setEvolucaoInvestimentos(JSON.parse(data))  
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-        
-    }
 	
     const getValoresFatura = async (anoMes: string, idUsuario: string) => {
-        await axios.post (URL_API+"/getValorFatura", {
+        await deduplicatedRequest(`invoice-values:${idUsuario}:${anoMes}`, () => axios.post (URL_API+"/getValorFatura", {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
             usuario: idUsuario,
             token: token
-        }, 
-        )
+        }))
         .then((response) => {
             const { data } = response
             setValoresFatura(JSON.parse(data))
@@ -411,109 +361,17 @@ const Dashboard: React.FC = () => {
         })
     }
 
-    const getBudgetStatus = async (anoMes: string, idUsuario: string) => {
-        try {
-            const response = await axios.post(URL_API + "/budgetvrsRealizado", {
-                headers: {"Access-Control-Allow-Origin": "*"},
-                anomes: anoMes,
-                usuario: idUsuario
-            });
-            setBudgetStatus(JSON.parse(response.data));
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
-    const getPreviousCosts = async (anoMes: string, idUsuario: string) => {
-        try {
-            const response = await axios.post(URL_API + "/gastos", {
-                headers: {"Access-Control-Allow-Origin": "*"},
-                anomes: anoMes,
-                usuario: idUsuario,
-                tipo: "Custo",
-                token: token
-            });
-            setPreviousCosts(JSON.parse(response.data));
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
-    const getContasRecorrentes = async () => {
-        try {
-            const response = await axios.get<{ items: IContaRecorrenteStatus[] }>(
-                `${URL_API}/contas-recorrentes/status`,
-                { params: { meses: 2 } },
-            );
-            setContasRecorrentes(response.data.items);
-        } catch (error) {
-            console.log('Não foi possível carregar contas recorrentes.', error);
-        }
-    }
-
-    const alerts = useMemo(() => {
-        const messages: { type: 'warning' | 'attention' | 'info', title: string, description: string }[] = [];
-        const overdueRecurring = contasRecorrentes.filter(item => item.status === 'atrasado');
-        const dueTodayRecurring = contasRecorrentes.filter(item => item.status === 'vence_hoje');
-        const divergentRecurring = contasRecorrentes.filter(item => item.status === 'divergente');
-
-        if (overdueRecurring.length) {
-            messages.push({ type: 'attention', title: `${overdueRecurring.length} ${overdueRecurring.length === 1 ? 'conta recorrente em atraso' : 'contas recorrentes em atraso'}`, description: overdueRecurring.slice(0, 2).map(item => item.descricao).join(' e ') + '. Não encontramos um pagamento compatível.' });
-        }
-        if (dueTodayRecurring.length) {
-            messages.push({ type: 'warning', title: `${dueTodayRecurring.length} conta${dueTodayRecurring.length === 1 ? '' : 's'} vence${dueTodayRecurring.length === 1 ? '' : 'm'} hoje`, description: dueTodayRecurring.slice(0, 2).map(item => item.descricao).join(' e ') + '.' });
-        }
-        if (divergentRecurring.length) {
-            messages.push({ type: 'warning', title: 'Pagamento recorrente para conferir', description: `${divergentRecurring[0].descricao} tem uma transação próxima ao vencimento, mas o valor não bate com o esperado.` });
-        }
-        const budgetExceeded = budgetStatus.filter(item => Math.abs(Number(item.ValorRealizado)) > Math.abs(Number(item.ValorOrcado)));
-
-        if (budgetExceeded.length) {
-            const accountNames = budgetExceeded.slice(0, 2).map(item => item.subGrupoContaContabil).join(' e ');
-            const complement = budgetExceeded.length > 2 ? ` e mais ${budgetExceeded.length - 2}` : '';
-            messages.push({ type: 'warning', title: `Orçamento ultrapassado em ${budgetExceeded.length} ${budgetExceeded.length === 1 ? 'categoria' : 'categorias'}`, description: `${accountNames}${complement} já passaram do valor planejado para este mês.` });
-        }
-
-        const electricityPattern = /luz|energia|eletric/i;
-        const hadElectricityLastMonth = previousCosts.some(item => electricityPattern.test(`${item.Descricao} ${item.contaContabil} ${item.subGrupoContaContabil}`));
-        const hasElectricityThisMonth = custo.some(item => electricityPattern.test(`${item.Descricao} ${item.contaContabil} ${item.subGrupoContaContabil}`));
-        if (hadElectricityLastMonth && !hasElectricityThisMonth) {
-            messages.push({ type: 'attention', title: 'Pagamento de energia não identificado', description: 'Encontramos uma conta de luz no mês anterior, mas nenhum lançamento correspondente neste mês.' });
-        }
-
-        const invoiceByMonth = valoresFatura.reduce((total, item) => ({ ...total, [item.AnoMesFatura]: (total[item.AnoMesFatura] || 0) + Number(item.Valor) }), {} as Record<number, number>);
-        const invoiceMonths = Object.keys(invoiceByMonth).map(Number).sort((a, b) => a - b);
-        if (invoiceMonths.length > 1) {
-            const currentInvoice = invoiceByMonth[invoiceMonths[0]];
-            const nextInvoice = invoiceByMonth[invoiceMonths[1]];
-            if (currentInvoice > 0 && nextInvoice > currentInvoice * 1.2) {
-                const increase = Math.round(((nextInvoice / currentInvoice) - 1) * 100);
-                messages.push({ type: 'attention', title: `Próxima fatura ${increase}% maior`, description: 'A fatura seguinte está bem acima da atual. Vale conferir as compras parceladas e recorrentes.' });
-            }
-        }
-
-        if (!messages.length) messages.push({ type: 'info', title: 'Tudo sob controle por enquanto', description: 'Não identificamos alertas importantes neste período. Continue acompanhando seu orçamento.' });
-        return messages.slice(0, 3);
-    }, [budgetStatus, previousCosts, custo, valoresFatura, contasRecorrentes]);
-
-    useEffect(() => {        
-        getSaldo (idUsuario)
-        getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Receita") 
-        getfetchTransacoes(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "Custo")        
-        getGastosAgrupados(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario, "12") 
-        getValoresFatura (yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario)
-        getBudgetStatus(yearSelected.toString()+monthSelected.toString().padStart(2, '0'), idUsuario)
-        const previousDate = new Date(yearSelected, monthSelected - 2, 1);
-        getPreviousCosts(`${previousDate.getFullYear()}${String(previousDate.getMonth() + 1).padStart(2, '0')}`, idUsuario)
-        getContasRecorrentes()
-
-        getEvolucaoInvestimento ()
-
-    },[monthSelected, yearSelected]); 
-
     useEffect(() => {
-        getInvestmentPortfolio();
-    }, [idUsuario]);
+        const anoMes = yearSelected.toString()+monthSelected.toString().padStart(2, '0');
+        void Promise.allSettled([
+            getSaldo(idUsuario),
+            getfetchTransacoes(anoMes, idUsuario, "Receita"),
+            getfetchTransacoes(anoMes, idUsuario, "Custo"),
+            getGastosAgrupados(anoMes, idUsuario, "12"),
+            getValoresFatura(anoMes, idUsuario),
+            getInvestmentDashboard(),
+        ]);
+    },[monthSelected, yearSelected]);
 
     return (
         <Container>
@@ -533,7 +391,7 @@ const Dashboard: React.FC = () => {
                 <SelectInput 
                     options={years} 
                     onChange={(e) => handleYearSelected(e.target.value)} 
-                    defaultValue={yearSelected-2018}
+                    defaultValue={yearSelected}
                 />
                     </div>
                 </div>
@@ -565,48 +423,8 @@ const Dashboard: React.FC = () => {
                     />
                 </div>
 
-                <section className="alerts" aria-label="Alertas financeiros">
-                    <div className="alerts-heading">
-                        <div>
-                            <span className="eyebrow">PRECISA DA SUA ATENÇÃO</span>
-                            <h2>Alertas financeiros</h2>
-                        </div>
-                        <div className="alerts-meta"><span>{alerts.length} {alerts.length === 1 ? 'alerta' : 'alertas'}</span><Link to="/settings/contas-recorrentes">Gerenciar recorrências</Link></div>
-                    </div>
-                    <div className="alerts-list">
-                        {alerts.map(alert => (
-                            <article className={`alert ${alert.type}`} key={alert.title}>
-                                <span className="alert-icon">{alert.type === 'warning' ? '!' : alert.type === 'attention' ? '↑' : '✓'}</span>
-                                <div><h3>{alert.title}</h3><p>{alert.description}</p></div>
-                            </article>
-                        ))}
-                    </div>
-                </section>
+                <FinancialInsights />
 
-                {false && <section className="recurring-bills" aria-label="Contas recorrentes">
-                    <div className="recurring-bills-heading">
-                        <div>
-                            <span className="eyebrow">CONTROLE DE PAGAMENTOS</span>
-                            <h2>Contas recorrentes</h2>
-                        </div>
-                        <span>{contasRecorrentes.filter(item => item.status !== 'pago').length} pendentes de conciliação</span>
-                    </div>
-                    <div className="recurring-bills-list">
-                        {contasRecorrentes.length === 0 && <p>Nenhuma conta recorrente prevista para este período.</p>}
-                        {contasRecorrentes.map(item => (
-                            <article className={`recurring-bill ${item.status}`} key={`${item.idContaRecorrente}-${item.competencia}`}>
-                                <div className="recurring-bill-main">
-                                    <strong>{item.descricao}</strong>
-                                    <span>Vence em {new Date(`${item.vencimento}T12:00:00`).toLocaleDateString('pt-BR')}</span>
-                                </div>
-                                <b>{Math.abs(item.valorPrevisto).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
-                                <span className="recurring-status">{({ pago: 'Pago', a_vencer: `Vence em ${item.diasParaVencimento} dias`, vence_hoje: 'Vence hoje', atrasado: `${Math.abs(item.diasParaVencimento)} dias em atraso`, divergente: 'Conferir valor', pendente: 'Programada' } as Record<string, string>)[item.status]}</span>
-                                {item.idTransacao && <small>Transação #{item.idTransacao}</small>}
-                            </article>
-                        ))}
-                    </div>
-                </section>}
-                
                 <div className="budget-section">
                     <BudgetBar anoMes = { yearSelected.toString()+monthSelected.toString().padStart(2, '0') } />
                 </div>

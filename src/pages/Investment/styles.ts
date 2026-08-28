@@ -50,6 +50,15 @@ export const Content = styled.main`
 
     > div, > section { min-width: 0; }
 
+    .dashboard-status {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 12px 14px; border: 1px solid ${props => props.theme.colors.tertiary};
+        border-radius: 10px; color: ${props => props.theme.colors.gray};
+        background: ${props => props.theme.colors.secondary}; font-size: 12px;
+    }
+    .dashboard-status.error { color: ${props => props.theme.colors.white}; border-color: #c94a5a; }
+    .dashboard-status button { padding: 7px 11px; border: 0; border-radius: 7px; cursor: pointer; color: ${props => props.theme.colors.primary}; background: ${props => props.theme.colors.success}; font-weight: 700; }
+
     .summary-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
     .summary-cards > div { min-width: 0; }
 

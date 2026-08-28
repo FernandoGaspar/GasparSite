@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useShowNumber } from '../../hooks/showNumber';
 import { URL_API } from '../../repositories/baseAPI';
+import { deduplicatedRequest } from '../../repositories/requestCache';
 import { Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Bar, ComposedChart } from 'recharts';
 import formatCurrency from '../../utils/formatCurrency';
 import { MdAttachMoney } from "react-icons/md";
@@ -54,9 +55,9 @@ const InvestmentEvolution: React.FC<IAreaChartProps> = ({
   const [tipoValor, setTipoValor] = useState<boolean>(false);
 
   const getIndicadoresEconomicos = () => {
-    axios.post (URL_API+"/evolucaoIndicadores", {
+    deduplicatedRequest('investment-indicators', () => axios.post (URL_API+"/evolucaoIndicadores", {
         headers: {"Access-Control-Allow-Origin": "*"},
-    })
+    }))
     .then((response) => {
         const { data } = response
         setEvolucaoIndicadores(JSON.parse(data))  

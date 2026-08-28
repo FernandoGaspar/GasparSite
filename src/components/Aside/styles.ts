@@ -34,7 +34,7 @@ export const Container = styled.div<IContainerProps>`
         width: 220px;
         padding: 16px;
 
-        height: ${props => props.menuIsOpen ? '100vh' : '70px'};
+        height: ${props => props.menuIsOpen ? '100dvh' : '70px'};
         overflow: hidden;
 
         ${props => !props.menuIsOpen && css`
@@ -124,6 +124,10 @@ export const MenuItemLink = styled(NavLink)`
         background: rgba(6, 214, 160, .14);
         color: ${props => props.theme.colors.success};
     }
+`;
+
+export const MenuItemAnchor = styled.a`
+    ${menuItemBase}
 `;
 
 export const MenuFooter = styled.div`

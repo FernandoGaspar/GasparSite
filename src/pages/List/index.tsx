@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import ContentHeader from '../../components/ContentHeader';
 import SelectInput from '../../components/SelectInput';
 import HistoryFinanceCard from '../../components/HistoryFinanceCard';
@@ -8,6 +8,7 @@ import listOfYear from '../../utils/year';
 import axios from 'axios';
 import { FaSyncAlt, FaSearchengin } from 'react-icons/fa';
 import { URL_API } from '../../repositories/baseAPI';
+import { deduplicatedRequest } from '../../repositories/requestCache';
 import {Button} from '@mui/material';
 import {TextField} from '@mui/material';
 import NumberFormat from 'react-number-format';
@@ -47,6 +48,7 @@ interface IDataPost {
     DataTransacao: string;
     dataInserido: string;
     Parcelas: string
+    pluggyData?: Record<string, any>
 }
 
 interface IRouteParams {
@@ -105,9 +107,9 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     },[movimentType]);
     
     const years = useMemo(() => {
-        return listOfYear.map((year, index) => {
+        return listOfYear.map((year) => {
             return {
-                value: index + 1,
+                value: Number(year),
                 label: year,
             }
         });
@@ -151,7 +153,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     const handleYearSelected = (year: string) => {
         try {
-            const parseYear = 2018+Number(year);
+            const parseYear = Number(year);
             setYearSelected(parseYear);
         }
         catch{
@@ -159,13 +161,13 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         }
     }
 
-    const atualizaTransacoesLista = () => {
-        axios.post (URL_API+"/gastos", {
+    const atualizaTransacoesLista = useCallback(() => {
+        return deduplicatedRequest(`expenses:${idUsuario}:${yearSelected}${monthSelected.toString().padStart(2, '0')}:${pageData.tipoDeDado}`, () => axios.post (URL_API+"/gastos", {
             anomes: yearSelected.toString()+monthSelected.toString().padStart(2, '0'),
             usuario: idUsuario,
             tipo: pageData.tipoDeDado,
             token: token
-        })
+        }))
         .then((response) => {
             const { data } = response
             setDataPost(JSON.parse(data))  
@@ -173,9 +175,9 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         .catch((error) => {
           console.log(error)
         })
-    }
+    }, [idUsuario, monthSelected, pageData.tipoDeDado, token, yearSelected])
 
-    const solicitarTokenBradesco = useMemo(async () => {
+    const solicitarTokenBradesco = useCallback(async () => {
         return await axios.post (URL_API+"/bancosUsuario", {
             idUsuario: idUsuario,
         })
@@ -255,7 +257,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     async function atualizaTransacoesBancos () {
         setClassCSSRefresh('tag-refresh-sim')
-        if (await solicitarTokenBradesco === false){
+        if (await solicitarTokenBradesco() === false){
             postAtualizaTransacoesBancos()
         } else {
             setOpenModalToken(true)
@@ -317,7 +319,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         }
 
         return dadoFiltrado
-    },[dataPost, filtroTexto, subGrupoContaFilterSelected]);
+    },[dataPost, filtroTexto, subGrupoContaFilterSelected, apenasGastosDoMes, monthSelected, yearSelected]);
 
     const valorTotalDadoFiltrado = useMemo(() => {
         let total: number = 0;
@@ -352,7 +354,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     useEffect(() => {
         atualizaTransacoesLista()
-    },[movimentType, monthSelected, yearSelected, idUsuario, pageData, idUsuario, apenasGastosDoMes]); 
+    },[atualizaTransacoesLista]);
 
     return (
         <Container>
@@ -391,7 +393,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 <SelectInput 
                     options={years} 
                     onChange={(e) => handleYearSelected(e.target.value)} 
-                    defaultValue={yearSelected-2018}
+                    defaultValue={yearSelected}
                 />
             </ContentHeader>
             <Toolbar>
@@ -456,6 +458,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                             dataTransacao = { item.DataTransacao }
                             dataInserido = { item.dataInserido }
                             autoOpen = { transactionIdFromEmail === String(item.idTransacoes) }
+                            pluggyData = { item.pluggyData }
                         />
                     ))
                 }     

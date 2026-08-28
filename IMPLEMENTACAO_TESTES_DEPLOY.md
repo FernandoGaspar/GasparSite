@@ -105,11 +105,12 @@ $backup = "C:\Site\Backups\Gastos-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 
 New-Item -ItemType Directory -Path $backup -Force | Out-Null
 Copy-Item -Path "$target\*" -Destination $backup -Recurse -Force
-robocopy $release $target /MIR
+# `/sitios` é uma aplicação independente e precisa ser preservada.
+robocopy $release $target /MIR /XD "$target\sitios"
 if ($LASTEXITCODE -ge 8) { throw "Falha no robocopy: $LASTEXITCODE" }
 ```
 
-`robocopy /MIR` remove do destino arquivos que não existem mais no build. Confira cuidadosamente os valores de `$release` e `$target` antes de executar.
+`robocopy /MIR` remove do destino arquivos que não existem mais no build. Confira cuidadosamente os valores de `$release` e `$target` antes de executar e mantenha `/sitios` excluído do espelhamento, pois ele é publicado pelo projeto `SitiosWeb`.
 
 Recicle somente o Application Pool associado ao site, usando o nome real configurado no IIS:
 

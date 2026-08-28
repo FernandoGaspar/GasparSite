@@ -14,6 +14,9 @@ import {
     MdSettingsInputAntenna,
     MdSettings,
     MdChatBubble,
+    MdDateRange,
+    MdLandscape,
+    MdPlaylistAddCheck,
 } from 'react-icons/md';
 
 import logoImg from '../../assets/logo.svg';
@@ -28,6 +31,7 @@ import {
     Title,
     MenuContainer,
     MenuItemLink,
+    MenuItemAnchor,
     MenuFooter,
     MenuItemButton,
     ToggleMenu,
@@ -42,9 +46,16 @@ const menuItems = [
     { to: '/home', label: 'Casa', icon: MdHome },
     { to: '/tracker', label: 'Rastreador', icon: MdSettingsInputAntenna },
     { to: '/assistant', label: 'Assistente', icon: MdChatBubble },
+    { to: '/planning', label: 'Planejamento', icon: MdDateRange },
+    { to: '/activities', label: 'Atividades', icon: MdPlaylistAddCheck },
     { to: '/settings', label: 'Configurações', icon: MdSettings },
     { to: '/health', label: 'Saúde', icon: MdDirectionsBike },
 ];
+
+// Enabled by default so routine builds cannot silently remove the module.
+// It remains explicitly removable with REACT_APP_SITIOS_ENABLED=false.
+const sitiosEnabled = process.env.REACT_APP_SITIOS_ENABLED !== 'false';
+const sitiosUrl = process.env.REACT_APP_SITIOS_WEB_URL || '/sitios/';
 
 const Aside: React.FC = () => {
     const { signOut } = useAuth();
@@ -89,6 +100,12 @@ const Aside: React.FC = () => {
                         {item.label}
                     </MenuItemLink>
                 ))}
+                {sitiosEnabled && (
+                    <MenuItemAnchor href={sitiosUrl} onClick={() => setToggleMenuIsOpened(false)}>
+                        <MdLandscape />
+                        Sítios
+                    </MenuItemAnchor>
+                )}
             </MenuContainer>
 
             <MenuFooter>

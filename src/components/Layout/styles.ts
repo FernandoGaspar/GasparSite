@@ -16,7 +16,7 @@ export const Grid = styled.div`
     'AS MH'
     'AS CT';
 
-    height: 100vh;
+    height: 100dvh;
     min-width: 315px;
 
     @media(max-width: 900px){

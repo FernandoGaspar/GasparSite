@@ -1,9 +1,7 @@
-export default [
-    '2019',
-    '2020',
-    '2021',
-    '2022',
-    '2023',
-    '2024',
-    '2025',
-];
+const firstYear = 2019;
+const lastYear = new Date().getFullYear() + 1;
+
+export default Array.from(
+    { length: lastYear - firstYear + 1 },
+    (_, index) => String(firstYear + index),
+);

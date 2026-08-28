@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 
 import BudgetBarLine from '../BudgetBarLine';
 
 import axios from 'axios';
 import { URL_API } from '../../repositories/baseAPI';
+import { deduplicatedRequest } from '../../repositories/requestCache';
 
 import { 
     Container,
@@ -32,12 +33,12 @@ const BudgetBar: React.FC<IBudgetBar> = ({
     const [dataBudgetVrsRealizado, setDataBudgetVrsRealizado] = useState<IDataBudgetVrsRealizado[]>([]);
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
   
-    const getBudgetVrsRealizado = () => {
-        axios.post (URL_API + "/budgetvrsRealizado", {
+    const getBudgetVrsRealizado = useCallback(() => {
+        deduplicatedRequest(`budget:${idUsuario}:${anoMes}`, () => axios.post (URL_API + "/budgetvrsRealizado", {
             headers: {"Access-Control-Allow-Origin": "*"},
             anomes: anoMes,
             usuario: idUsuario
-        })
+        }))
         .then((response) => {
             const { data } = response
             setDataBudgetVrsRealizado (JSON.parse(data))
@@ -45,11 +46,11 @@ const BudgetBar: React.FC<IBudgetBar> = ({
         .catch((error) => {
           console.log(error)
         })
-    }
+    }, [anoMes, idUsuario])
 
     useEffect(() => {
         getBudgetVrsRealizado()
-    },[anoMes]);
+    },[getBudgetVrsRealizado]);
 
     return (
         <Container>

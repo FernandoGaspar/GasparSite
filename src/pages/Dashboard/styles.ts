@@ -94,6 +94,7 @@ export const Content = styled.main`
     .recurring-status { justify-self: start; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; }
     .recurring-bill.pago .recurring-status { color: #65d7ab; background: rgba(6,214,160,.13); }
     .recurring-bill.a_vencer .recurring-status, .recurring-bill.pendente .recurring-status { color: #9ecfff; background: rgba(57,148,235,.14); }
+    .recurring-bill.em_conciliacao .recurring-status { color: #9ecfff; background: rgba(57,148,235,.14); }
     .recurring-bill.vence_hoje .recurring-status, .recurring-bill.divergente .recurring-status { color: #ffcf6b; background: rgba(255,209,102,.13); }
     .recurring-bill.atrasado .recurring-status { color: #ff91a8; background: rgba(239,71,111,.14); }
 

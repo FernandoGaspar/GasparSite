@@ -59,6 +59,7 @@ export const Container = styled.li`
         font-size: 22px;
         font-weight: 500;
     }
+
 `;
 
 export const Tag = styled.div<ITagProps>`

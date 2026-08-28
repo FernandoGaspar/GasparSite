@@ -26,6 +26,23 @@ export const SectionCard = styled.div`
   border: 1px solid rgba(148,163,184,.14);
   padding: 18px;
   margin-bottom: 16px;
+
+  .pluggy-summary-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; margin-bottom:12px; }
+  .bank-info-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; padding:0; border:0; background:transparent; color:${props => props.theme.colors.white}; font-size:13.5px; font-weight:800; cursor:pointer; }
+  .bank-info-toggle b { color:${props => props.theme.colors.gray}; font-size:20px; font-weight:400; }
+  .bank-info-toggle + .pluggy-summary-grid { margin-top:14px; }
+  .pluggy-summary-grid > div { min-width:0; padding:10px 12px; border-radius:9px; background:${props => props.theme.colors.secondary}; }
+  .pluggy-summary-grid small { display:block; margin-bottom:4px; color:${props => props.theme.colors.gray}; font-size:10px; text-transform:uppercase; letter-spacing:.04em; }
+  .pluggy-summary-grid strong { display:block; color:${props => props.theme.colors.white}; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
+  .pluggy-details-toggle { display:block; margin-left:auto; padding:5px 0; border:0; background:transparent; color:${props => props.theme.colors.gray}; font-size:11px; cursor:pointer; }
+  .pluggy-details-toggle:hover { color:${props => props.theme.colors.success}; }
+  .pluggy-details { max-height:360px; overflow:auto; margin-top:10px; padding:10px; border-radius:10px; background:${props => props.theme.colors.secondary}; }
+  .pluggy-branch { padding:5px 7px; border-left:1px solid rgba(148,163,184,.22); overflow-wrap:anywhere; }
+  .pluggy-branch > strong, .pluggy-field > strong { color:${props => props.theme.colors.success}; font-size:12px; margin-right:8px; }
+  .pluggy-branch > small { color:${props => props.theme.colors.gray}; font-size:10px; }
+  .pluggy-field { display:grid; grid-template-columns:minmax(120px, 32%) 1fr; gap:8px; padding:5px 7px; border-left:1px solid rgba(148,163,184,.22); overflow-wrap:anywhere; }
+  .pluggy-field > span { color:${props => props.theme.colors.white}; font-size:12px; }
+  @media(max-width:600px) { .pluggy-summary-grid { grid-template-columns:1fr; } }
 `;
 
 /* ====== Header ====== */

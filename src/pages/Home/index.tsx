@@ -26,6 +26,7 @@ import HomeFloorPlan, {
   FloorPlanLight,
 } from "../../components/HomeFloorPlan";
 import { URL_API } from "../../repositories/baseAPI";
+import { deduplicatedRequest } from "../../repositories/requestCache";
 import { Container } from "./styles";
 
 interface HomeAssistantState {
@@ -675,6 +676,7 @@ const Home: React.FC = () => {
     () => readStoredJson(hiddenDeviceStorageKey, {}),
   );
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const skipNextPreferenceSave = useRef(true);
   const [roomToRename, setRoomToRename] = useState("");
   const [renamedRoom, setRenamedRoom] = useState("");
   const usuarioId = Number(localStorage.getItem("@minha-carteira:usuarioId"));
@@ -683,10 +685,10 @@ const Home: React.FC = () => {
   >([]);
 
   useEffect(() => {
-    axios
-      .get<Array<{ entity_id: string; name: string }>>(
+    deduplicatedRequest('home:nvr-cameras', () =>
+      axios.get<Array<{ entity_id: string; name: string }>>(
         `${URL_API}/home-assistant/nvr-cameras`,
-      )
+      ))
       .then((response) => setNvrCameras(response.data))
       .catch((requestError) => {
         console.error("Falha ao carregar câmeras do NVR:", requestError);
@@ -700,25 +702,35 @@ const Home: React.FC = () => {
   }, []);
 
   const loadStates = async (isRefresh = false) => {
+    setPreferencesReady(false);
+    skipNextPreferenceSave.current = true;
     isRefresh ? setRefreshing(true) : setLoading(true);
     setError("");
     try {
-      const response = await axios.get<HomeAssistantState[]>(
-        `${URL_API}/home-assistant/states`,
-      );
+      const statesRequest = isRefresh
+        ? axios.get<HomeAssistantState[]>(`${URL_API}/home-assistant/states`)
+        : deduplicatedRequest('home:states', () =>
+            axios.get<HomeAssistantState[]>(`${URL_API}/home-assistant/states`),
+          );
+      const loadPreferences = () => axios.get<{
+            rooms: Array<{ name: string; order?: number; custom: boolean }>;
+            devices: Array<{
+              entity_id: string;
+              room?: string;
+              order?: number;
+              hidden: boolean;
+            }>;
+          }>(`${URL_API}/home-assistant/preferences`, { params: { usuarioId } });
+      const preferencesRequest = usuarioId
+        ? (isRefresh
+            ? loadPreferences()
+            : deduplicatedRequest(`home:preferences:${usuarioId}`, loadPreferences))
+        : Promise.resolve(null);
+      const [response, preferences] = await Promise.all([statesRequest, preferencesRequest]);
       setStates(response.data);
       setLoading(false);
       setRefreshing(false);
-      if (usuarioId) {
-        const preferences = await axios.get<{
-          rooms: Array<{ name: string; order?: number; custom: boolean }>;
-          devices: Array<{
-            entity_id: string;
-            room?: string;
-            order?: number;
-            hidden: boolean;
-          }>;
-        }>(`${URL_API}/home-assistant/preferences`, { params: { usuarioId } });
+      if (preferences) {
         if (preferences.data.rooms.length || preferences.data.devices.length) {
           const assignments = Object.fromEntries(
             preferences.data.devices
@@ -774,6 +786,10 @@ const Home: React.FC = () => {
   }, []);
   useEffect(() => {
     if (!preferencesReady || !usuarioId) return;
+    if (skipNextPreferenceSave.current) {
+      skipNextPreferenceSave.current = false;
+      return;
+    }
     const rooms = Array.from(
       new Set([...customRooms, ...Object.keys(roomOrders)]),
     ).map((name) => ({
@@ -788,20 +804,23 @@ const Home: React.FC = () => {
         ...Object.keys(hiddenDevices),
       ]),
     );
-    axios
-      .put(`${URL_API}/home-assistant/preferences`, {
-        usuarioId,
-        rooms,
-        devices: deviceIds.map((entity_id) => ({
-          entity_id,
-          room: roomAssignments[entity_id] || null,
-          order: devicePriorities[entity_id] || null,
-          hidden: !!hiddenDevices[entity_id],
-        })),
-      })
-      .catch(() =>
-        setError("Não foi possível salvar as preferências da Casa."),
-      );
+    const saveTimer = window.setTimeout(() => {
+      axios
+        .put(`${URL_API}/home-assistant/preferences`, {
+          usuarioId,
+          rooms,
+          devices: deviceIds.map((entity_id) => ({
+            entity_id,
+            room: roomAssignments[entity_id] || null,
+            order: devicePriorities[entity_id] || null,
+            hidden: !!hiddenDevices[entity_id],
+          })),
+        })
+        .catch(() =>
+          setError("Não foi possível salvar as preferências da Casa."),
+        );
+    }, 500);
+    return () => window.clearTimeout(saveTimer);
   }, [
     preferencesReady,
     usuarioId,

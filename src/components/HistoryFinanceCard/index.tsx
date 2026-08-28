@@ -35,6 +35,7 @@ interface IHistoryFinanceCardProps {
     dataInserido: string;
     atualizaTransacaoList: (arg: string) => void
     autoOpen?: boolean
+    pluggyData?: Record<string, any>
 }
 
 const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
@@ -54,7 +55,8 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
     dataTransacao,
     dataInserido,
     atualizaTransacaoList,
-    autoOpen = false
+    autoOpen = false,
+    pluggyData
 
 })  => {
     const { theme } = useTheme();
@@ -109,6 +111,7 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
                     observacao={observacao}
                     tagColor={tagColor}
                     obraGrupoCode={obraGrupoCode}
+                    pluggyData={pluggyData}
                     atualizaTransacao={atualizaTransacaoList}
                 />
             </ThemeProvider>, { title: descricao, showCloseIcon: true });

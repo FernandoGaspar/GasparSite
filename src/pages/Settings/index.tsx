@@ -13,9 +13,10 @@ const running=(j:Job)=>Boolean(j.is_running||(j.start_execution_date&&!j.stop_ex
 const blank={name:'',description:'',apiDir:'C:\\Dev\\Gaspar Solutions\\GasparAPI',pythonCode:'',enabled:true,schedule:{enabled:true,frequency:'daily',time:'00:00',weekdays:127}};
 export default function Settings(){
  const changingStatus=useRef(false);
+ const loadingJobs=useRef(false);
  const[jobs,setJobs]=useState<Job[]>([]),[job,setJob]=useState<Job|null>(null),[history,setHistory]=useState<History[]>([]),[form,setForm]=useState<any>(blank),[edit,setEdit]=useState(false),[message,setMessage]=useState(''),[togglingJob,setTogglingJob]=useState<string|null>(null);
- const load=useCallback(async()=>{if(changingStatus.current)return[];try{const next:Job[]=(await axios.get(`${URL_API}/automations`)).data;setJobs(next);return next}catch{setMessage('Não foi possível carregar as automações.');return[]}},[]);
- useEffect(()=>{load();const timer=window.setInterval(load,5000);return()=>window.clearInterval(timer)},[load]);
+ const load=useCallback(async()=>{if(changingStatus.current||loadingJobs.current)return[];loadingJobs.current=true;try{const next:Job[]=(await axios.get(`${URL_API}/automations`)).data;setJobs(next);return next}catch{setMessage('Não foi possível carregar as automações.');return[]}finally{loadingJobs.current=false}},[]);
+ useEffect(()=>{const refresh=()=>{if(!document.hidden)void load()};refresh();const timer=window.setInterval(refresh,5000);document.addEventListener('visibilitychange',refresh);return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh)}},[load]);
  const select=async(j:Job)=>{setJob(j);setEdit(false);setHistory((await axios.get(`${URL_API}/automations/${encodeURIComponent(j.name)}/history`)).data)};
  const open=async(j?:Job)=>{if(!j){setJob(null);setForm(blank);setEdit(true);return}try{setForm((await axios.get(`${URL_API}/automations/${encodeURIComponent(j.name)}/definition`)).data);setEdit(true)}catch(e:any){setMessage(e.response?.data?.message||'Este job não pode ser editado por esta tela.')}};
  const save=async()=>{try{const{name,...body}=form;const r=job?await axios.put(`${URL_API}/automations/${encodeURIComponent(job.name)}/definition`,body):await axios.post(`${URL_API}/automations`,form);setMessage(r.data.message);setEdit(false);load()}catch(e:any){setMessage(e.response?.data?.message||'Não foi possível salvar o job.')}};

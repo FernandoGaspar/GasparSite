@@ -74,6 +74,7 @@ const Health: React.FC = () => {
     },[dataPostStatusTreino]);
 
     const tempoAtividade = useMemo(() => {
+        void atualizar;
         let resultado = "0"
         const startDate = moment(horaInicioAtividade).add(3, 'hour');
         const agora = moment();
@@ -86,20 +87,7 @@ const Health: React.FC = () => {
             resultado = ("00" + diffDuration.minutes()).slice(-2)+":"+("00" + diffDuration.seconds()).slice(-2)
         }
         return resultado;
-    },[horaInicioAtividade, atualizaData, atualizar]);
-
-    async function atualizaData () {
-        let valor = 0
-        while (1 == 1){
-            valor = valor + 1   
-            setAtualizar(valor);                 
-            await timeout(1000);
-        }
-    }
-
-    function timeout(delay: number) {
-        return new Promise( res => setTimeout(res, delay) );
-    }
+    },[horaInicioAtividade, atualizar]);
 
     const handleChangeTreinoIniciado = ()=>{        
         setTreinoIniciado(!treinoIniciado);
@@ -177,8 +165,13 @@ const Health: React.FC = () => {
     useEffect(() => {
         getStatusTreino()
         getResultadoTreinos()
-        atualizaData()
     },[]); 
+
+    useEffect(() => {
+        if (treinoIniciado) return;
+        const timer = window.setInterval(() => setAtualizar(value => value + 1), 1000);
+        return () => window.clearInterval(timer);
+    }, [treinoIniciado]);
 
     return (
         <Container>

@@ -1,12 +1,12 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { URL_API } from '../../repositories/baseAPI';
+import { deduplicatedRequest } from '../../repositories/requestCache';
 import HistoryFinanceCard from '../../components/HistoryFinanceCard';
 import formatCurrency from '../../utils/formatCurrency';
 import NumberFormat from 'react-number-format';
 import { FaSearchengin, FaFileExcel  } from 'react-icons/fa';
-import * as XLSX from 'xlsx';
 import * as FileSaver from 'file-saver';
 import formatDate from '../../utils/formatDate';
 
@@ -57,12 +57,12 @@ const CardList: React.FC<IHistoryFinanceCardProps> = ({
         }
     }
 
-    const atualizaTransacoesLista = () => { 
-        axios.post (URL_API+"/getFaturaCartao", {
+    const atualizaTransacoesLista = useCallback(() => {
+        deduplicatedRequest(`card-invoice:${idUsuario}:${Banco}:${AnoMes}`, () => axios.post (URL_API+"/getFaturaCartao", {
             anomes: AnoMes,
             usuario: idUsuario,
             banco: Banco,
-        })
+        }))
         .then((response) => {
             const { data } = response
             setDataPost(JSON.parse(data))  
@@ -70,7 +70,7 @@ const CardList: React.FC<IHistoryFinanceCardProps> = ({
         .catch((error) => {
           console.log(error)
         })
-    }
+    }, [AnoMes, Banco, idUsuario])
     
     function getColorSubGrupoContaContabil (subGrupoContaContabil: string) {
         let color = dataPost.filter(x => x.subGrupoContaContabil === subGrupoContaContabil)[0].Cor
@@ -130,29 +130,23 @@ const CardList: React.FC<IHistoryFinanceCardProps> = ({
 
 
     const handleExport = () => {
-        
-        let datadonwload =
-            dadoFiltrado.forEach(item => {
-                item.Data = formatDate(item.Data, 1);
-            });
-
-        let fileName = "Fatura_"+AnoMes
-        const worksheet = XLSX.utils.json_to_sheet(dadoFiltrado);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook,   
-     worksheet, 'Sheet1');
-    
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-        const data:   
-     Blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'   
-     });
-        FileSaver.saveAs(data, `${fileName}.xlsx`);   
-    
-      };
+        const rows = dadoFiltrado.map(item => ({ ...item, Data: formatDate(item.Data, 1) }));
+        if (!rows.length) return;
+        const columns = Object.keys(rows[0]) as Array<keyof IHistoryFinanceCardProps>;
+        const encode = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+        const csv = [
+            columns.map(encode).join(';'),
+            ...rows.map(row => columns.map(column => encode(row[column])).join(';')),
+        ].join('\r\n');
+        FileSaver.saveAs(
+            new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }),
+            `Fatura_${AnoMes}.csv`,
+        );
+    };
 
     useEffect(() => {
         atualizaTransacoesLista()
-     },[idUsuario, Banco, AnoMes]); 
+     },[atualizaTransacoesLista]);
     
     return (
         <Container>

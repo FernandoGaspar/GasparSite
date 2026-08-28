@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaFileImport, FaPlus, FaSync } from 'react-icons/fa';
 import { CustomDialog } from 'react-st-modal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -13,6 +13,7 @@ import SelectInput from '../../components/SelectInput';
 import NewsFeed from '../../components/NewsFeed';
 import listOfPeriodos from '../../utils/periodos';
 import { URL_API } from '../../repositories/baseAPI';
+import { deduplicatedRequest } from '../../repositories/requestCache';
 
 import {
     Container,
@@ -74,6 +75,15 @@ interface IMarketOverview {
     cdi: IMarketIndicator
 }
 
+interface IInvestmentDashboard {
+    pluggyPositions: IPapelMonitorado[]
+    cryptoPositions: IPapelMonitorado[]
+    evolution: IEvolucaoInvestimentoData[]
+    indicators: IIndicador[]
+    marketOverview: IMarketOverview
+    generatedAt: string
+}
+
 interface ISuggestion {
     type: 'buy' | 'hold' | 'sell';
     label: string;
@@ -116,6 +126,10 @@ const Investment: React.FC = () => {
     const [b3Preview, setB3Preview] = useState<IB3Preview>();
     const [integrationBusy, setIntegrationBusy] = useState(false);
     const [integrationMessage, setIntegrationMessage] = useState('');
+    const [dashboardLoading, setDashboardLoading] = useState(true);
+    const [dashboardError, setDashboardError] = useState('');
+    const requestGeneration = useRef(0);
+    const activeRequest = useRef(0);
 
     const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
 
@@ -160,7 +174,7 @@ const Investment: React.FC = () => {
                 setIntegrationMessage(`${data.importadas} movimentações importadas; ${data.duplicadas} duplicadas ignoradas.`);
                 setB3Preview(undefined);
                 setB3File(undefined);
-                loadInvestmentData();
+                loadInvestmentData(true);
             } else {
                 setB3Preview(data);
             }
@@ -179,7 +193,7 @@ const Investment: React.FC = () => {
                 idUsuario: Number(idUsuario),
             });
             setIntegrationMessage(`${data.posicoes} posições da Pluggy sincronizadas com sucesso.`);
-            loadInvestmentData();
+            loadInvestmentData(true);
         } catch (error: any) {
             setIntegrationMessage(error.response?.data?.message || 'Não foi possível sincronizar a Pluggy.');
         } finally {
@@ -201,63 +215,36 @@ const Investment: React.FC = () => {
         setPeriodoSelected(periodo);
     }
 
-    const loadInvestmentData = () => {
-        Promise.all([
-            axios.get(`${URL_API}/investments/pluggy/portfolio`, {
-                params: { idUsuario: Number(idUsuario), periodo: periodoSelected },
-            }),
-            axios.get(`${URL_API}/investments/crypto/portfolio`, {
-                params: { idUsuario: Number(idUsuario) },
-            }),
-            axios.post(URL_API + "/evolucaoInvestimento", {
-                idUsuario: idUsuario,
-            }),
-        ])
-            .then(([pluggyResponse, cryptoResponse, legacyResponse]) => {
-                const pluggy = pluggyResponse.data.posicoes as IPapelMonitorado[];
-                setPluggyPositions(pluggy);
-                setCryptoPositions(cryptoResponse.data.posicoes as IPapelMonitorado[]);
-                const legacy = JSON.parse(legacyResponse.data) as IEvolucaoInvestimentoData[];
-                setEvolucaoInvestimentos([...legacy, ...pluggyResponse.data.evolucao]);
-            })
-            .catch((error) => {
-                console.log(error)
-            })
-    }
-
-    const getMarketOverview = () => {
-        axios.get(`${URL_API}/investments/market-overview`, {
-            params: { periodo: periodoSelected },
-        })
-            .then((response) => {
-                setMarketOverview(response.data);
-            })
-            .catch((error) => {
-                console.log(error)
-            })
-    }
-
-    const getIndicadoresEconomicos = () => {
-        axios.post(URL_API + "/evolucaoIndicadores", {
-            headers: { "Access-Control-Allow-Origin": "*" },
-        })
-            .then((response) => {
-                const { data } = response
-                setIndicadores(JSON.parse(data))
-            })
-            .catch((error) => {
-                console.log(error)
-            })
-    }
-
-    useEffect(() => {
-        loadInvestmentData()
-        getMarketOverview()
+    const loadInvestmentData = useCallback(async (force = false) => {
+        if (force) requestGeneration.current += 1;
+        const requestId = ++activeRequest.current;
+        setDashboardLoading(true);
+        setDashboardError('');
+        try {
+            const response = await deduplicatedRequest(
+                `investment-dashboard:${idUsuario}:${periodoSelected}:${requestGeneration.current}`,
+                () => axios.get<IInvestmentDashboard>(`${URL_API}/investments/dashboard`, {
+                    params: { periodo: periodoSelected },
+                }),
+                2500,
+            );
+            if (requestId !== activeRequest.current) return;
+            setPluggyPositions(response.data.pluggyPositions);
+            setCryptoPositions(response.data.cryptoPositions);
+            setEvolucaoInvestimentos(response.data.evolution);
+            setIndicadores(response.data.indicators);
+            setMarketOverview(response.data.marketOverview);
+        } catch (error: any) {
+            if (requestId !== activeRequest.current) return;
+            setDashboardError(error.response?.data?.message || 'Não foi possível carregar os investimentos.');
+        } finally {
+            if (requestId === activeRequest.current) setDashboardLoading(false);
+        }
     }, [idUsuario, periodoSelected]);
 
     useEffect(() => {
-        getIndicadoresEconomicos()
-    }, [idUsuario]);
+        loadInvestmentData();
+    }, [loadInvestmentData]);
 
     useEffect(() => {
         if (!selectedCodigo && papeisMonitorados.length > 0) {
@@ -295,12 +282,12 @@ const Investment: React.FC = () => {
             }));
     }, [papeisMonitorados]);
 
-    const getLatestIndicador = (nome: string) => {
+    const getLatestIndicador = useCallback((nome: string) => {
         return indicadores
             .filter(item => item.Nome.toLowerCase() === nome)
             .sort((a, b) => a.AnoMes.localeCompare(b.AnoMes))
             .slice(-1)[0];
-    }
+    }, [indicadores]);
 
     const periodoLabel = useMemo(() => {
         return periodoSelected === 9999 ? 'Final' : (listOfPeriodos[periodoSelected - 1] || '');
@@ -354,7 +341,7 @@ const Investment: React.FC = () => {
         }
 
         return mensagens.slice(0, 3);
-    }, [papeisMonitorados, maiorPosicao, totalInvestido, indicadores]);
+    }, [papeisMonitorados, maiorPosicao, totalInvestido, getLatestIndicador]);
 
     const selectedAsset = useMemo(() => {
         return papeisMonitorados.find(item => item.codigo === selectedCodigo);
@@ -412,7 +399,7 @@ const Investment: React.FC = () => {
             label: 'Manter posição',
             description: 'Sem sinal claro de tendência. Continue acompanhando este ativo.'
         };
-    }, [selectedAsset, priceHistory, indicadores]);
+    }, [selectedAsset, priceHistory, getLatestIndicador]);
 
     return (
         <Container>
@@ -452,7 +439,7 @@ const Investment: React.FC = () => {
                         onClick={async () => {
                             await CustomDialog(
                                 <InvestmentAddModal
-                                    atualizaPapeisMonitorados={loadInvestmentData}
+                                    atualizaPapeisMonitorados={() => loadInvestmentData(true)}
                                 />,
                                 {
                                     title: "descricao",
@@ -467,6 +454,13 @@ const Investment: React.FC = () => {
             </header>
 
             <Content>
+                {dashboardLoading && <div className="dashboard-status">Atualizando carteira…</div>}
+                {dashboardError && (
+                    <div className="dashboard-status error">
+                        <span>{dashboardError}</span>
+                        <button onClick={() => loadInvestmentData(true)}>Tentar novamente</button>
+                    </div>
+                )}
                 {importOpen && (
                     <section className="integration-panel section-card">
                         <div className="section-heading">
@@ -644,7 +638,7 @@ const Investment: React.FC = () => {
                                 dataUltimoDiv={item.dataUltimoDiv}
                                 tipoPapel={item.tipoPapel}
                                 origem={item.origem}
-                                atualizaPapeisMonitorados={loadInvestmentData}
+                                    atualizaPapeisMonitorados={() => loadInvestmentData(true)}
                             />
                         )) : <div className="holdings-empty">Nenhum ativo monitorado ainda. Clique em "Adicionar ativo" para começar.</div>}
                     </div>
