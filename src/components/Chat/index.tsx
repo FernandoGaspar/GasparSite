@@ -1,18 +1,66 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { MdChatBubble, MdMic, MdSend } from 'react-icons/md';
+import {
+  MdAccountBalanceWallet,
+  MdChatBubble,
+  MdHome,
+  MdMic,
+  MdPerson,
+  MdSend,
+  MdSupervisorAccount,
+} from 'react-icons/md';
 import { Container } from './styles';
 import { URL_API } from '../../repositories/baseAPI';
 
-interface Message { content: string; sender: 'user' | 'bot'; action?: Record<string, unknown>; agent?: string; }
+interface AgentIdentity { id: string; name: string; }
+interface Message {
+  content: string;
+  sender: 'user' | 'bot';
+  action?: Record<string, unknown>;
+  agent?: AgentIdentity | string;
+}
 
 interface Props { page?: boolean; }
+
+const coordinator: AgentIdentity = { id: 'general', name: 'Gaspar' };
+
+const normalizeAgent = (value: Message['agent']): AgentIdentity => {
+  if (value && typeof value !== 'string' && value.id && value.name) return value;
+  if (typeof value === 'string' && value) return { id: 'specialist', name: value };
+  return coordinator;
+};
+
+const agentRole = (agent: AgentIdentity) => {
+  const value = `${agent.id} ${agent.name}`.toLocaleLowerCase();
+  if (/(home|casa)/.test(value)) return 'Especialista da casa';
+  if (/(finan|guardian|organizer|planner|economist|investor)/.test(value)) return 'Especialista financeiro';
+  return 'Coordenador da equipe';
+};
+
+const AgentAvatar: React.FC<{ agent: AgentIdentity }> = ({ agent }) => {
+  const value = `${agent.id} ${agent.name}`.toLocaleLowerCase();
+  const Icon = /(home|casa)/.test(value)
+    ? MdHome
+    : /(finan|guardian|organizer|planner|economist|investor)/.test(value)
+      ? MdAccountBalanceWallet
+      : agent.id === 'general'
+        ? MdSupervisorAccount
+        : MdPerson;
+  return <span className={`agent-avatar ${agent.id}`} aria-hidden="true"><Icon /></span>;
+};
+
+const messageText = (content: string) => content.split(/(\*\*[^*]+\*\*)/g).map((part, index) => (
+  part.startsWith('**') && part.endsWith('**')
+    ? <strong key={index}>{part.slice(2, -2)}</strong>
+    : <React.Fragment key={index}>{part}</React.Fragment>
+));
 
 const Chat: React.FC<Props> = ({ page = false }) => {
   const [open, setOpen] = useState(page);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const userId = localStorage.getItem('@minha-carteira:usuarioId');
 
   useEffect(() => {
@@ -28,6 +76,11 @@ const Chat: React.FC<Props> = ({ page = false }) => {
     localStorage.setItem(`@minha-carteira:assistant-history:${userId}`, JSON.stringify(messages));
   }, [messages, page, userId]);
 
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (body) body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+  }, [messages, loading, open]);
+
   const send = async (text = input) => {
     const message = text.trim();
     if (!message || loading || !userId) return;
@@ -41,9 +94,11 @@ const Chat: React.FC<Props> = ({ page = false }) => {
         agente: 'general',
         historico: history,
       });
-      const agent = data.agent?.id && data.agent.id !== 'general'
-        ? data.agent.name || data.delegatedAgent
-        : data.delegatedAgent;
+      const agent = data.agent?.id && data.agent?.name
+        ? data.agent
+        : data.delegatedAgent
+          ? { id: 'specialist', name: data.delegatedAgent }
+          : coordinator;
       setMessages((current) => [...current, { content: data.message, sender: 'bot', action: data.pendingAction, agent }]);
       if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(data.message));
     } catch (error: any) {
@@ -55,7 +110,7 @@ const Chat: React.FC<Props> = ({ page = false }) => {
     setLoading(true);
     try {
       const { data } = await axios.post(`${URL_API}/assistant/confirm-action`, { action });
-      setMessages((current) => [...current, { content: data.message, sender: 'bot' }]);
+      setMessages((current) => [...current, { content: data.message, sender: 'bot', agent: coordinator }]);
     } catch (error: any) {
       setMessages((current) => [...current, { content: error?.response?.data?.message || 'Não foi possível executar a ação.', sender: 'bot' }]);
     } finally { setLoading(false); }
@@ -72,11 +127,31 @@ const Chat: React.FC<Props> = ({ page = false }) => {
 
   return <Container page={page}><div className="chat">
     {open && <div className="chat-window">
-      <header><div><span>ASSISTENTE PESSOAL</span><strong>Como posso ajudar?</strong></div>{!page && <button onClick={() => setOpen(false)}>Fechar</button>}</header>
-      <div className="chat-body">{messages.length === 0 && <p>Posso analisar suas finanças e controlar sua casa. Como posso ajudar?</p>}
-        {messages.map((message, index) => <div className={`message ${message.sender}`} key={index}>{message.agent && <em>{message.agent} respondeu</em>}<span>{message.content}</span>
-          {message.action && <button className="confirm" onClick={() => confirm(message.action!)}>Confirmar ação</button>}</div>)}
-        {loading && <p>Assistente está pensando...</p>}
+      <header>
+        <div><span>CONVERSA COM A EQUIPE</span><strong>Assistente Gaspar</strong></div>
+        <div className="team" aria-label="Participantes da conversa">
+          <span title="Gaspar, coordenador"><MdSupervisorAccount /></span>
+          <span title="Especialistas financeiros"><MdAccountBalanceWallet /></span>
+          <span title="Especialista da casa"><MdHome /></span>
+        </div>
+        {!page && <button onClick={() => setOpen(false)}>Fechar</button>}
+      </header>
+      <div className="chat-body" ref={bodyRef} aria-live="polite">
+        {messages.length === 0 && <div className="empty-state"><AgentAvatar agent={coordinator} /><div><strong>Gaspar e sua equipe estão aqui</strong><p>Faça uma pergunta. O especialista certo responde nesta mesma conversa.</p></div></div>}
+        {messages.map((message, index) => {
+          if (message.sender === 'user') return <div className="message user" key={index}>{messageText(message.content)}</div>;
+          const agent = normalizeAgent(message.agent);
+          return <div className="agent-message" key={index}>
+            <AgentAvatar agent={agent} />
+            <div className="agent-message-content">
+              <div className="agent-meta"><strong>{agent.name}</strong><span>{agentRole(agent)}</span></div>
+              <div className="message bot">{messageText(message.content)}
+                {message.action && <button className="confirm" onClick={() => confirm(message.action!)}>Confirmar ação</button>}
+              </div>
+            </div>
+          </div>;
+        })}
+        {loading && <div className="thinking"><AgentAvatar agent={coordinator} /><span>Consultando a equipe…</span></div>}
       </div>
       <form onSubmit={(event) => { event.preventDefault(); send(); }}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Pergunte ou dê um comando..." /><button type="button" onClick={listen} aria-label="Falar"><MdMic /></button><button type="submit" aria-label="Enviar"><MdSend /></button></form>
     </div>}
