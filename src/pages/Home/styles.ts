@@ -814,6 +814,122 @@ export const Container = styled.div`
   .device-settings input:focus {
     border-color: #4589c6;
   }
+  .cover-device {
+    overflow: hidden;
+    border: 1px solid #31516f;
+    border-radius: 12px;
+    color: #dce8fa;
+    background:
+      radial-gradient(circle at 90% 0%, #1d658855, transparent 36%), #101f31;
+    transition: 0.18s ease;
+  }
+  .cover-device:hover,
+  .cover-device.is-moving {
+    border-color: #4b8db6;
+    transform: translateY(-1px);
+  }
+  .cover-device header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 14px 10px;
+  }
+  .cover-device header > span {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: #8fddff;
+    background: #173b50;
+  }
+  .cover-device header div {
+    min-width: 0;
+  }
+  .cover-device header small,
+  .cover-device header strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cover-device header small {
+    color: #7498b4;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+  .cover-device header strong {
+    margin-top: 3px;
+    font-size: 13px;
+  }
+  .cover-device header em {
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: #9fdaf6;
+    background: #16374d;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+  }
+  .cover-position {
+    position: relative;
+    height: 4px;
+    margin: 0 14px 10px;
+    border-radius: 99px;
+    background: #20364b;
+  }
+  .cover-position > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #2e93c4, #54d5b3);
+  }
+  .cover-position small {
+    position: absolute;
+    right: 0;
+    bottom: 7px;
+    color: #7897b2;
+    font-size: 9px;
+  }
+  .cover-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    padding: 4px 14px 14px;
+  }
+  .cover-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    border: 1px solid #315b78;
+    border-radius: 8px;
+    color: #bfe8ff;
+    background: #153149;
+    font-size: 11px;
+    font-weight: 750;
+    transition: 0.16s ease;
+  }
+  .cover-actions button:hover:not(:disabled) {
+    border-color: #63b7dc;
+    background: #1a415d;
+    transform: translateY(-1px);
+  }
+  .cover-actions .cover-stop {
+    border-color: #4d5263;
+    color: #d1d8e4;
+    background: #222c3b;
+  }
+  .cover-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+  .cover-device .device-settings {
+    padding: 0 14px 14px;
+  }
   .television-device {
     overflow: hidden;
     border: 1px solid #354366;

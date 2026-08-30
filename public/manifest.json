@@ -1,0 +1,18 @@
+{
+  "short_name": "Gaspar",
+  "name": "Gaspar",
+  "description": "Clareza para cada decisão.",
+  "icons": [
+    {
+      "src": "assets/gaspar-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#07122f",
+  "background_color": "#07122f",
+  "lang": "pt-BR"
+}

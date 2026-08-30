@@ -48,7 +48,7 @@ export const Header = styled.header`
     height: 46px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
 
     padding-bottom: 20px;
     margin-bottom: 16px;
@@ -56,8 +56,13 @@ export const Header = styled.header`
 `;
 
 export const LogImg = styled.img`
-    height: 34px;
-    width: 34px;
+    height: 38px;
+    width: 38px;
+    flex: 0 0 auto;
+    object-fit: contain;
+    filter: drop-shadow(0 5px 10px rgba(79, 70, 229, .2));
+    transform: scale(1.35);
+    transform-origin: center;
 
     @media(max-width: 900px){
         display: none;
@@ -66,9 +71,9 @@ export const LogImg = styled.img`
 
 export const Title = styled.h3`
     color: ${props => props.theme.colors.white};
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: -.01em;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -.035em;
 
     @media(max-width: 900px){
         display: none;

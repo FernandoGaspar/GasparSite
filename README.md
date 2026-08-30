@@ -1,4 +1,4 @@
-# Minha Carteira
+# Gaspar
 
 Projeto front-end React (Create React App) para gerenciar finanças pessoais/empresariais.
 

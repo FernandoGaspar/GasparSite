@@ -19,7 +19,7 @@ import {
     MdPlaylistAddCheck,
 } from 'react-icons/md';
 
-import logoImg from '../../assets/logo.svg';
+import logoImg from '../../assets/gaspar-mark.png';
 
 import { useAuth } from '../../hooks/auth';
 import { useTheme } from '../../hooks/theme';
@@ -83,8 +83,8 @@ const Aside: React.FC = () => {
                 { toggleMenuIsOpened ? <MdClose /> : <MdMenu /> }
                 </ToggleMenu>
 
-                <LogImg src={logoImg} alt="Logo Minha Carteira" />
-                <Title>Minha Carteira</Title>
+                <LogImg src={logoImg} alt="" aria-hidden="true" />
+                <Title>Gaspar</Title>
             </Header>
 
             <MenuContainer>

@@ -10,8 +10,10 @@ const subtlePop = keyframes`
 export const Wrapper = styled.div`
   width: 100%;
   max-width: 860px;
+  min-height: 100%;
   padding: 16px;
   animation: ${subtlePop} .25s ease-out;
+  background: ${props => props.theme.colors.secondary};
   color: ${props => props.theme.colors.white};
 
   @media (min-width: 600px) {

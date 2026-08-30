@@ -53,4 +53,41 @@ export default createGlobalStyle`
     .stf__dialogClose svg {
         fill: ${props => props.theme.colors.gray};
     }
+
+    /* O react-st-modal é renderizado em um portal fora do #root. As regras
+       estruturais abaixo garantem que o chrome e a área rolável acompanhem o
+       tema mesmo quando os defaults da biblioteca forem injetados depois. */
+    .stf__modalDialogsPlace [role='dialog'] {
+        background: ${props => props.theme.colors.secondary} !important;
+        color: ${props => props.theme.colors.white};
+        border-color: ${props => props.theme.colors.tertiary} !important;
+        color-scheme: ${props => props.theme.title};
+    }
+
+    .stf__modalDialogsPlace [role='dialog'] > h3 {
+        background: ${props => props.theme.colors.secondary};
+        color: ${props => props.theme.colors.white};
+        border-bottom-color: ${props => props.theme.colors.tertiary};
+    }
+
+    .stf__modalDialogsPlace [role='dialog'] > div[id^='content_'] {
+        background: ${props => props.theme.colors.secondary};
+        color: ${props => props.theme.colors.white};
+        scrollbar-color: ${props => props.theme.colors.tertiary} ${props => props.theme.colors.secondary};
+        scrollbar-width: thin;
+    }
+
+    .stf__modalDialogsPlace [role='dialog'] > div[id^='content_']::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    .stf__modalDialogsPlace [role='dialog'] > div[id^='content_']::-webkit-scrollbar-track {
+        background: ${props => props.theme.colors.secondary};
+    }
+
+    .stf__modalDialogsPlace [role='dialog'] > div[id^='content_']::-webkit-scrollbar-thumb {
+        background: ${props => props.theme.colors.tertiary};
+        border: 2px solid ${props => props.theme.colors.secondary};
+        border-radius: 999px;
+    }
 `;

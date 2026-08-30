@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiActivity,
   FiCamera,
+  FiChevronsDown,
+  FiChevronsUp,
   FiCloud,
   FiCoffee,
   FiEdit3,
@@ -13,6 +15,7 @@ import {
   FiMap,
   FiPlus,
   FiPower,
+  FiSquare,
   FiRefreshCw,
   FiSearch,
   FiSun,
@@ -22,9 +25,7 @@ import {
   FiWind,
   FiX,
 } from "react-icons/fi";
-import HomeFloorPlan, {
-  FloorPlanLight,
-} from "../../components/HomeFloorPlan";
+import HomeFloorPlan, { FloorPlanLight } from "../../components/HomeFloorPlan";
 import { URL_API } from "../../repositories/baseAPI";
 import { deduplicatedRequest } from "../../repositories/requestCache";
 import { Container } from "./styles";
@@ -37,6 +38,7 @@ interface HomeAssistantState {
     current_temperature?: number;
     temperature?: number;
     volume_level?: number;
+    current_position?: number;
     supported_features?: number;
     camera_snapshot_url?: string;
     camera_stream_url?: string;
@@ -60,6 +62,7 @@ const controllableDomains = [
   "input_boolean",
   "climate",
   "media_player",
+  "cover",
 ];
 const deviceTypeLabels: Record<string, string> = {
   all: "Todos os tipos",
@@ -67,6 +70,7 @@ const deviceTypeLabels: Record<string, string> = {
   fan: "Ventiladores",
   climate: "Ar-condicionado",
   media_player: "Televisões",
+  cover: "Janelas e persianas",
   input_boolean: "Automações",
   camera: "Câmeras",
 };
@@ -144,6 +148,17 @@ const mediaAuthQuery = () => {
   const userId = localStorage.getItem("@minha-carteira:usuarioId") || "";
   return `token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}`;
 };
+
+type CoverAction = "open" | "stop" | "close";
+const coverStatus = (state: string) =>
+  ({
+    open: "Aberta",
+    opening: "Abrindo",
+    closed: "Fechada",
+    closing: "Fechando",
+    unavailable: "Indisponível",
+    unknown: "Estado desconhecido",
+  })[state] || state;
 
 interface ClimateCardProps {
   device: Device;
@@ -311,6 +326,133 @@ const ClimateCard: React.FC<ClimateCardProps> = ({
   );
 };
 
+interface CoverCardProps {
+  device: Device;
+  updating: boolean;
+  organizing: boolean;
+  roomOptions: string[];
+  priority: number | undefined;
+  onSetAction(device: Device, action: CoverAction): void;
+  onMove(entityId: string, room: string): void;
+  onPriority(entityId: string, priority: number): void;
+  hidden: boolean;
+  onVisibility(entityId: string): void;
+}
+
+const CoverCard: React.FC<CoverCardProps> = ({
+  device,
+  updating,
+  organizing,
+  roomOptions,
+  priority,
+  onSetAction,
+  onMove,
+  onPriority,
+  hidden,
+  onVisibility,
+}) => {
+  const unavailable = ["unavailable", "unknown"].includes(device.state);
+  const moving = ["opening", "closing"].includes(device.state);
+  const supportsStop = Boolean(
+    Number(device.attributes.supported_features) & 8,
+  );
+  const position = device.attributes.current_position;
+
+  return (
+    <article className={`cover-device ${moving ? "is-moving" : ""}`}>
+      <header>
+        <span>
+          {updating ? <FiLoader className="spin" /> : <FiChevronsUp />}
+        </span>
+        <div>
+          <small>JANELA / PERSIANA</small>
+          <strong>{device.name}</strong>
+        </div>
+        <em>{coverStatus(device.state)}</em>
+      </header>
+      {typeof position === "number" && (
+        <div className="cover-position">
+          <span style={{ width: `${Math.max(0, Math.min(100, position))}%` }} />
+          <small>{position}% aberta</small>
+        </div>
+      )}
+      <div className="cover-actions" aria-label={`Controles de ${device.name}`}>
+        <button
+          type="button"
+          onClick={() => onSetAction(device, "open")}
+          disabled={
+            updating ||
+            unavailable ||
+            ["open", "opening"].includes(device.state)
+          }
+        >
+          <FiChevronsUp /> Abrir
+        </button>
+        <button
+          type="button"
+          className="cover-stop"
+          onClick={() => onSetAction(device, "stop")}
+          disabled={updating || unavailable || !moving || !supportsStop}
+          title={
+            supportsStop
+              ? "Parar movimento"
+              : "Este dispositivo não oferece parada"
+          }
+        >
+          <FiSquare /> Parar
+        </button>
+        <button
+          type="button"
+          onClick={() => onSetAction(device, "close")}
+          disabled={
+            updating ||
+            unavailable ||
+            ["closed", "closing"].includes(device.state)
+          }
+        >
+          <FiChevronsDown /> Fechar
+        </button>
+      </div>
+      {organizing && (
+        <div className="device-settings">
+          <select
+            aria-label={`Mover ${device.name} para outro cômodo`}
+            value={device.room}
+            onChange={(event) => onMove(device.entity_id, event.target.value)}
+          >
+            {roomOptions.map((option) => (
+              <option value={option} key={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            aria-label={`Definir prioridade de ${device.name}`}
+            value={priority || ""}
+            onChange={(event) =>
+              onPriority(
+                device.entity_id,
+                Math.max(1, Number(event.target.value) || 1),
+              )
+            }
+            placeholder="Ordem"
+          />
+          <button
+            className="visibility-toggle"
+            onClick={() => onVisibility(device.entity_id)}
+          >
+            {hidden ? <FiEye /> : <FiEyeOff />}
+            {hidden ? "Exibir" : "Ocultar"}
+          </button>
+        </div>
+      )}
+    </article>
+  );
+};
+
 interface TelevisionCardProps {
   device: Device;
   updating: boolean;
@@ -473,11 +615,11 @@ const waitForIceGathering = (connection: RTCPeerConnection) =>
 
 const webrtcConnectTimeoutMs = 8000;
 
-const CameraWebRTC: React.FC<{ entityId: string; name: string; onFailed(): void }> = ({
-  entityId,
-  name,
-  onFailed,
-}) => {
+const CameraWebRTC: React.FC<{
+  entityId: string;
+  name: string;
+  onFailed(): void;
+}> = ({ entityId, name, onFailed }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
 
@@ -495,7 +637,12 @@ const CameraWebRTC: React.FC<{ entityId: string; name: string; onFailed(): void 
       if (!trackReceived) fail();
     }, webrtcConnectTimeoutMs);
     connection.oniceconnectionstatechange = () => {
-      if (["failed", "disconnected", "closed"].includes(connection.iceConnectionState)) fail();
+      if (
+        ["failed", "disconnected", "closed"].includes(
+          connection.iceConnectionState,
+        )
+      )
+        fail();
     };
     const start = async () => {
       try {
@@ -503,16 +650,24 @@ const CameraWebRTC: React.FC<{ entityId: string; name: string; onFailed(): void 
         connection.ontrack = ({ streams }) => {
           trackReceived = true;
           window.clearTimeout(connectTimeout);
-          if (!cancelled && videoRef.current && streams[0]) videoRef.current.srcObject = streams[0];
+          if (!cancelled && videoRef.current && streams[0])
+            videoRef.current.srcObject = streams[0];
         };
         await connection.setLocalDescription(await connection.createOffer());
         await waitForIceGathering(connection);
         const response = await axios.post<string>(
           `${URL_API}/home-assistant/camera/${encodeURIComponent(entityId)}/webrtc`,
           connection.localDescription?.sdp,
-          { headers: { "Content-Type": "application/sdp" }, responseType: "text" },
+          {
+            headers: { "Content-Type": "application/sdp" },
+            responseType: "text",
+          },
         );
-        if (!cancelled) await connection.setRemoteDescription({ type: "answer", sdp: response.data });
+        if (!cancelled)
+          await connection.setRemoteDescription({
+            type: "answer",
+            sdp: response.data,
+          });
       } catch {
         window.clearTimeout(connectTimeout);
         fail();
@@ -528,7 +683,13 @@ const CameraWebRTC: React.FC<{ entityId: string; name: string; onFailed(): void 
 
   return (
     <div className="camera-image camera-live-player">
-      <video ref={videoRef} autoPlay muted playsInline aria-label={`Ao vivo: ${name}`} />
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        aria-label={`Ao vivo: ${name}`}
+      />
       <span>{error || "Ao vivo · WebRTC"}</span>
     </div>
   );
@@ -571,26 +732,26 @@ const CameraCard: React.FC<CameraCardProps> = ({
           onFailed={() => setWebrtcFailed(true)}
         />
       ) : (
-      <button
-        type="button"
-        className="camera-image"
-        onClick={() => onToggleLive(camera.entity_id)}
-        aria-label={`${live ? "Encerrar" : "Abrir"} ao vivo da câmera ${camera.name}`}
-        aria-pressed={live}
-        title={live ? "Encerrar transmissão ao vivo" : "Abrir ao vivo"}
-      >
-        <img
-          src={live ? fallbackStreamUrl : snapshotUrl}
-          alt={`Imagem da câmera ${camera.name}`}
-          loading="eager"
-          decoding="async"
-          onError={() => setMediaFailed(true)}
-          data-camera-state={mediaFailed ? "unavailable" : "ready"}
-        />
-        <span>
-          {live ? "Ao vivo · clique para encerrar" : "Clique para ao vivo"}
-        </span>
-      </button>
+        <button
+          type="button"
+          className="camera-image"
+          onClick={() => onToggleLive(camera.entity_id)}
+          aria-label={`${live ? "Encerrar" : "Abrir"} ao vivo da câmera ${camera.name}`}
+          aria-pressed={live}
+          title={live ? "Encerrar transmissão ao vivo" : "Abrir ao vivo"}
+        >
+          <img
+            src={live ? fallbackStreamUrl : snapshotUrl}
+            alt={`Imagem da câmera ${camera.name}`}
+            loading="eager"
+            decoding="async"
+            onError={() => setMediaFailed(true)}
+            data-camera-state={mediaFailed ? "unavailable" : "ready"}
+          />
+          <span>
+            {live ? "Ao vivo · clique para encerrar" : "Clique para ao vivo"}
+          </span>
+        </button>
       )}
       {usesWebRTC && (
         <button
@@ -685,10 +846,11 @@ const Home: React.FC = () => {
   >([]);
 
   useEffect(() => {
-    deduplicatedRequest('home:nvr-cameras', () =>
+    deduplicatedRequest("home:nvr-cameras", () =>
       axios.get<Array<{ entity_id: string; name: string }>>(
         `${URL_API}/home-assistant/nvr-cameras`,
-      ))
+      ),
+    )
       .then((response) => setNvrCameras(response.data))
       .catch((requestError) => {
         console.error("Falha ao carregar câmeras do NVR:", requestError);
@@ -709,24 +871,31 @@ const Home: React.FC = () => {
     try {
       const statesRequest = isRefresh
         ? axios.get<HomeAssistantState[]>(`${URL_API}/home-assistant/states`)
-        : deduplicatedRequest('home:states', () =>
+        : deduplicatedRequest("home:states", () =>
             axios.get<HomeAssistantState[]>(`${URL_API}/home-assistant/states`),
           );
-      const loadPreferences = () => axios.get<{
-            rooms: Array<{ name: string; order?: number; custom: boolean }>;
-            devices: Array<{
-              entity_id: string;
-              room?: string;
-              order?: number;
-              hidden: boolean;
-            }>;
-          }>(`${URL_API}/home-assistant/preferences`, { params: { usuarioId } });
+      const loadPreferences = () =>
+        axios.get<{
+          rooms: Array<{ name: string; order?: number; custom: boolean }>;
+          devices: Array<{
+            entity_id: string;
+            room?: string;
+            order?: number;
+            hidden: boolean;
+          }>;
+        }>(`${URL_API}/home-assistant/preferences`, { params: { usuarioId } });
       const preferencesRequest = usuarioId
-        ? (isRefresh
-            ? loadPreferences()
-            : deduplicatedRequest(`home:preferences:${usuarioId}`, loadPreferences))
+        ? isRefresh
+          ? loadPreferences()
+          : deduplicatedRequest(
+              `home:preferences:${usuarioId}`,
+              loadPreferences,
+            )
         : Promise.resolve(null);
-      const [response, preferences] = await Promise.all([statesRequest, preferencesRequest]);
+      const [response, preferences] = await Promise.all([
+        statesRequest,
+        preferencesRequest,
+      ]);
       setStates(response.data);
       setLoading(false);
       setRefreshing(false);
@@ -857,7 +1026,9 @@ const Home: React.FC = () => {
             isOn:
               domain === "climate"
                 ? !["off", "unavailable", "unknown"].includes(item.state)
-                : item.state === "on",
+                : domain === "cover"
+                  ? ["open", "opening"].includes(item.state)
+                  : item.state === "on",
           };
         })
         .filter(
@@ -979,10 +1150,13 @@ const Home: React.FC = () => {
     return groups;
   }, [devices, customRooms]);
   const enabledDevices = devices.filter(
-    (device) => device.isOn && !hiddenDevices[device.entity_id],
+    (device) =>
+      device.domain !== "cover" &&
+      device.isOn &&
+      !hiddenDevices[device.entity_id],
   );
-  const totalLights = devices.filter(
-    (device) => ["light", "switch"].includes(device.domain),
+  const totalLights = devices.filter((device) =>
+    ["light", "switch"].includes(device.domain),
   ).length;
 
   const persistAssignments = (next: Record<string, string>) => {
@@ -1113,10 +1287,40 @@ const Home: React.FC = () => {
   };
   const toggleDevice = async (device: Device) =>
     setDeviceState(device, device.isOn ? "off" : "on");
-  const setFloorLightState = async (
-    entityId: string,
-    state: "on" | "off",
-  ) => {
+  const setCoverAction = async (device: Device, action: CoverAction) => {
+    setUpdating(device.entity_id);
+    try {
+      await axios.post(`${URL_API}/home-assistant/service`, {
+        entity_id: device.entity_id,
+        state: action,
+      });
+      setStates((current) =>
+        current.map((item) =>
+          item.entity_id === device.entity_id
+            ? {
+                ...item,
+                state:
+                  action === "open"
+                    ? "opening"
+                    : action === "close"
+                      ? "closing"
+                      : Number(item.attributes.current_position) === 0
+                        ? "closed"
+                        : "open",
+              }
+            : item,
+        ),
+      );
+    } catch (requestError: any) {
+      setError(
+        requestError.response?.data?.message ||
+          "Não foi possível movimentar a janela ou persiana.",
+      );
+    } finally {
+      setUpdating(null);
+    }
+  };
+  const setFloorLightState = async (entityId: string, state: "on" | "off") => {
     await axios.post(`${URL_API}/home-assistant/service`, {
       entity_id: entityId,
       state,
@@ -1182,6 +1386,7 @@ const Home: React.FC = () => {
   const toggleRoom = async (roomDevices: Device[]) => {
     const controllableDevices = roomDevices.filter(
       (device) =>
+        device.domain !== "cover" &&
         !hiddenDevices[device.entity_id] &&
         device.state !== "unavailable" &&
         device.state !== "unknown",
@@ -1256,8 +1461,7 @@ const Home: React.FC = () => {
               {
                 devices.filter(
                   (device) =>
-                    ["light", "switch"].includes(device.domain) &&
-                    device.isOn,
+                    ["light", "switch"].includes(device.domain) && device.isOn,
                 ).length
               }
               <b> / {totalLights}</b>
@@ -1369,259 +1573,279 @@ const Home: React.FC = () => {
           <FiLoader className="spin" /> Carregando sua casa...
         </div>
       ) : (
-          <section className="rooms">
-            {Object.entries(rooms)
-              .filter(([, roomDevices]) => organizing || roomDevices.length > 0)
-              .sort(
-                ([firstRoom], [secondRoom]) =>
-                  (Number(roomOrders[firstRoom]) || 9999) -
-                    (Number(roomOrders[secondRoom]) || 9999) ||
-                  firstRoom.localeCompare(secondRoom),
-              )
-              .map(([room, roomDevices]) => (
-                <article className="room" key={room}>
-                  <header>
-                    <div>
-                      <span>
-                        <FiHome />
-                      </span>
-                      <div className="room-name">
-                        {organizing && roomToRename === room ? (
-                          <div className="room-rename-inline">
-                            <input
-                              autoFocus
-                              value={renamedRoom}
-                              onChange={(event) =>
-                                setRenamedRoom(event.target.value)
+        <section className="rooms">
+          {Object.entries(rooms)
+            .filter(([, roomDevices]) => organizing || roomDevices.length > 0)
+            .sort(
+              ([firstRoom], [secondRoom]) =>
+                (Number(roomOrders[firstRoom]) || 9999) -
+                  (Number(roomOrders[secondRoom]) || 9999) ||
+                firstRoom.localeCompare(secondRoom),
+            )
+            .map(([room, roomDevices]) => (
+              <article className="room" key={room}>
+                <header>
+                  <div>
+                    <span>
+                      <FiHome />
+                    </span>
+                    <div className="room-name">
+                      {organizing && roomToRename === room ? (
+                        <div className="room-rename-inline">
+                          <input
+                            autoFocus
+                            value={renamedRoom}
+                            onChange={(event) =>
+                              setRenamedRoom(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") renameRoom();
+                              if (event.key === "Escape") {
+                                setRoomToRename("");
+                                setRenamedRoom("");
                               }
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") renameRoom();
-                                if (event.key === "Escape") {
-                                  setRoomToRename("");
-                                  setRenamedRoom("");
-                                }
+                            }}
+                            aria-label={`Novo nome do cômodo ${room}`}
+                          />
+                          <button type="button" onClick={renameRoom}>
+                            Salvar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <h2>{room}</h2>
+                          {organizing && (
+                            <button
+                              type="button"
+                              className="rename-room"
+                              onClick={() => {
+                                setRoomToRename(room);
+                                setRenamedRoom(room);
                               }}
-                              aria-label={`Novo nome do cômodo ${room}`}
-                            />
-                            <button type="button" onClick={renameRoom}>
-                              Salvar
+                              aria-label={`Renomear cômodo ${room}`}
+                              title="Renomear cômodo"
+                            >
+                              <FiEdit3 />
                             </button>
-                          </div>
-                        ) : (
-                          <>
-                            <h2>{room}</h2>
-                            {organizing && (
-                              <button
-                                type="button"
-                                className="rename-room"
-                                onClick={() => {
-                                  setRoomToRename(room);
-                                  setRenamedRoom(room);
-                                }}
-                                aria-label={`Renomear cômodo ${room}`}
-                                title="Renomear cômodo"
-                              >
-                                <FiEdit3 />
-                              </button>
-                            )}
-                          </>
-                        )}
-                        <p>
-                          {roomDevices.filter((device) => device.isOn).length}{" "}
-                          de {roomDevices.length} dispositivos ativos
-                        </p>
-                      </div>
+                          )}
+                        </>
+                      )}
+                      <p>
+                        {
+                          roomDevices.filter(
+                            (device) =>
+                              device.domain !== "cover" && device.isOn,
+                          ).length
+                        }{" "}
+                        de {roomDevices.length} dispositivos ativos
+                      </p>
                     </div>
-                    <div className="room-actions">
-                      <button
-                        type="button"
-                        className={`room-toggle ${
-                          roomDevices.some(
-                            (device) =>
-                              device.isOn && !hiddenDevices[device.entity_id],
-                          )
-                            ? "is-on"
-                            : ""
-                        }`}
-                        onClick={() => toggleRoom(roomDevices)}
-                        disabled={
-                          updating !== null ||
-                          roomUpdating ||
-                          !roomDevices.some(
-                            (device) =>
-                              !hiddenDevices[device.entity_id] &&
-                              device.state !== "unavailable" &&
-                              device.state !== "unknown",
+                  </div>
+                  <div className="room-actions">
+                    <button
+                      type="button"
+                      className={`room-toggle ${
+                        roomDevices.some(
+                          (device) =>
+                            device.domain !== "cover" &&
+                            device.isOn &&
+                            !hiddenDevices[device.entity_id],
+                        )
+                          ? "is-on"
+                          : ""
+                      }`}
+                      onClick={() => toggleRoom(roomDevices)}
+                      disabled={
+                        updating !== null ||
+                        roomUpdating ||
+                        !roomDevices.some(
+                          (device) =>
+                            device.domain !== "cover" &&
+                            !hiddenDevices[device.entity_id] &&
+                            device.state !== "unavailable" &&
+                            device.state !== "unknown",
+                        )
+                      }
+                      aria-label={`${
+                        roomDevices.some(
+                          (device) =>
+                            device.domain !== "cover" &&
+                            device.isOn &&
+                            !hiddenDevices[device.entity_id],
+                        )
+                          ? "Desligar"
+                          : "Ligar"
+                      } todos os dispositivos de ${room}`}
+                      title="Ligar ou desligar todos os dispositivos visíveis do cômodo"
+                    >
+                      <span />
+                    </button>
+                    <b>
+                      {roomDevices.some(
+                        (device) => device.domain !== "cover" && device.isOn,
+                      )
+                        ? "Ativo"
+                        : "Em espera"}
+                    </b>
+                    {organizing && (
+                      <input
+                        className="room-order"
+                        type="number"
+                        min="1"
+                        step="1"
+                        aria-label={`Definir ordem do cômodo ${room}`}
+                        value={roomOrders[room] || ""}
+                        onChange={(event) =>
+                          setRoomOrder(
+                            room,
+                            Math.max(1, Number(event.target.value) || 1),
                           )
                         }
-                        aria-label={`${
-                          roomDevices.some(
-                            (device) =>
-                              device.isOn && !hiddenDevices[device.entity_id],
-                          )
-                            ? "Desligar"
-                            : "Ligar"
-                        } todos os dispositivos de ${room}`}
-                        title="Ligar ou desligar todos os dispositivos visíveis do cômodo"
+                        placeholder="Ordem"
+                      />
+                    )}
+                    {organizing && customRooms.includes(room) && (
+                      <button
+                        className="delete-room"
+                        onClick={() => removeRoom(room)}
+                        aria-label={`Excluir cômodo ${room}`}
                       >
-                        <span />
+                        <FiTrash2 />
                       </button>
-                      <b>
-                        {roomDevices.some((device) => device.isOn)
-                          ? "Ativo"
-                          : "Em espera"}
-                      </b>
-                      {organizing && (
-                        <input
-                          className="room-order"
-                          type="number"
-                          min="1"
-                          step="1"
-                          aria-label={`Definir ordem do cômodo ${room}`}
-                          value={roomOrders[room] || ""}
-                          onChange={(event) =>
-                            setRoomOrder(
-                              room,
-                              Math.max(1, Number(event.target.value) || 1),
-                            )
-                          }
-                          placeholder="Ordem"
-                        />
-                      )}
-                      {organizing && customRooms.includes(room) && (
-                        <button
-                          className="delete-room"
-                          onClick={() => removeRoom(room)}
-                          aria-label={`Excluir cômodo ${room}`}
-                        >
-                          <FiTrash2 />
-                        </button>
-                      )}
-                    </div>
-                  </header>
-                  <div className="device-grid">
-                    {roomDevices.map((device) =>
-                      device.domain === "climate" ? (
-                        <ClimateCard
-                          key={device.entity_id}
-                          device={device}
-                          updating={updating === device.entity_id}
-                          organizing={organizing}
-                          roomOptions={roomOptions}
-                          priority={devicePriorities[device.entity_id]}
-                          onSetState={setDeviceState}
-                          onSetTemperature={setClimateTemperature}
-                          onMove={moveDevice}
-                          onPriority={setDevicePriority}
-                          hidden={!!hiddenDevices[device.entity_id]}
-                          onVisibility={toggleDeviceVisibility}
-                        />
-                      ) : device.domain === "media_player" ? (
-                        <TelevisionCard
-                          key={device.entity_id}
-                          device={device}
-                          updating={updating === device.entity_id}
-                          organizing={organizing}
-                          roomOptions={roomOptions}
-                          priority={devicePriorities[device.entity_id]}
-                          onSetState={setDeviceState}
-                          onSetVolume={setMediaVolume}
-                          onMove={moveDevice}
-                          onPriority={setDevicePriority}
-                          hidden={!!hiddenDevices[device.entity_id]}
-                          onVisibility={toggleDeviceVisibility}
-                        />
-                      ) : (
-                        <div
-                          className={`device ${device.isOn ? "is-on" : ""}`}
-                          key={device.entity_id}
-                        >
-                          <button
-                            className="device-toggle"
-                            onClick={() => toggleDevice(device)}
-                            disabled={updating === device.entity_id}
-                          >
-                            <span className="device-icon">
-                              {updating === device.entity_id ? (
-                                <FiLoader className="spin" />
-                              ) : (
-                                iconFor(device)
-                              )}
-                            </span>
-                            <div>
-                              <strong>{device.name}</strong>
-                              <small>
-                                {device.isOn ? "Ligado" : "Desligado"}
-                              </small>
-                            </div>
-                            <i>
-                              <span />
-                            </i>
-                          </button>
-                          {organizing && (
-                            <div className="device-settings">
-                              <select
-                                aria-label={`Mover ${device.name} para outro cômodo`}
-                                value={device.room}
-                                onChange={(event) =>
-                                  moveDevice(
-                                    device.entity_id,
-                                    event.target.value,
-                                  )
-                                }
-                              >
-                                {roomOptions.map((option) => (
-                                  <option value={option} key={option}>
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
-                              <input
-                                type="number"
-                                min="1"
-                                step="1"
-                                aria-label={`Definir prioridade de ${device.name}`}
-                                value={devicePriorities[device.entity_id] || ""}
-                                onChange={(event) =>
-                                  setDevicePriority(
-                                    device.entity_id,
-                                    Math.max(
-                                      1,
-                                      Number(event.target.value) || 1,
-                                    ),
-                                  )
-                                }
-                                placeholder="Ordem"
-                              />
-                              <button
-                                className="visibility-toggle"
-                                onClick={() =>
-                                  toggleDeviceVisibility(device.entity_id)
-                                }
-                              >
-                                {hiddenDevices[device.entity_id] ? (
-                                  <FiEye />
-                                ) : (
-                                  <FiEyeOff />
-                                )}
-                                {hiddenDevices[device.entity_id]
-                                  ? "Exibir"
-                                  : "Ocultar"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ),
                     )}
                   </div>
-                </article>
-              ))}
-            {!devices.length && !cameras.length && (
-              <div className="empty">
-                Nenhum dispositivo encontrado para esta busca.
-              </div>
-            )}
-          </section>
+                </header>
+                <div className="device-grid">
+                  {roomDevices.map((device) =>
+                    device.domain === "climate" ? (
+                      <ClimateCard
+                        key={device.entity_id}
+                        device={device}
+                        updating={updating === device.entity_id}
+                        organizing={organizing}
+                        roomOptions={roomOptions}
+                        priority={devicePriorities[device.entity_id]}
+                        onSetState={setDeviceState}
+                        onSetTemperature={setClimateTemperature}
+                        onMove={moveDevice}
+                        onPriority={setDevicePriority}
+                        hidden={!!hiddenDevices[device.entity_id]}
+                        onVisibility={toggleDeviceVisibility}
+                      />
+                    ) : device.domain === "cover" ? (
+                      <CoverCard
+                        key={device.entity_id}
+                        device={device}
+                        updating={updating === device.entity_id}
+                        organizing={organizing}
+                        roomOptions={roomOptions}
+                        priority={devicePriorities[device.entity_id]}
+                        onSetAction={setCoverAction}
+                        onMove={moveDevice}
+                        onPriority={setDevicePriority}
+                        hidden={!!hiddenDevices[device.entity_id]}
+                        onVisibility={toggleDeviceVisibility}
+                      />
+                    ) : device.domain === "media_player" ? (
+                      <TelevisionCard
+                        key={device.entity_id}
+                        device={device}
+                        updating={updating === device.entity_id}
+                        organizing={organizing}
+                        roomOptions={roomOptions}
+                        priority={devicePriorities[device.entity_id]}
+                        onSetState={setDeviceState}
+                        onSetVolume={setMediaVolume}
+                        onMove={moveDevice}
+                        onPriority={setDevicePriority}
+                        hidden={!!hiddenDevices[device.entity_id]}
+                        onVisibility={toggleDeviceVisibility}
+                      />
+                    ) : (
+                      <div
+                        className={`device ${device.isOn ? "is-on" : ""}`}
+                        key={device.entity_id}
+                      >
+                        <button
+                          className="device-toggle"
+                          onClick={() => toggleDevice(device)}
+                          disabled={updating === device.entity_id}
+                        >
+                          <span className="device-icon">
+                            {updating === device.entity_id ? (
+                              <FiLoader className="spin" />
+                            ) : (
+                              iconFor(device)
+                            )}
+                          </span>
+                          <div>
+                            <strong>{device.name}</strong>
+                            <small>
+                              {device.isOn ? "Ligado" : "Desligado"}
+                            </small>
+                          </div>
+                          <i>
+                            <span />
+                          </i>
+                        </button>
+                        {organizing && (
+                          <div className="device-settings">
+                            <select
+                              aria-label={`Mover ${device.name} para outro cômodo`}
+                              value={device.room}
+                              onChange={(event) =>
+                                moveDevice(device.entity_id, event.target.value)
+                              }
+                            >
+                              {roomOptions.map((option) => (
+                                <option value={option} key={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              aria-label={`Definir prioridade de ${device.name}`}
+                              value={devicePriorities[device.entity_id] || ""}
+                              onChange={(event) =>
+                                setDevicePriority(
+                                  device.entity_id,
+                                  Math.max(1, Number(event.target.value) || 1),
+                                )
+                              }
+                              placeholder="Ordem"
+                            />
+                            <button
+                              className="visibility-toggle"
+                              onClick={() =>
+                                toggleDeviceVisibility(device.entity_id)
+                              }
+                            >
+                              {hiddenDevices[device.entity_id] ? (
+                                <FiEye />
+                              ) : (
+                                <FiEyeOff />
+                              )}
+                              {hiddenDevices[device.entity_id]
+                                ? "Exibir"
+                                : "Ocultar"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ),
+                  )}
+                </div>
+              </article>
+            ))}
+          {!devices.length && !cameras.length && (
+            <div className="empty">
+              Nenhum dispositivo encontrado para esta busca.
+            </div>
+          )}
+        </section>
       )}
       {!!cameras.length && (
         <section className="monitoring">
@@ -1670,16 +1894,18 @@ const Home: React.FC = () => {
         open={floorPlanOpen}
         usuarioId={usuarioId}
         registeredRooms={roomOptions}
-        lights={states
-          .filter((state) =>
-            /^(light|switch)\./.test(state.entity_id),
-          )
-          .map((state) => ({
-            ...state,
-            room:
-              roomAssignments[state.entity_id] ||
-              roomFromName(state.attributes?.friendly_name || state.entity_id),
-          })) as FloorPlanLight[]}
+        lights={
+          states
+            .filter((state) => /^(light|switch)\./.test(state.entity_id))
+            .map((state) => ({
+              ...state,
+              room:
+                roomAssignments[state.entity_id] ||
+                roomFromName(
+                  state.attributes?.friendly_name || state.entity_id,
+                ),
+            })) as FloorPlanLight[]
+        }
         onClose={() => setFloorPlanOpen(false)}
         onSetLight={setFloorLightState}
       />

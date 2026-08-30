@@ -62,16 +62,18 @@ export const Brand = styled.div`
     z-index: 1;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    gap: 18px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.035em;
 
     img {
-        width: 38px;
-        height: 38px;
-        border-radius: 11px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 16px rgba(29, 78, 216, 0.22));
+        transform: scale(1.45);
+        transform-origin: center;
     }
 `;
 

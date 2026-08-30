@@ -85,7 +85,7 @@
     "react-scripts": "^5.0.1",
     "typescript": "^4.9.5"
   },
-  "description": "<div align=\"center\" >   <img src=\"./docs/assets/logo.png\" width=\"200\"> </div>",
+  "description": "Gaspar — clareza para cada decisão.",
   "main": "index.js",
   "directories": {
     "doc": "docs"

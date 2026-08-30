@@ -1,6 +1,6 @@
 import React, { FormEvent, useState } from 'react';
 import { FiEye, FiEyeOff, FiLock, FiMail } from 'react-icons/fi';
-import logoImg from '../../assets/logo.svg';
+import logoImg from '../../assets/gaspar-mark.png';
 import { useAuth } from '../../hooks/auth';
 import {
     AccessPanel,
@@ -46,8 +46,8 @@ const SignIn: React.FC = () => {
         <Page>
             <BrandPanel>
                 <Brand>
-                    <img src={logoImg} alt="" />
-                    <span>Minha Carteira</span>
+                    <img src={logoImg} alt="" aria-hidden="true" />
+                    <span>Gaspar</span>
                 </Brand>
 
                 <BrandContent>
@@ -106,7 +106,7 @@ const SignIn: React.FC = () => {
                     {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
 
                     <SubmitButton type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Validando acesso…' : 'Entrar na minha carteira'}
+                        {isSubmitting ? 'Validando acesso…' : 'Entrar no Gaspar'}
                     </SubmitButton>
                     <HelpText>Problemas para acessar? Entre em contato com o administrador.</HelpText>
                 </Form>
