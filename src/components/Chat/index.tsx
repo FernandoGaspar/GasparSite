@@ -4,7 +4,7 @@ import { MdChatBubble, MdMic, MdSend } from 'react-icons/md';
 import { Container } from './styles';
 import { URL_API } from '../../repositories/baseAPI';
 
-interface Message { content: string; sender: 'user' | 'bot'; action?: Record<string, unknown>; }
+interface Message { content: string; sender: 'user' | 'bot'; action?: Record<string, unknown>; agent?: string; }
 
 interface Props { page?: boolean; }
 
@@ -34,8 +34,17 @@ const Chat: React.FC<Props> = ({ page = false }) => {
     setMessages((current) => [...current, { content: message, sender: 'user' }]);
     setInput(''); setLoading(true);
     try {
-      const { data } = await axios.post(`${URL_API}/assistant/chat`, { idUsuario: userId, mensagem: message });
-      setMessages((current) => [...current, { content: data.message, sender: 'bot', action: data.pendingAction }]);
+      const history = messages.slice(-10).map(({ content, sender }) => ({ content, sender }));
+      const { data } = await axios.post(`${URL_API}/assistant/chat`, {
+        idUsuario: userId,
+        mensagem: message,
+        agente: 'general',
+        historico: history,
+      });
+      const agent = data.agent?.id && data.agent.id !== 'general'
+        ? data.agent.name || data.delegatedAgent
+        : data.delegatedAgent;
+      setMessages((current) => [...current, { content: data.message, sender: 'bot', action: data.pendingAction, agent }]);
       if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(data.message));
     } catch (error: any) {
       setMessages((current) => [...current, { content: error?.response?.data?.message || 'Não consegui responder agora.', sender: 'bot' }]);
@@ -65,7 +74,7 @@ const Chat: React.FC<Props> = ({ page = false }) => {
     {open && <div className="chat-window">
       <header><div><span>ASSISTENTE PESSOAL</span><strong>Como posso ajudar?</strong></div>{!page && <button onClick={() => setOpen(false)}>Fechar</button>}</header>
       <div className="chat-body">{messages.length === 0 && <p>Posso analisar suas finanças e controlar sua casa. Como posso ajudar?</p>}
-        {messages.map((message, index) => <div className={`message ${message.sender}`} key={index}><span>{message.content}</span>
+        {messages.map((message, index) => <div className={`message ${message.sender}`} key={index}>{message.agent && <em>{message.agent} respondeu</em>}<span>{message.content}</span>
           {message.action && <button className="confirm" onClick={() => confirm(message.action!)}>Confirmar ação</button>}</div>)}
         {loading && <p>Assistente está pensando...</p>}
       </div>

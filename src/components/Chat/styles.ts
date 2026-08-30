@@ -32,6 +32,7 @@ export const Container = styled.div<{ page?: boolean }>`
     }
     .message.user { align-self:flex-end; color:#fff; background:linear-gradient(135deg,#3978f5,#6256e8); border-bottom-right-radius:4px; }
     .message.bot { align-self:flex-start; color:${({ theme }) => theme.colors.white}; background:${({ theme }) => theme.colors.tertiary}; border-bottom-left-radius:4px; }
+    .message em { display:block; margin:0 0 6px; color:#6fa8ff; font-size:10px; font-style:normal; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
     .confirm { display:block; margin-top:10px; padding:8px 10px; border:0; border-radius:8px; color:#072d20; background:#5be0ad; font-weight:800; cursor:pointer; }
     form { display:flex; gap:8px; padding:14px; border-top:1px solid ${({ theme }) => theme.colors.tertiary}; }
     form input { flex:1; min-width:0; height:42px; padding:0 13px; border:1px solid ${({ theme }) => theme.colors.tertiary}; border-radius:11px; outline:0; color:${({ theme }) => theme.colors.white}; background:${({ theme }) => theme.colors.primary}; font:inherit; }
