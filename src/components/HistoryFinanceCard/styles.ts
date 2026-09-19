@@ -72,3 +72,15 @@ export const Tag = styled.div<ITagProps>`
     left: 0;
 `;
 
+export const NewTransactionDot = styled.i`
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 8px;
+    border-radius: 50%;
+    vertical-align: middle;
+    background-color: ${props => props.theme.colors.success};
+    box-shadow: 0 0 0 3px rgba(6, 214, 160, .14),
+                0 0 8px rgba(6, 214, 160, .42);
+`;
+

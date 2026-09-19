@@ -62,7 +62,7 @@ const FinancialInsights: React.FC = () => {
             <strong>{detail.description}</strong><b>{money(detail.value)}</b>
             <small>{date(detail.firstDate)} e {date(detail.secondDate)}</small>
             <em>Transações #{detail.firstTransactionId} e #{detail.secondTransactionId}</em>
-          </div>)}</div>}
+          </div>)}<Link className="duplicate-link" to="/list/exit-balance?filter=duplicates">Abrir somente estes lançamentos →</Link></div>}
         </div>
       </article>)}
     </div>

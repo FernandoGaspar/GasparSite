@@ -167,6 +167,50 @@ export const Content = styled.ul`
     list-style: none;
     margin: 0 0 20px;
     padding: 0;
+
+    .duplicate-pair-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+        padding: 11px 13px;
+        border: 1px solid rgba(232, 173, 66, .35);
+        border-radius: 10px;
+        background: rgba(139, 93, 17, .1);
+    }
+    .duplicate-pair-heading strong { color: #f5ce7d; font-size: 12px; }
+    .duplicate-pair-heading span { color: ${props => props.theme.colors.gray}; font-size: 11px; text-align: right; }
+    .duplicate-pair-action { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+    .duplicate-pair-action button { color: #f5ce7d; border-color: rgba(232, 173, 66, .45); }
+
+    @media(max-width: 600px) {
+        .duplicate-pair-heading { align-items: flex-start; flex-direction: column; }
+        .duplicate-pair-heading span { text-align: left; }
+        .duplicate-pair-action button { width: 100%; }
+    }
+`;
+
+export const DuplicateBanner = styled.section`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+    padding: 16px 18px;
+    border: 1px solid rgba(232, 173, 66, .45);
+    border-radius: 12px;
+    background: rgba(139, 93, 17, .12);
+
+    > div { display: grid; gap: 4px; }
+    strong { color: ${props => props.theme.colors.white}; font-size: 15px; }
+    span { color: ${props => props.theme.colors.gray}; font-size: 12px; line-height: 1.5; }
+    button { flex: 0 0 auto; color: #f5ce7d; border-color: rgba(232, 173, 66, .55); }
+
+    @media(max-width: 650px) {
+        align-items: stretch;
+        flex-direction: column;
+    }
 `;
 
 export const SummaryBar = styled.div`

@@ -543,6 +543,215 @@ export const Container = styled.div`
     background: #4de0aa;
     box-shadow: 0 0 8px #4de0aa;
   }
+  .garage-monitor {
+    display: grid;
+    gap: 14px;
+    margin: 14px;
+    padding: 16px;
+    border: 1px solid #28506b;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #10283c, #0e1e30);
+  }
+  .garage-monitor-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .garage-monitor-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    color: #61e1b7;
+    background: #113d39;
+  }
+  .garage-monitor-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  .garage-monitor-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .garage-monitor-title-row strong {
+    color: #f0f7ff;
+    font-size: 14px;
+  }
+  .garage-monitor-copy p,
+  .garage-monitor-privacy {
+    margin-top: 4px;
+    color: #91a9c2;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  .garage-monitor-status {
+    padding: 4px 8px;
+    border-radius: 999px;
+    color: #9fb0c3;
+    background: #1b3045;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .garage-monitor-status.is-connected {
+    color: #77e9c0;
+    background: #124137;
+  }
+  .garage-monitor-status.is-waiting {
+    color: #ffd780;
+    background: #493a1c;
+  }
+  .garage-monitor-switch {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .garage-monitor-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .garage-monitor-switch > span {
+    position: relative;
+    width: 42px;
+    height: 24px;
+    border-radius: 999px;
+    background: #33475c;
+    transition: background 0.18s ease;
+  }
+  .garage-monitor-switch > span::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #dce9f6;
+    transition: transform 0.18s ease;
+  }
+  .garage-monitor-switch input:checked + span {
+    background: #6555ee;
+  }
+  .garage-monitor-switch input:checked + span::after {
+    transform: translateX(18px);
+  }
+  .garage-monitor-switch input:focus-visible + span {
+    outline: 2px solid #8d80ff;
+    outline-offset: 3px;
+  }
+  .garage-monitor-switch input:disabled + span {
+    opacity: 0.55;
+  }
+  .garage-monitor-switch em {
+    color: #c4d1df;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+  }
+  .garage-monitor-controls {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.4fr) minmax(190px, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+  }
+  .garage-monitor-controls label {
+    display: grid;
+    gap: 6px;
+  }
+  .garage-monitor-controls label > span {
+    color: #8ba4bf;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .garage-monitor-controls select {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 11px;
+    border: 1px solid #31516e;
+    border-radius: 9px;
+    outline: 0;
+    color: #e5f0fb;
+    background: #0a1828;
+    font: inherit;
+    font-size: 12px;
+  }
+  .garage-monitor-controls select:focus {
+    border-color: #796bff;
+    box-shadow: 0 0 0 3px #796bff26;
+  }
+  .garage-monitor-sensor-state {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    gap: 8px;
+    padding: 0 11px;
+    border: 1px solid #263f58;
+    border-radius: 9px;
+    color: #a9bdd1;
+    background: #112238;
+    font-size: 11px;
+  }
+  .garage-monitor-sensor-state svg {
+    flex: none;
+    color: #66dcb5;
+  }
+  .garage-monitor-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    gap: 7px;
+    padding: 0 12px;
+    border: 1px solid #355a78;
+    border-radius: 9px;
+    color: #c6dcf1;
+    background: #16324c;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .garage-monitor-refresh:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+  .garage-monitor-refresh .is-spinning {
+    animation: garage-monitor-spin 0.8s linear infinite;
+  }
+  @keyframes garage-monitor-spin {
+    to { transform: rotate(360deg); }
+  }
+  .garage-monitor-result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding-top: 12px;
+    border-top: 1px solid #213d55;
+    color: #b7cbdd;
+    font-size: 11px;
+  }
+  .garage-monitor-result strong,
+  .garage-monitor-error {
+    color: #ff9eab;
+  }
+  .garage-monitor-error {
+    padding: 9px 11px;
+    border: 1px solid #6b3542;
+    border-radius: 9px;
+    background: #351d27;
+    font-size: 11px;
+  }
+  .garage-monitor-privacy {
+    margin: 0;
+  }
   .camera-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -1334,6 +1543,9 @@ export const Container = styled.div`
       grid-template-columns: 1fr;
     }
     .camera-grid:has(.camera-card.is-live) {
+      grid-template-columns: 1fr;
+    }
+    .garage-monitor-controls {
       grid-template-columns: 1fr;
     }
     .camera-card.is-live {

@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiActivity,
   FiCamera,
@@ -28,6 +28,10 @@ import {
 import HomeFloorPlan, { FloorPlanLight } from "../../components/HomeFloorPlan";
 import { URL_API } from "../../repositories/baseAPI";
 import { deduplicatedRequest } from "../../repositories/requestCache";
+import {
+  appendSceneBlinds,
+  SceneBlindActions,
+} from "./sceneBlinds";
 import { Container } from "./styles";
 
 interface HomeAssistantState {
@@ -43,6 +47,8 @@ interface HomeAssistantState {
     camera_snapshot_url?: string;
     camera_stream_url?: string;
     camera_webrtc_enabled?: boolean;
+    virtual_room?: string;
+    virtual_scene_actions?: SceneBlindActions;
   };
 }
 interface Device extends HomeAssistantState {
@@ -54,6 +60,40 @@ interface Device extends HomeAssistantState {
 interface Camera extends HomeAssistantState {
   name: string;
 }
+interface GarageSensor {
+  entityId: string;
+  name: string;
+  state: string;
+  garageMatch?: boolean;
+}
+interface GarageMonitorStatus {
+  enabled: boolean;
+  sensorEntityId?: string | null;
+  sensorConnected: boolean;
+  sensorState: string;
+  cameraEntityIds: string[];
+  cooldownSeconds: number;
+  lastProcessedAt?: string | null;
+  lastClassification?: "person" | "car" | "dog" | "cat" | "unknown" | null;
+  lastConfidence?: number | null;
+  lastError?: string | null;
+  availableSensors: GarageSensor[];
+}
+const defaultGarageMonitor: GarageMonitorStatus = {
+  enabled: false,
+  sensorConnected: false,
+  sensorState: "unavailable",
+  cameraEntityIds: ["camera.garagem_1", "camera.garagem_2"],
+  cooldownSeconds: 90,
+  availableSensors: [],
+};
+const garageClassificationLabels: Record<string, string> = {
+  person: "pessoa",
+  car: "carro",
+  dog: "cachorro",
+  cat: "gato",
+  unknown: "movimento",
+};
 
 const controllableDomains = [
   "light",
@@ -158,6 +198,7 @@ const coverStatus = (state: string) =>
     closing: "Fechando",
     unavailable: "Indisponível",
     unknown: "Estado desconhecido",
+    stopped: "Parada",
   })[state] || state;
 
 interface ClimateCardProps {
@@ -351,10 +392,13 @@ const CoverCard: React.FC<CoverCardProps> = ({
   hidden,
   onVisibility,
 }) => {
-  const unavailable = ["unavailable", "unknown"].includes(device.state);
+  const sceneActions = device.attributes.virtual_scene_actions;
+  const unavailable =
+    device.state === "unavailable" ||
+    (device.state === "unknown" && !sceneActions);
   const moving = ["opening", "closing"].includes(device.state);
   const supportsStop = Boolean(
-    Number(device.attributes.supported_features) & 8,
+    sceneActions?.stop || Number(device.attributes.supported_features) & 8,
   );
   const position = device.attributes.current_position;
 
@@ -365,10 +409,14 @@ const CoverCard: React.FC<CoverCardProps> = ({
           {updating ? <FiLoader className="spin" /> : <FiChevronsUp />}
         </span>
         <div>
-          <small>JANELA / PERSIANA</small>
+          <small>{sceneActions ? "PERSIANA TUYA" : "JANELA / PERSIANA"}</small>
           <strong>{device.name}</strong>
         </div>
-        <em>{coverStatus(device.state)}</em>
+        <em>
+          {sceneActions && device.state === "unknown"
+            ? "Sem leitura de estado"
+            : coverStatus(device.state)}
+        </em>
       </header>
       {typeof position === "number" && (
         <div className="cover-position">
@@ -383,7 +431,7 @@ const CoverCard: React.FC<CoverCardProps> = ({
           disabled={
             updating ||
             unavailable ||
-            ["open", "opening"].includes(device.state)
+            (!sceneActions && ["open", "opening"].includes(device.state))
           }
         >
           <FiChevronsUp /> Abrir
@@ -392,7 +440,12 @@ const CoverCard: React.FC<CoverCardProps> = ({
           type="button"
           className="cover-stop"
           onClick={() => onSetAction(device, "stop")}
-          disabled={updating || unavailable || !moving || !supportsStop}
+          disabled={
+            updating ||
+            unavailable ||
+            !supportsStop ||
+            (!sceneActions && !moving)
+          }
           title={
             supportsStop
               ? "Parar movimento"
@@ -407,7 +460,7 @@ const CoverCard: React.FC<CoverCardProps> = ({
           disabled={
             updating ||
             unavailable ||
-            ["closed", "closing"].includes(device.state)
+            (!sceneActions && ["closed", "closing"].includes(device.state))
           }
         >
           <FiChevronsDown /> Fechar
@@ -844,6 +897,55 @@ const Home: React.FC = () => {
   const [nvrCameras, setNvrCameras] = useState<
     Array<{ entity_id: string; name: string }>
   >([]);
+  const [garageMonitor, setGarageMonitor] = useState<GarageMonitorStatus>(
+    defaultGarageMonitor,
+  );
+  const [garageLoading, setGarageLoading] = useState(true);
+  const [garageSaving, setGarageSaving] = useState(false);
+  const [garageError, setGarageError] = useState("");
+
+  const loadGarageMonitor = useCallback(async () => {
+    setGarageLoading(true);
+    setGarageError("");
+    try {
+      const response = await axios.get<GarageMonitorStatus>(
+        `${URL_API}/home-assistant/garage-monitor`,
+      );
+      setGarageMonitor(response.data);
+    } catch (requestError: any) {
+      setGarageError(
+        requestError.response?.data?.message ||
+          "Não foi possível carregar a detecção da garagem.",
+      );
+    } finally {
+      setGarageLoading(false);
+    }
+  }, []);
+
+  const saveGarageMonitor = async (
+    payload: Partial<Pick<GarageMonitorStatus, "enabled" | "sensorEntityId">>,
+  ) => {
+    setGarageSaving(true);
+    setGarageError("");
+    try {
+      const response = await axios.put<GarageMonitorStatus>(
+        `${URL_API}/home-assistant/garage-monitor`,
+        payload,
+      );
+      setGarageMonitor(response.data);
+    } catch (requestError: any) {
+      setGarageError(
+        requestError.response?.data?.message ||
+          "Não foi possível salvar a configuração da garagem.",
+      );
+    } finally {
+      setGarageSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadGarageMonitor();
+  }, [loadGarageMonitor]);
 
   useEffect(() => {
     deduplicatedRequest("home:nvr-cameras", () =>
@@ -1004,11 +1106,12 @@ const Home: React.FC = () => {
 
   const devices = useMemo<Device[]>(
     () =>
-      states
+      appendSceneBlinds(states)
         .filter(
           (item) =>
             controllableDomains.includes(item.entity_id.split(".")[0]) &&
             (item.entity_id.startsWith("climate.") ||
+              item.attributes.virtual_scene_actions ||
               !["unavailable", "unknown"].includes(item.state)) &&
             !/poupança de energia/i.test(item.attributes.friendly_name || ""),
         )
@@ -1016,7 +1119,10 @@ const Home: React.FC = () => {
           const name =
             item.attributes.friendly_name ||
             item.entity_id.split(".")[1].replace(/_/g, " ");
-          const room = roomAssignments[item.entity_id] || roomFromName(name);
+          const room =
+            roomAssignments[item.entity_id] ||
+            item.attributes.virtual_room ||
+            roomFromName(name);
           const domain = item.entity_id.split(".")[0];
           return {
             ...item,
@@ -1290,17 +1396,19 @@ const Home: React.FC = () => {
   const setCoverAction = async (device: Device, action: CoverAction) => {
     setUpdating(device.entity_id);
     try {
+      const sceneEntity = device.attributes.virtual_scene_actions?.[action];
       await axios.post(`${URL_API}/home-assistant/service`, {
-        entity_id: device.entity_id,
-        state: action,
+        entity_id: sceneEntity || device.entity_id,
+        state: sceneEntity ? "on" : action,
       });
       setStates((current) =>
         current.map((item) =>
-          item.entity_id === device.entity_id
+          item.entity_id === (sceneEntity || device.entity_id)
             ? {
                 ...item,
-                state:
-                  action === "open"
+                state: sceneEntity
+                  ? new Date().toISOString()
+                  : action === "open"
                     ? "opening"
                     : action === "close"
                       ? "closing"
@@ -1873,6 +1981,122 @@ const Home: React.FC = () => {
               <i /> {camerasLive ? "Encerrar ao vivo" : "Ao vivo"}
             </button>
           </header>
+          <div className="garage-monitor">
+            <div className="garage-monitor-summary">
+              <span className="garage-monitor-icon" aria-hidden="true">
+                <FiActivity />
+              </span>
+              <div className="garage-monitor-copy">
+                <div className="garage-monitor-title-row">
+                  <strong>Detecção inteligente da garagem</strong>
+                  <span
+                    className={`garage-monitor-status ${
+                      garageMonitor.enabled && garageMonitor.sensorConnected
+                        ? "is-connected"
+                        : garageMonitor.enabled
+                          ? "is-waiting"
+                          : ""
+                    }`}
+                  >
+                    {garageMonitor.enabled
+                      ? garageMonitor.sensorConnected
+                        ? "Ativa"
+                        : "Aguardando sensor"
+                      : "Desativada"}
+                  </span>
+                </div>
+                <p>
+                  Ao detectar movimento, o Gaspar analisa duas imagens das câmeras
+                  e envia uma notificação com o que encontrou.
+                </p>
+              </div>
+              <label className="garage-monitor-switch">
+                <input
+                  type="checkbox"
+                  checked={garageMonitor.enabled}
+                  disabled={garageSaving || garageLoading}
+                  onChange={(event) =>
+                    void saveGarageMonitor({ enabled: event.target.checked })
+                  }
+                />
+                <span aria-hidden="true" />
+                <em>{garageMonitor.enabled ? "Ligada" : "Desligada"}</em>
+              </label>
+            </div>
+            <div className="garage-monitor-controls">
+              <label>
+                <span>Sensor de movimento</span>
+                <select
+                  value={garageMonitor.sensorEntityId || ""}
+                  disabled={garageSaving || garageLoading}
+                  onChange={(event) =>
+                    void saveGarageMonitor({
+                      sensorEntityId: event.target.value || null,
+                    })
+                  }
+                >
+                  <option value="">Selecionar sensor Tuya</option>
+                  {garageMonitor.sensorEntityId &&
+                    !garageMonitor.availableSensors.some(
+                      (sensor) => sensor.entityId === garageMonitor.sensorEntityId,
+                    ) && (
+                      <option value={garageMonitor.sensorEntityId}>
+                        {garageMonitor.sensorEntityId} (indisponível)
+                      </option>
+                    )}
+                  {garageMonitor.availableSensors.map((sensor) => (
+                    <option key={sensor.entityId} value={sensor.entityId}>
+                      {sensor.name} · {sensor.state === "on" ? "movimento" : "sem movimento"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="garage-monitor-sensor-state">
+                <FiWifi />
+                <span>
+                  {garageMonitor.sensorEntityId
+                    ? garageMonitor.sensorConnected
+                      ? `Conectado · ${garageMonitor.sensorState === "on" ? "movimento agora" : "sem movimento"}`
+                      : "Sensor selecionado, mas indisponível"
+                    : garageMonitor.availableSensors.length
+                      ? `${garageMonitor.availableSensors.length} sensor${garageMonitor.availableSensors.length > 1 ? "es" : ""} disponível${garageMonitor.availableSensors.length > 1 ? "is" : ""}`
+                      : "Nenhum sensor de movimento encontrado"}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="garage-monitor-refresh"
+                onClick={() => void loadGarageMonitor()}
+                disabled={garageLoading || garageSaving}
+              >
+                <FiRefreshCw className={garageLoading ? "is-spinning" : ""} />
+                Atualizar sensores
+              </button>
+            </div>
+            {(garageMonitor.lastProcessedAt || garageMonitor.lastError) && (
+              <div className="garage-monitor-result">
+                {garageMonitor.lastProcessedAt && (
+                  <span>
+                    Última análise: {garageClassificationLabels[garageMonitor.lastClassification || "unknown"] || "movimento"}
+                    {garageMonitor.lastConfidence != null
+                      ? ` · ${Math.round(garageMonitor.lastConfidence * 100)}% de confiança`
+                      : ""}
+                    {` · ${new Date(garageMonitor.lastProcessedAt).toLocaleString("pt-BR")}`}
+                  </span>
+                )}
+                {garageMonitor.lastError && <strong>{garageMonitor.lastError}</strong>}
+              </div>
+            )}
+            {garageError && (
+              <div className="garage-monitor-error" role="alert">
+                {garageError}
+              </div>
+            )}
+            <p className="garage-monitor-privacy">
+              As imagens são usadas apenas durante o alerta e não ficam armazenadas
+              pelo Gaspar. Há um intervalo mínimo de {garageMonitor.cooldownSeconds} segundos entre análises.
+            </p>
+          </div>
           <div className="camera-grid">
             {cameras.map((camera) => (
               <CameraCard

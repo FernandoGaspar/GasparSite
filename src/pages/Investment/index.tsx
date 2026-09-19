@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FaFileImport, FaPlus, FaSync } from 'react-icons/fa';
 import { CustomDialog } from 'react-st-modal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useHistory, useLocation } from 'react-router-dom';
 
 import InvestimentBox from '../../components/InvestmentBox';
 import InvestmentAddModal from '../../components/InvestmentAddModal';
@@ -66,6 +67,8 @@ interface IMarketIndicator {
     acumulado12m: number | null
     variacaoPeriodo: number | null
     mesAnterior: number | null
+    ultimoMesFechado: number | null
+    mesAnteriorAoFechado: number | null
 }
 
 interface IMarketOverview {
@@ -78,6 +81,7 @@ interface IMarketOverview {
 interface IInvestmentDashboard {
     pluggyPositions: IPapelMonitorado[]
     cryptoPositions: IPapelMonitorado[]
+    trackedAssets: IPapelMonitorado[]
     evolution: IEvolucaoInvestimentoData[]
     indicators: IIndicador[]
     marketOverview: IMarketOverview
@@ -113,8 +117,12 @@ function getCorInvestimento(tipo: string) {
 }
 
 const Investment: React.FC = () => {
+    const location = useLocation();
+    const history = useHistory();
+    const syncAction = new URLSearchParams(location.search).get('action') === 'sync';
     const [pluggyPositions, setPluggyPositions] = useState<IPapelMonitorado[]>([]);
     const [cryptoPositions, setCryptoPositions] = useState<IPapelMonitorado[]>([]);
+    const [trackedAssets, setTrackedAssets] = useState<IPapelMonitorado[]>([]);
     const [originFilter, setOriginFilter] = useState<InvestmentOriginFilter>('SEM_MANUAIS');
     const [evolucaoInvestimentos, setEvolucaoInvestimentos] = useState<IEvolucaoInvestimentoData[]>([]);
     const [indicadores, setIndicadores] = useState<IIndicador[]>([]);
@@ -139,6 +147,13 @@ const Investment: React.FC = () => {
         if (originFilter === 'PLUGGY') return pluggyPositions;
         return cryptoPositions;
     }, [originFilter, pluggyPositions, cryptoPositions]);
+
+    const ativosParaAnalise = useMemo(() => {
+        const assets = new Map<string, IPapelMonitorado>();
+        trackedAssets.forEach(item => assets.set(item.codigo, item));
+        papeisMonitorados.forEach(item => assets.set(item.codigo, item));
+        return Array.from(assets.values());
+    }, [papeisMonitorados, trackedAssets]);
 
     const filteredEvolution = useMemo(() => {
         const origemFiltrada = originFilter === 'PLUGGY'
@@ -231,6 +246,7 @@ const Investment: React.FC = () => {
             if (requestId !== activeRequest.current) return;
             setPluggyPositions(response.data.pluggyPositions);
             setCryptoPositions(response.data.cryptoPositions);
+            setTrackedAssets(response.data.trackedAssets || []);
             setEvolucaoInvestimentos(response.data.evolution);
             setIndicadores(response.data.indicators);
             setMarketOverview(response.data.marketOverview);
@@ -247,10 +263,10 @@ const Investment: React.FC = () => {
     }, [loadInvestmentData]);
 
     useEffect(() => {
-        if (!selectedCodigo && papeisMonitorados.length > 0) {
-            setSelectedCodigo(papeisMonitorados[0].codigo)
+        if (!selectedCodigo && ativosParaAnalise.length > 0) {
+            setSelectedCodigo(ativosParaAnalise[0].codigo)
         }
-    }, [papeisMonitorados, selectedCodigo]);
+    }, [ativosParaAnalise, selectedCodigo]);
 
     const totalInvestido = useMemo(() => {
         return papeisMonitorados.reduce((total, item) => total + Number(item.saldoAtual || 0), 0);
@@ -344,8 +360,8 @@ const Investment: React.FC = () => {
     }, [papeisMonitorados, maiorPosicao, totalInvestido, getLatestIndicador]);
 
     const selectedAsset = useMemo(() => {
-        return papeisMonitorados.find(item => item.codigo === selectedCodigo);
-    }, [papeisMonitorados, selectedCodigo]);
+        return ativosParaAnalise.find(item => item.codigo === selectedCodigo);
+    }, [ativosParaAnalise, selectedCodigo]);
 
     const priceHistory = useMemo(() => {
         return evolucaoInvestimentos
@@ -430,9 +446,9 @@ const Investment: React.FC = () => {
                     </label>
                     <button
                         className="import-button"
-                        onClick={() => setImportOpen(value => !value)}
+                        onClick={() => syncAction ? history.replace('/investment') : setImportOpen(value => !value)}
                     >
-                        <FaFileImport /> Importar B3
+                        <FaFileImport /> {syncAction ? 'Fechar integrações' : 'Importar B3'}
                     </button>
                     <button
                         className="add-asset-button"
@@ -442,7 +458,7 @@ const Investment: React.FC = () => {
                                     atualizaPapeisMonitorados={() => loadInvestmentData(true)}
                                 />,
                                 {
-                                    title: "descricao",
+                                    title: "Adicionar papel",
                                     showCloseIcon: true,
                                     isFocusLock: true,
                                 });
@@ -461,7 +477,7 @@ const Investment: React.FC = () => {
                         <button onClick={() => loadInvestmentData(true)}>Tentar novamente</button>
                     </div>
                 )}
-                {importOpen && (
+                {(importOpen || syncAction) && (
                     <section className="integration-panel section-card">
                         <div className="section-heading">
                             <div>
@@ -566,16 +582,20 @@ const Investment: React.FC = () => {
                     <div className="market-grid">
                         {marketCards.map(({ key, label, formatAtual }) => {
                             const dado = marketOverview?.[key];
-                            const valorInferior = key === 'ipca' || key === 'cdi'
-                                ? dado?.mesAnterior ?? null
+                            const indicadorTaxa = key === 'ipca' || key === 'cdi';
+                            const valorPrincipal = indicadorTaxa
+                                ? dado?.ultimoMesFechado ?? dado?.mesAnterior ?? null
+                                : dado?.atual ?? null;
+                            const valorInferior = indicadorTaxa
+                                ? dado?.mesAnteriorAoFechado ?? null
                                 : dado?.variacaoPeriodo ?? null;
                             const negativeStyle = (valor: number | null | undefined) =>
                                 valor != null && valor < 0 ? { color: '#EF476F' } : undefined;
                             return (
                                 <div className="market-card" key={key}>
-                                    <span className="label">{label}</span>
-                                    <span className="value" style={negativeStyle(dado?.atual)}>
-                                        {dado?.atual != null ? formatAtual(dado.atual) : '—'}
+                                    <span className="label">{indicadorTaxa ? `${label} · MÊS FECHADO` : label}</span>
+                                    <span className="value" style={negativeStyle(valorPrincipal)}>
+                                        {valorPrincipal != null ? formatAtual(valorPrincipal) : '—'}
                                     </span>
                                     <div className="market-card-metrics">
                                         <div className="metric">
@@ -586,15 +606,15 @@ const Investment: React.FC = () => {
                                         </div>
                                         <div className="metric highlight">
                                             <span className="metric-label">
-                                                {key === 'ipca' || key === 'cdi'
-                                                    ? 'Indicador (mês anterior)'
+                                                {indicadorTaxa
+                                                    ? 'Mês anterior ao fechado'
                                                     : `Variação ${periodoLabel ? `(${periodoLabel})` : 'do período'}`}
                                             </span>
                                             <span
                                                 className="metric-value"
                                                 style={negativeStyle(valorInferior)}
                                             >
-                                                {key === 'ipca' || key === 'cdi'
+                                                {indicadorTaxa
                                                     ? (valorInferior == null ? '—' : `${valorInferior.toFixed(2)}%`)
                                                     : formatVariacao(valorInferior)}
                                             </span>
@@ -615,6 +635,34 @@ const Investment: React.FC = () => {
                             evolucaoInvestimentos={filteredEvolution}
                             indicadoresEconomicos={indicadores}
                         />
+                    </div>
+                </section>
+
+                <section className="section-card">
+                    <div className="section-heading">
+                        <div>
+                            <h2>Papéis acompanhados</h2>
+                            <span>Acompanhe preço e desempenho sem alterar o patrimônio da carteira.</span>
+                        </div>
+                    </div>
+                    <div className="holdings-grid">
+                        {trackedAssets.length ? trackedAssets.map(item => (
+                            <InvestimentBox
+                                key={`MANUAL-${item.codigo}`}
+                                papel={item.codigo}
+                                tipo={item.tipo}
+                                papelGrafico={item.codigoGrafico}
+                                cotacaoAtual={item.valorAtual}
+                                variacao={item.variacao}
+                                saldo={item.saldoAtual}
+                                dataAtualizacao={item.dataAtualizada}
+                                ultimoDividendo={item.ultimoDividendo}
+                                dataUltimoDiv={item.dataUltimoDiv}
+                                tipoPapel={item.tipoPapel}
+                                origem="MANUAL"
+                                atualizaPapeisMonitorados={() => loadInvestmentData(true)}
+                            />
+                        )) : <div className="holdings-empty">Você ainda não adicionou nenhum papel para acompanhar.</div>}
                     </div>
                 </section>
 
@@ -649,7 +697,7 @@ const Investment: React.FC = () => {
                         <h2>Análise do ativo</h2>
                     </div>
                     <div className="ticker-row">
-                        {papeisMonitorados.map(item => (
+                        {ativosParaAnalise.map(item => (
                             <span
                                 key={`${item.origem || 'MANUAL'}-${item.codigo}`}
                                 className={`ticker-chip ${item.codigo === selectedCodigo ? 'active' : ''}`}

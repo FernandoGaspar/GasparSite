@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   MdAccessTime, MdAccountBalance, MdClose, MdHome, MdInfoOutline, MdPieChart,
   MdKeyboardArrowDown, MdKeyboardArrowUp, MdRefresh, MdSecurity, MdShowChart,
-  MdSupervisorAccount, MdViewList,
+  MdSupervisorAccount, MdViewList, MdAssignmentTurnedIn,
 } from 'react-icons/md';
 import Chat, { AgentAlert } from '../../components/Chat';
 import { Container } from './styles';
@@ -39,12 +39,14 @@ const fallbackAgents: AgentDefinition[] = [
   { id:'planner', name:'Planejador financeiro', role:'Projeta o caixa e transforma objetivos em planos conservadores.', specialties:['Fluxo de caixa', 'Metas', 'Cenários'], dataSources:['Saldo', 'Contas futuras'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
   { id:'economist', name:'Economista doméstico', role:'Encontra economias mensuráveis nos gastos reais.', specialties:['Comparações', 'Economia recorrente', 'Categorias'], dataSources:['Despesas', 'Recorrências'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
   { id:'investor', name:'Especialista em investimentos', role:'Analisa carteira, integração e risco dos investimentos.', specialties:['Diversificação', 'Liquidez', 'Integrações'], dataSources:['Posições', 'Pluggy'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
+  { id:'activity_manager', name:'Gestor de atividades', role:'Cruza atividades, responsáveis, projetos, prazos e memória para antecipar gargalos.', specialties:['Prazos', 'Responsáveis', 'Projetos', 'Follow-ups'], dataSources:['Atividades', 'Projetos', 'Memória'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
   { id:'home', name:'Especialista da casa', role:'Cuida dos dispositivos, rotinas e sinais da casa conectada.', specialties:['Dispositivos', 'Rotinas', 'Câmeras'], dataSources:['Home Assistant', 'Snapshots'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
 ];
 
 const icons: Record<string, React.ComponentType> = {
   general: MdSupervisorAccount, guardian: MdSecurity, organizer: MdViewList,
-  planner: MdPieChart, economist: MdAccountBalance, investor: MdShowChart, home: MdHome,
+  planner: MdPieChart, economist: MdAccountBalance, investor: MdShowChart,
+  activity_manager: MdAssignmentTurnedIn, home: MdHome,
 };
 
 const formatDate = (value?: string) => value
@@ -84,6 +86,7 @@ const Assistant: React.FC = () => {
     : (selectedStatus?.alerts || []);
   const Icon = icons[agent.id] || MdSupervisorAccount;
   const intervalHours = schedule.intervalSeconds / 3600;
+  const scheduledCount = agents.filter(item => item.executionMode === 'scheduled').length;
 
   return <Container>
     <header className="page-heading">
@@ -124,7 +127,7 @@ const Assistant: React.FC = () => {
       </main>
     </div>
 
-    <p className="cadence-note">Os seis monitores rodam ao iniciar o serviço e depois a cada {intervalHours.toLocaleString('pt-BR')} hora(s). O intervalo é configurável, com mínimo técnico de {schedule.minimumIntervalSeconds / 60} minutos. O Coordenador roda sob demanda.</p>
+    <p className="cadence-note">Os {scheduledCount} monitores rodam ao iniciar o serviço e depois a cada {intervalHours.toLocaleString('pt-BR')} hora(s). O intervalo é configurável, com mínimo técnico de {schedule.minimumIntervalSeconds / 60} minutos. O Coordenador roda sob demanda.</p>
 
     {promptOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => setPromptOpen(false)}>
       <section className="prompt-modal" role="dialog" aria-modal="true" aria-labelledby="agent-prompt-title" onMouseDown={event => event.stopPropagation()}>

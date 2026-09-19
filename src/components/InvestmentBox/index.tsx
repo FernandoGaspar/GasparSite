@@ -41,8 +41,6 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
 
 }) => {
   const { showNumber } = useShowNumber();
-  const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
-
   const sinal = useMemo(() => {
     if (variacao > 0){
       return "+"
@@ -63,7 +61,7 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
       let link = ""
       if (tipo === "BOVESPA"){
         link = 'https://finance.yahoo.com/chart/'+papelGrafico
-      }if (tipo != "BOVESPA"){
+      }if (tipo !== "BOVESPA"){
         link = 'https://www.binance.com/en/trade/<CRIPTOMOEDA>_BRL?theme=dark&type=spot'
         // link = 'https://s.tradingview.com/widgetembed/?frameElementId=tradingview_ac482&symbol=MERCADO%3A<CRIPTOMOEDA>BRL&interval=240&hidesidetoolbar=1&saveimage=1&toolbarbg=F4F7F9&studies=%5B%5D&hideideas=1&theme=Light&timezone=exchange&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=br'
         link = link.replace ("<CRIPTOMOEDA>", papelGrafico)
@@ -71,21 +69,13 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
       return link
   },[tipo, papelGrafico]);
 
-  const alteraListaPapel = async (papel: string, status: string) => {
-    axios.post (URL_API+"/alteraAtivosMonitorar", {
-        headers: {"Access-Control-Allow-Origin": "*"},
-        idUsuario: idUsuario,
-        papel: papel,
-        status: status
-    })
-    .then((response) => {
-        const { data } = response
-        atualizaPapeisMonitorados ("Atualizar")
-    })
-    .catch((error) => {
-      console.log(error)
-    })
-    atualizaPapeisMonitorados ("Atualizar")
+  const alteraListaPapel = async (papel: string) => {
+    try {
+      await axios.delete(`${URL_API}/investments/watchlist/${encodeURIComponent(papel)}`);
+      await atualizaPapeisMonitorados("Atualizar");
+    } catch (error) {
+      console.error('Não foi possível remover o papel acompanhado.', error);
+    }
   }
 
   const tipoPapelIcone = useMemo(() => {
@@ -224,9 +214,10 @@ const InvestimentBox: React.FC<IInvestmentBoxProps> = ({
             </p>
             : "" }
             <small>{ "Última atualização em " + formatDate(dataAtualizacao!, 1) } </small>          
-            {origem !== 'PLUGGY' && <FaLowVision
-                onClick={() => {
-                      alteraListaPapel (papel, "0")
+            {origem === 'MANUAL' && <FaLowVision
+                onClick={(event) => {
+                      event.stopPropagation();
+                      alteraListaPapel(papel)
                         }}
                 style={{
                           // fontSize : "35px",

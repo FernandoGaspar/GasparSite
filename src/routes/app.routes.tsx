@@ -16,6 +16,8 @@ const SettingsHome = lazy(() => import('../pages/SettingsHome'));
 const Planning = lazy(() => import('../pages/Planning'));
 const Activities = lazy(() => import('../pages/Activities'));
 const AIContext = lazy(() => import('../pages/AIContext'));
+const BudgetSettings = lazy(() => import('../pages/BudgetSettings'));
+const Communications = lazy(() => import('../pages/Communications'));
 
 const AppRoutes: React.FC = () => (
     <Layout>
@@ -30,10 +32,12 @@ const AppRoutes: React.FC = () => (
             <Route path="/assistant" exact component={Assistant} />
             <Route path="/planning" exact component={Planning} />
             <Route path="/activities" exact component={Activities} />
+            <Route path="/communications" exact component={Communications} />
             <Route path="/ai-context" exact component={AIContext} />
             <Route path="/settings" exact component={SettingsHome} />
             <Route path="/settings/automations" exact component={Settings} />
             <Route path="/settings/contas-recorrentes" exact component={RecurringBills} />
+            <Route path="/settings/budget" exact component={BudgetSettings} />
             
             <Route path="/CardList/:Banco/:AnoMes" exact component={CardList} />
 

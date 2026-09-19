@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useHistory, useLocation } from 'react-router-dom';
 import { MdAdd, MdEdit, MdPause, MdPlayArrow, MdRefresh, MdSave } from 'react-icons/md';
 import { URL_API } from '../../repositories/baseAPI';
 import { Container } from './styles';
@@ -34,6 +35,9 @@ const statusText = (item: Occurrence) => {
 };
 
 export default function RecurringBills() {
+  const location = useLocation();
+  const history = useHistory();
+  const pendingOnly = new URLSearchParams(location.search).get('filter') === 'pending';
   const [rules, setRules] = useState<Rule[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selected, setSelected] = useState<Rule | null>(null);
@@ -100,6 +104,7 @@ export default function RecurringBills() {
     return result;
   }, { income: 0, expense: 0, investmentIncome: 0, investmentExpense: 0 } as Record<'income' | 'expense' | 'investmentIncome' | 'investmentExpense', number>);
   const attention = occurrences.filter(item => ['atrasado', 'vence_hoje', 'divergente'].includes(item.status)).length;
+  const visibleOccurrences = pendingOnly ? occurrences.filter(item => item.status !== 'pago') : occurrences;
   const investmentIncome = form.tipoFluxo === 'investment' && form.direcaoFluxo === 'income';
   const formHint = investmentIncome ? 'Essa receita aumenta o saldo projetado e continua classificada dentro dos investimentos.' : flowInfo[form.tipoFluxo].hint;
   const formDate = investmentIncome ? 'Dia do recebimento' : flowInfo[form.tipoFluxo].date;
@@ -107,10 +112,11 @@ export default function RecurringBills() {
   return <Container>
     <header><div><span>PLANEJAMENTO FINANCEIRO</span><h1>Fluxos programados</h1><p>Cadastre receitas, despesas e investimentos recorrentes. Cada realização é identificada automaticamente nas transações importadas.</p></div><div className="actions"><button onClick={() => open()}><MdAdd /> Novo fluxo</button><button onClick={load}><MdRefresh /> Atualizar</button></div></header>
     {message && <div className="notice">{message}</div>}
+    {pendingOnly && <div className="active-filter"><div><span>AÇÃO DO ALERTA</span><strong>Fluxos pendentes de conferência</strong><small>{visibleOccurrences.length} {visibleOccurrences.length===1?'fluxo encontrado':'fluxos encontrados'} nesta competência</small></div><button onClick={()=>history.replace('/settings/contas-recorrentes')}>Limpar filtro</button></div>}
     <section className="tracking" aria-label="Acompanhamento dos fluxos programados">
       <div className="tracking-head"><div><span>ACOMPANHAMENTO</span><h2>Previsto x realizado</h2></div><label>Competência<input type="month" value={trackingMonth} onChange={e => setTrackingMonth(e.target.value)} /></label></div>
       <div className="tracking-summary"><div className="income"><small>Receitas previstas</small><strong>{money(totals.income)}</strong></div><div className="expense"><small>Despesas previstas</small><strong>{money(totals.expense)}</strong></div><div className="investment"><small>Custos de investimentos</small><strong>{money(totals.investmentExpense)}</strong></div><div className="investment-income"><small>Receitas de investimentos</small><strong>{money(totals.investmentIncome)}</strong></div><div className={attention ? 'needs-attention' : ''}><small>Para conferir</small><strong>{attention}</strong></div></div>
-      <div className="tracking-list">{occurrences.length ? occurrences.map(item => { const direction = item.direcaoFluxo || (item.valorPrevisto > 0 ? 'income' : 'expense'); return <article className={`${item.tipoFluxo} ${direction}-direction`} key={`${item.idContaRecorrente}-${item.vencimento}`}><div><span className={`flow-badge ${item.tipoFluxo}`}>{flowInfo[item.tipoFluxo || 'expense'].short}{item.tipoFluxo === 'investment' ? ` · ${direction === 'income' ? 'Receita' : 'Custo'}` : ''}</span><strong>{item.descricao}</strong><span>Data prevista: {new Date(`${item.vencimento}T12:00:00`).toLocaleDateString('pt-BR')}</span></div><b>{direction === 'income' ? '+' : '−'} {money(item.valorPrevisto)}</b><span className={`tracking-status ${item.status}`}>{statusText(item)}</span>{item.status === 'pago' && <small>{direction === 'income' ? 'Recebido' : item.tipoFluxo === 'investment' ? 'Investido' : 'Pago'}: {money(item.valorEncontrado || 0)}</small>}</article>; }) : <p>Não há fluxos programados nesta competência.</p>}</div>
+      <div className="tracking-list">{visibleOccurrences.length ? visibleOccurrences.map(item => { const direction = item.direcaoFluxo || (item.valorPrevisto > 0 ? 'income' : 'expense'); return <article className={`${item.tipoFluxo} ${direction}-direction`} key={`${item.idContaRecorrente}-${item.vencimento}`}><div><span className={`flow-badge ${item.tipoFluxo}`}>{flowInfo[item.tipoFluxo || 'expense'].short}{item.tipoFluxo === 'investment' ? ` · ${direction === 'income' ? 'Receita' : 'Custo'}` : ''}</span><strong>{item.descricao}</strong><span>Data prevista: {new Date(`${item.vencimento}T12:00:00`).toLocaleDateString('pt-BR')}</span></div><b>{direction === 'income' ? '+' : '−'} {money(item.valorPrevisto)}</b><span className={`tracking-status ${item.status}`}>{statusText(item)}</span>{item.status === 'pago' && <small>{direction === 'income' ? 'Recebido' : item.tipoFluxo === 'investment' ? 'Investido' : 'Pago'}: {money(item.valorEncontrado || 0)}</small>}</article>; }) : <p>{pendingOnly?'Nenhum fluxo pendente nesta competência.':'Não há fluxos programados nesta competência.'}</p>}</div>
     </section>
     <main>
       <section className="rule-list"><div className="section-heading"><div><h2>Seus fluxos</h2><span>{rules.filter(item => item.ativo).length} ativos</span></div><button className="show-all" onClick={() => setShowAll(!showAll)}>{showAll ? 'Mostrar ativos' : 'Visualizar tudo'}</button></div>

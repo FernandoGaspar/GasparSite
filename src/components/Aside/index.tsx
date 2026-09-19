@@ -17,6 +17,7 @@ import {
     MdDateRange,
     MdLandscape,
     MdPlaylistAddCheck,
+    MdEmail,
 } from 'react-icons/md';
 
 import logoImg from '../../assets/gaspar-mark.png';
@@ -48,6 +49,7 @@ const menuItems = [
     { to: '/assistant', label: 'Assistente', icon: MdChatBubble },
     { to: '/planning', label: 'Planejamento', icon: MdDateRange },
     { to: '/activities', label: 'Atividades', icon: MdPlaylistAddCheck },
+    { to: '/communications', label: 'Comunicação', icon: MdEmail },
     { to: '/settings', label: 'Configurações', icon: MdSettings },
     { to: '/health', label: 'Saúde', icon: MdDirectionsBike },
 ];

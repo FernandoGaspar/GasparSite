@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import {
   MdAccountBalanceWallet,
+  MdAssignmentTurnedIn,
   MdChatBubble,
   MdHome,
   MdKeyboardArrowDown,
@@ -44,6 +45,8 @@ interface Props {
 }
 
 const coordinator: AgentIdentity = { id: 'general', name: 'Gaspar' };
+const wait = (milliseconds:number) => new Promise(resolve=>window.setTimeout(resolve,milliseconds));
+const requestKey = () => `assistant:${window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 
 const normalizeAgent = (value: Message['agent']): AgentIdentity => {
   if (value && typeof value !== 'string' && value.id && value.name) return value;
@@ -54,6 +57,7 @@ const normalizeAgent = (value: Message['agent']): AgentIdentity => {
 const agentRole = (agent: AgentIdentity) => {
   const value = `${agent.id} ${agent.name}`.toLocaleLowerCase();
   if (/(home|casa)/.test(value)) return 'Especialista da casa';
+  if (/(activity|atividade|produt)/.test(value)) return 'Gestor de atividades';
   if (/(finan|guardian|organizer|planner|economist|investor)/.test(value)) return 'Especialista financeiro';
   return 'Coordenador da equipe';
 };
@@ -62,6 +66,8 @@ const AgentAvatar: React.FC<{ agent: AgentIdentity }> = ({ agent }) => {
   const value = `${agent.id} ${agent.name}`.toLocaleLowerCase();
   const Icon = /(home|casa)/.test(value)
     ? MdHome
+    : /(activity|atividade|produt)/.test(value)
+      ? MdAssignmentTurnedIn
     : /(finan|guardian|organizer|planner|economist|investor)/.test(value)
       ? MdAccountBalanceWallet
       : agent.id === 'general'
@@ -143,12 +149,30 @@ const Chat: React.FC<Props> = ({
     setInput(''); setLoading(true);
     try {
       const history = messages.slice(-10).map(({ content, sender }) => ({ content, sender }));
-      const { data } = await axios.post(`${URL_API}/assistant/chat`, {
+      const body = {
         idUsuario: userId,
         mensagem: message,
         agente: agent,
         historico: history,
-      }, { timeout: requestTimeout });
+      };
+      const key = requestKey();
+      let data:any;
+      let lastError:any;
+      for (let attempt=0;attempt<6;attempt+=1) {
+        try {
+          ({data}=await axios.post(`${URL_API}/assistant/chat`,body,{
+            timeout:requestTimeout,headers:{'Idempotency-Key':key},
+          }));
+          break;
+        } catch (error:any) {
+          lastError=error;
+          const processing=axios.isAxiosError(error)&&error.response?.status===409;
+          const disconnected=axios.isAxiosError(error)&&!error.response;
+          if ((!processing&&!disconnected)||attempt===5) throw error;
+          await wait(processing?2000:500*(2**attempt));
+        }
+      }
+      if (!data) throw lastError || new Error('Resposta indisponível.');
       const responseAgent = data.agent?.id && data.agent?.name
         ? data.agent
         : data.delegatedAgent
@@ -169,10 +193,32 @@ const Chat: React.FC<Props> = ({
         }
       } catch { /* áudio opcional */ }
     } catch (error: any) {
+      let recovered:any=null;
+      const shouldRecover=axios.isAxiosError(error)&&(!error.response||[408,409].includes(error.response.status));
+      for (const delay of shouldRecover?[500,1800,3500]:[]) {
+        await wait(delay);
+        try {
+          const {data}=await axios.get(`${URL_API}/assistant/chat`,{params:{idUsuario:userId,agente:agent},timeout:20000});
+          const history=Array.isArray(data?.messages)?data.messages:[];
+          for(let index=history.length-2;index>=0;index-=1){
+            if(history[index]?.sender==='user'&&history[index]?.content?.trim()===message){
+              recovered=history.slice(index+1).find((item:any)=>item?.sender==='bot');
+              if(recovered)break;
+            }
+          }
+          if(recovered)break;
+        } catch { /* a próxima tentativa aguarda a rede estabilizar */ }
+      }
       const errorMessage = axios.isAxiosError(error) && error.code === 'ECONNABORTED'
         ? 'A captura ou análise demorou mais que o esperado. Tente novamente em instantes.'
-        : error?.response?.data?.message || 'Não consegui responder agora. Verifique sua conexão e tente novamente.';
-      setMessages((current) => [...current, { content: errorMessage, sender: 'bot' }]);
+        : error?.response?.data?.message || 'Não consegui confirmar a resposta agora. Se ela tiver sido processada, será recuperada na próxima tentativa.';
+      setMessages((current) => [...current, recovered ? {
+        content:recovered.content,sender:'bot',action:recovered.action,
+        delegatedAgent:recovered.delegatedAgent,
+        agent:recovered.delegatedAgent
+          ? {id:recovered.delegatedAgent,name:agentNames[recovered.delegatedAgent]||recovered.delegatedAgent}
+          : agent==='general'?coordinator:{id:agent,name:agentName},
+      } : { content: errorMessage, sender: 'bot' }]);
     } finally { setLoading(false); }
   };
 

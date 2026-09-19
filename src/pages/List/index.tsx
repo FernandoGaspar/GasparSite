@@ -27,7 +27,8 @@ import {
     RefreshButton,
     SummaryBar,
     ToggleButton,
-    TotalValue
+    TotalValue,
+    DuplicateBanner
 } from './styles';
 
 interface IDataPost {
@@ -65,6 +66,47 @@ interface ITransacoesIncluidas {
     IdContaContabil: string
 }
 
+interface IPluggyRefreshItem {
+    id: string
+    status?: string
+    executionStatus?: string
+    lastUpdatedAt?: string
+}
+
+interface IPluggyRefreshStart {
+    baseline?: IPluggyRefreshItem[]
+    triggeredItemIds?: string[]
+    manualUpdateSkipped?: number
+}
+
+interface IDuplicatePair {
+    description: string
+    value: number
+    firstDate: string
+    secondDate: string
+    firstTransactionId: string | number
+    secondTransactionId: string | number
+}
+
+const pluggyItemFinished = (item?: IPluggyRefreshItem) =>
+    item?.status === 'UPDATED'
+    && ['SUCCESS', 'PARTIAL_SUCCESS'].includes(item.executionStatus || '');
+
+const pluggyRefreshFinished = (
+    baseline: IPluggyRefreshItem[],
+    current: IPluggyRefreshItem[],
+    targetIds: string[],
+) => {
+    const baselineById = new Map(baseline.map((item) => [String(item.id), item]));
+    const currentById = new Map(current.map((item) => [String(item.id), item]));
+    return targetIds.every((id) => {
+        const previous = baselineById.get(String(id));
+        const latest = currentById.get(String(id));
+        return pluggyItemFinished(latest)
+            && (!pluggyItemFinished(previous) || latest?.lastUpdatedAt !== previous?.lastUpdatedAt);
+    });
+};
+
 const List: React.FC<IRouteParams> = ({ match }) => {
     const [dataPost, setDataPost] = useState<IDataPost[]>([]);
     const [openModalToken, setOpenModalToken] = React.useState(false);
@@ -88,10 +130,18 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     const [transacoesIncluidas, setTransacoesIncluidas] = useState<ITransacoesIncluidas[]>([]);
     const token = localStorage.getItem('@minha-carteira:token') as string;
     const transactionIdFromEmail = new URLSearchParams(window.location.search).get('transactionId');
+    const duplicateMode = new URLSearchParams(window.location.search).get('filter') === 'duplicates';
+    const [duplicatePairs, setDuplicatePairs] = useState<IDuplicatePair[]>([]);
+    const [reviewingPair, setReviewingPair] = useState('');
     
     const [apenasGastosDoMes, setApenasGastosDoMes] = useState<boolean>(false);
     
     const pageData = useMemo(() => {
+        if (duplicateMode) return {
+            title: 'Possíveis lançamentos duplicados',
+            lineColor: '#E8AD42',
+            tipoDeDado: 'Custo',
+        };
         return movimentType === 'entry-balance' ?
             {
                 title: 'Entradas',
@@ -104,7 +154,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 lineColor: '#E44C4E',
                 tipoDeDado: 'Custo',
             }       
-    },[movimentType]);
+    },[duplicateMode, movimentType]);
     
     const years = useMemo(() => {
         return listOfYear.map((year) => {
@@ -162,6 +212,43 @@ const List: React.FC<IRouteParams> = ({ match }) => {
     }
 
     const atualizaTransacoesLista = useCallback(() => {
+        if (duplicateMode) {
+            setDataPost([]);
+            setApenasGastosDoMes(false);
+            setSubGrupoContaFilterSelected([]);
+            setFiltroTexto('');
+            return deduplicatedRequest(
+                `financial-duplicates:${idUsuario}`,
+                () => axios.get(`${URL_API}/financial-planning/duplicates`, { params: { idUsuario } }),
+            ).then(async ({ data }) => {
+                const pairs: IDuplicatePair[] = Array.isArray(data.pairs) ? data.pairs : [];
+                setDuplicatePairs(pairs);
+                const requests = new Map<string, { period: string; type: string }>();
+                pairs.forEach((pair) => {
+                    const type = Number(pair.value) < 0 ? 'Custo' : 'Receita';
+                    [pair.firstDate, pair.secondDate].forEach((value) => {
+                        const period = String(value || '').replace(/\D/g, '').slice(0, 6);
+                        if (period.length === 6) requests.set(`${period}:${type}`, { period, type });
+                    });
+                });
+                const responses = await Promise.all([...requests.values()].map((item) => axios.post(`${URL_API}/gastos`, {
+                    anomes: item.period,
+                    usuario: idUsuario,
+                    tipo: item.type,
+                    token,
+                })));
+                const movements = responses.flatMap((response) => JSON.parse(response.data) as IDataPost[]);
+                const byId = new Map(movements.map((item) => [String(item.idTransacoes), item]));
+                const exactPairs = pairs.flatMap((pair) => [pair.firstTransactionId, pair.secondTransactionId]
+                    .map((transactionId) => byId.get(String(transactionId)))
+                    .filter((item): item is IDataPost => !!item));
+                setDataPost(exactPairs);
+            }).catch((error) => {
+                console.log(error);
+                setDataPost([]);
+            });
+        }
+        setDuplicatePairs([]);
         return deduplicatedRequest(`expenses:${idUsuario}:${yearSelected}${monthSelected.toString().padStart(2, '0')}:${pageData.tipoDeDado}`, () => axios.post (URL_API+"/gastos", {
             anomes: yearSelected.toString()+monthSelected.toString().padStart(2, '0'),
             usuario: idUsuario,
@@ -175,7 +262,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         .catch((error) => {
           console.log(error)
         })
-    }, [idUsuario, monthSelected, pageData.tipoDeDado, token, yearSelected])
+    }, [duplicateMode, idUsuario, monthSelected, pageData.tipoDeDado, token, yearSelected])
 
     const solicitarTokenBradesco = useCallback(async () => {
         return await axios.post (URL_API+"/bancosUsuario", {
@@ -210,19 +297,25 @@ const List: React.FC<IRouteParams> = ({ match }) => {
 
     const refreshPluggyItems = async () => {
         setRefreshStatus("Solicitando dados atualizados aos bancos…");
-        await axios.post(`${URL_API}/pluggy/transactions/refresh`, {
+        const { data: refresh } = await axios.post<IPluggyRefreshStart>(`${URL_API}/pluggy/transactions/refresh`, {
             idUsuario: Number(idUsuario),
         });
+        const baseline = refresh.baseline || [];
+        const targetIds = refresh.triggeredItemIds || [];
+
+        if (!targetIds.length) return Number(refresh.manualUpdateSkipped || 0);
 
         for (let attempt = 0; attempt < 100; attempt += 1) {
             const { data } = await axios.get(`${URL_API}/pluggy/transactions/refresh`, {
                 params: { idUsuario: Number(idUsuario) },
             });
-            if (data.ready) return;
+            if (pluggyRefreshFinished(baseline, data.items || [], targetIds)) {
+                return Number(refresh.manualUpdateSkipped || 0);
+            }
             setRefreshStatus("Pluggy está sincronizando as conexões bancárias…");
             await wait(3000);
         }
-        throw new Error("A atualização da Pluggy está demorando mais que o esperado.");
+        throw new Error("A Pluggy ainda não concluiu a nova atualização. Nenhuma transação foi importada.");
     };
 
     const postAtualizaTransacoesBancos = async (): Promise<void> => {
@@ -230,7 +323,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         setRefreshingTransactions(true);
         setClassCSSRefresh('tag-refresh-sim');
         try {
-            await refreshPluggyItems();
+            const skipped = await refreshPluggyItems();
             setRefreshStatus("Importando as transações mais recentes…");
             const { data } = await axios.post(URL_API+"/atualizaTransacoesBancos", {
                 idUsuario: idUsuario,
@@ -244,7 +337,10 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 : transactionCount > 1
                     ? `${transactionCount} transações incluídas com sucesso!`
                     : "Atualização concluída com sucesso, sem novas transações!";
-            notify(text);
+            const skippedLabel = skipped === 1 ? "conexão" : "conexões";
+            notify(skipped
+                ? `${text} A Pluggy não permitiu atualizar ${skipped} ${skippedLabel}; atualize na Pluggy para buscar lançamentos mais recentes.`
+                : text);
             atualizaTransacoesLista();
         } catch (error: any) {
             notify(error.response?.data?.message || error.message || "Erro ao atualizar transações.");
@@ -298,7 +394,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
             });
         }
 
-        if (apenasGastosDoMes) {
+        if (apenasGastosDoMes && !duplicateMode) {
             let AnoMes = yearSelected.toString()+"-"+monthSelected.toString().padStart(2, '0')
      
             dadoFiltrado = dadoFiltrado.filter(item => {
@@ -319,7 +415,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
         }
 
         return dadoFiltrado
-    },[dataPost, filtroTexto, subGrupoContaFilterSelected, apenasGastosDoMes, monthSelected, yearSelected]);
+    },[apenasGastosDoMes, dataPost, duplicateMode, filtroTexto, monthSelected, subGrupoContaFilterSelected, yearSelected]);
 
     const valorTotalDadoFiltrado = useMemo(() => {
         let total: number = 0;
@@ -350,6 +446,46 @@ const List: React.FC<IRouteParams> = ({ match }) => {
           console.log(error)
         })
     };
+
+    const markNotDuplicate = async (pair: IDuplicatePair) => {
+        const key = `${pair.firstTransactionId}-${pair.secondTransactionId}`;
+        setReviewingPair(key);
+        try {
+            await axios.post(`${URL_API}/financial-planning/duplicates/review`, {
+                firstTransactionId: pair.firstTransactionId,
+                secondTransactionId: pair.secondTransactionId,
+            });
+            setDuplicatePairs((current) => current.filter((item) =>
+                `${item.firstTransactionId}-${item.secondTransactionId}` !== key));
+            notify('Revisão salva. Esse par não voltará a aparecer como duplicado.');
+        } catch (error: any) {
+            notify(error.response?.data?.message || 'Não foi possível registrar a revisão.');
+        } finally {
+            setReviewingPair('');
+        }
+    };
+
+    const transactionCard = (item: IDataPost, key: React.Key) => <HistoryFinanceCard
+        key={key}
+        idTransacao={item.idTransacoes}
+        data={item.Data}
+        descricao={item.Descricao}
+        valor={formatCurrency(Number(item.Valor), 0)}
+        contaContabilCode={item.contaContabilCode}
+        grupoContaContabil={item.grupoContaContabil}
+        subGrupoContaContabil={item.subGrupoContaContabil}
+        contaContabil={item.contaContabil}
+        observacao={item.Observacao}
+        tagColor={item.Cor}
+        NfImportada={item.NfImportada}
+        tabelaOrigem={item.tabelaOrigem}
+        atualizaTransacaoList={atualizaTransacoesLista}
+        obraGrupoCode={item.obraGrupoCode}
+        dataTransacao={item.DataTransacao}
+        dataInserido={item.dataInserido}
+        autoOpen={transactionIdFromEmail === String(item.idTransacoes)}
+        pluggyData={item.pluggyData}
+    />;
 
 
     useEffect(() => {
@@ -385,7 +521,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                     </DialogActions>
                 </Dialog>
             <ContentHeader title={pageData.title} lineColor={pageData.lineColor}>
-                <SelectInput 
+                {!duplicateMode && <><SelectInput
                     options={months}
                     onChange={(e) => handleMonthSelected(e.target.value)} 
                     defaultValue={monthSelected}
@@ -394,8 +530,12 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                     options={years} 
                     onChange={(e) => handleYearSelected(e.target.value)} 
                     defaultValue={yearSelected}
-                />
+                /></>}
             </ContentHeader>
+            {duplicateMode && <DuplicateBanner>
+                <div><strong>{duplicatePairs.length} {duplicatePairs.length === 1 ? 'par encontrado' : 'pares encontrados'}</strong><span>Exibindo somente os lançamentos apontados nos últimos 45 dias, inclusive quando estão em competências diferentes.</span></div>
+                <Button variant="outlined" onClick={() => { window.location.href = '/list/exit-balance'; }}>Ver todos os lançamentos</Button>
+            </DuplicateBanner>}
             <Toolbar>
                 <div className="search-box">
                     <FaSearchengin onClick={() => handleSearch()} />
@@ -437,34 +577,21 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 
             </Filters>
             <Content>
-                {
-                    dadoFiltrado.map(item => (
-                        <HistoryFinanceCard 
-                            key = { item.idTransacoes }
-                            idTransacao = { item.idTransacoes }
-                            data={ item.Data }
-                            descricao ={ item.Descricao }
-                            valor={ formatCurrency(Number(item.Valor), 0) }
-                            contaContabilCode = { item.contaContabilCode }
-                            grupoContaContabil = { item.grupoContaContabil }
-                            subGrupoContaContabil = { item.subGrupoContaContabil }
-                            contaContabil = { item.contaContabil }
-                            observacao = { item.Observacao }
-                            tagColor = { item.Cor }
-                            NfImportada = { item.NfImportada }
-                            tabelaOrigem = { item.tabelaOrigem }
-                            atualizaTransacaoList = { atualizaTransacoesLista }
-                            obraGrupoCode = { item.obraGrupoCode }
-                            dataTransacao = { item.DataTransacao }
-                            dataInserido = { item.dataInserido }
-                            autoOpen = { transactionIdFromEmail === String(item.idTransacoes) }
-                            pluggyData = { item.pluggyData }
-                        />
-                    ))
-                }     
+                {duplicateMode ? duplicatePairs.map((pair, pairIndex) => {
+                    const pairItems = [pair.firstTransactionId, pair.secondTransactionId]
+                        .map((transactionId) => dadoFiltrado.find((item) => String(item.idTransacoes) === String(transactionId)))
+                        .filter((item): item is IDataPost => !!item);
+                    if (!pairItems.length) return null;
+                    const key = `${pair.firstTransactionId}-${pair.secondTransactionId}`;
+                    return <React.Fragment key={key}>
+                        <li className="duplicate-pair-heading"><strong>Possível duplicidade {pairIndex + 1}</strong><span>{pair.description} · {formatCurrency(Math.abs(Number(pair.value)), 0)}</span></li>
+                        {pairItems.map((item, itemIndex) => transactionCard(item, `${key}-${item.idTransacoes}-${itemIndex}`))}
+                        <li className="duplicate-pair-action"><Button variant="outlined" disabled={!!reviewingPair} onClick={() => markNotDuplicate(pair)}>{reviewingPair === key ? 'Registrando…' : 'Não são duplicados'}</Button></li>
+                    </React.Fragment>;
+                }) : dadoFiltrado.map((item, index) => transactionCard(item, `${item.idTransacoes}-${index}`))}
             </Content>  
             {(() => {
-                if (filtroTexto !== ""){
+                if (!duplicateMode && filtroTexto !== ""){
                     return (
                         <div style={{ textAlign: "center", marginBottom: 16 }}>
                             <Button
@@ -476,14 +603,14 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                 })()}
 
             <SummaryBar>
-                <ToggleButton onClick={() => setApenasGastosDoMes(!apenasGastosDoMes)}>
+                {!duplicateMode && <ToggleButton onClick={() => setApenasGastosDoMes(!apenasGastosDoMes)}>
                     {apenasGastosDoMes ? "Visão caixa" : "Visão gasto"}
-                </ToggleButton>
+                </ToggleButton>}
 
                 <TotalValue>
-                    <span className="label">Valor total</span>
+                    <span className="label">{duplicateMode ? 'Lançamentos para conferir' : 'Valor total'}</span>
                     <span className="value">
-                        <NumberFormat
+                        {duplicateMode ? dadoFiltrado.length : <NumberFormat
                             value={valorTotalDadoFiltrado}
                             displayType={'text'}
                             prefix={'R$ '}
@@ -491,7 +618,7 @@ const List: React.FC<IRouteParams> = ({ match }) => {
                             decimalScale={2}
                             thousandSeparator={"."}
                             decimalSeparator={","}
-                        />
+                        />}
                     </span>
                 </TotalValue>
             </SummaryBar>

@@ -18,6 +18,7 @@ export const Container = styled.section`
   .duplicate { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:10px; border-radius:8px; background:rgba(8,15,30,.35); }
   .duplicate strong,.duplicate b { color:${p => p.theme.colors.white}; font-size:12px; }
   .duplicate small,.duplicate em { color:${p => p.theme.colors.gray}; font-size:10px; font-style:normal; }
+  .duplicate-link { width:fit-content; margin-top:4px; }
   .empty { grid-column:1/-1; margin:8px 0; }
   @media(max-width:700px) { padding:16px; .insight-list { grid-template-columns:1fr; } }
 `;

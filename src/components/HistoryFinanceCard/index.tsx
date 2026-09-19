@@ -9,12 +9,10 @@ import logoItauCard from '../../assets/itaucard.png';
 
 import logoXp from '../../assets/xp.svg';
 import formatDate from '../../utils/formatDate';
-import { FaCircle } from 'react-icons/fa';
 
-import { Container, Tag }  from './styles';
+import { Container, NewTransactionDot, Tag }  from './styles';
 import { CustomDialog } from 'react-st-modal';
 import { MdInsertDriveFile } from 'react-icons/md';
-import Moment from 'moment';
 
 import HistoryFinanceModal from '../HistoryFinanceModal';
 interface IHistoryFinanceCardProps {
@@ -32,7 +30,7 @@ interface IHistoryFinanceCardProps {
     tabelaOrigem: string;
     obraGrupoCode: string;
     dataTransacao: string;
-    dataInserido: string;
+    dataInserido: string | number;
     atualizaTransacaoList: (arg: string) => void
     autoOpen?: boolean
     pluggyData?: Record<string, any>
@@ -81,16 +79,22 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
     },[tabelaOrigem]);
 
     const novaTransacao = useMemo(() => {
-        let retornar = false;
-        let dataForamatada = formatDate(dataInserido, 0);
-        let hoje = new Date()
-        let hojeFormatada = Moment(hoje).format('YYYY-MM-DD');
-        
-        if (hojeFormatada === dataForamatada){
-            retornar = true;
-        }
+        const rawValue = String(dataInserido ?? '').trim();
+        if (!rawValue) return false;
 
-        return retornar;
+        const microsoftDate = rawValue.match(/\/Date\((\d+)/);
+        const timestamp = microsoftDate
+            ? Number(microsoftDate[1])
+            : /^\d{10,13}$/.test(rawValue)
+                ? Number(rawValue) * (rawValue.length === 10 ? 1000 : 1)
+                : Date.parse(rawValue);
+        const insertedAt = new Date(timestamp);
+        if (Number.isNaN(insertedAt.getTime())) return false;
+
+        const today = new Date();
+        return insertedAt.getFullYear() === today.getFullYear()
+            && insertedAt.getMonth() === today.getMonth()
+            && insertedAt.getDate() === today.getDate();
     },[dataInserido]);
 
 
@@ -133,15 +137,13 @@ const HistoryFinanceCard: React.FC<IHistoryFinanceCardProps> = ({
                 <div>
                     <small>{contaContabil}</small>
                     <span>{ descricao }
-                    &nbsp;
-                    { novaTransacao ? 
-                                        <FaCircle
-                                            style={{ 
-                                                height: 15,
-                                                color: "green"
-                                                }}
-                                            /> 
-                                            : <></> }
+                    {novaTransacao ? (
+                        <NewTransactionDot
+                            aria-label="Nova transação"
+                            role="img"
+                            title="Nova transação"
+                        />
+                    ) : null}
                     </span> 
                     <small>{ formatDate(data, 1) }</small>
                 </div>    

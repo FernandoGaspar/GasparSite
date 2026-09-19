@@ -36,7 +36,7 @@ A recorrência pode ser **Mensal**, com dia do mês, ou **Semanal**, com escolha
 
 ## Agentes especializados
 
-Os seis especialistas e o Coordenador geral ficam na rota autenticada `/assistant`, acessível pelo item **Assistente** do menu lateral. A tela consulta `GET /assistant/agents` para exibir papel, especialidades, fontes, frequência e prompt completo, e `GET /assistant/agents/status` para mostrar alertas, última execução e próxima execução estimada.
+Os sete especialistas e o Coordenador geral ficam na rota autenticada `/assistant`, acessível pelo item **Assistente** do menu lateral. A tela consulta `GET /assistant/agents` para exibir papel, especialidades, fontes, frequência e prompt completo, e `GET /assistant/agents/status` para mostrar alertas, última execução e próxima execução estimada. O Gestor de atividades relaciona projetos, responsáveis, prazos e memória, mantendo as recomendações dentro de seu próprio chat.
 
 Cada agente tem um histórico visual e persistente separado. A chave local inclui usuário e `AgentCode`, e a API também filtra e grava pelo código do agente. O Coordenador pode receber memória recente da equipe como contexto interno e delegar uma solicitação, mas sua tela continua mostrando apenas a conversa do próprio Coordenador. Alertas do especialista ficam disponíveis dentro de seu chat e podem iniciar uma pergunta contextualizada.
 
@@ -150,6 +150,14 @@ Página/componente → Axios → URL_API → GasparAPI → Modelo/Auxiliar → S
 ```
 
 Autenticação e identificação do usuário são mantidas pelo hook `src/hooks/auth.tsx`. Não espalhe leitura e gravação direta das mesmas chaves de `localStorage` por novas páginas.
+
+### Comunicação e contas conectadas
+
+- `/communications` é a interface operacional de e-mail e separa explicitamente os contextos **Pessoal** (Gmail) e **Profissional** (Microsoft 365).
+- `/settings` é o único ponto de conexão OAuth, desconexão e configuração das automações de e-mails marcados.
+- A agenda corporativa permanece em `/activities`; e-mails não são exibidos como uma aba de Atividades.
+- Atividades originadas por Gmail usam `area=personal` e `sourceType=gmail_mail`; Outlook usa `area=work` e `sourceType=microsoft_mail`.
+- A referência externa abre o provedor correto e impede que a mesma mensagem crie atividades duplicadas.
 
 ## Critérios de preservação
 

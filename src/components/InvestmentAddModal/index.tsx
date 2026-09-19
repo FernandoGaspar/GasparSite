@@ -7,7 +7,7 @@ import axios from 'axios';
 import { URL_API } from '../../repositories/baseAPI';
 
 interface IIvestmentAddModalProps {
-    atualizaPapeisMonitorados: (arg: string) => void
+    atualizaPapeisMonitorados: (arg: string) => void | Promise<void>
 }
 
 interface IPapeis {
@@ -22,38 +22,37 @@ interface IPapeis {
 const InvestmentAddModal: React.FC<IIvestmentAddModalProps> = ({ atualizaPapeisMonitorados }) => {
     const [listaDePapeisAPI, setListaDePapeisAPI] = useState<IPapeis[]>([]);   
     const [papelSelecionado, setPapelSelecionado] = useState<string>();  
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
     const dialog = useDialog();
-    const idUsuario = localStorage.getItem('@minha-carteira:usuarioId') as string;
 
     const getListaAtivosMonitorar = async () => {
-        await axios.post (URL_API+"/listaAtivosMonitorar", {
-            headers: {"Access-Control-Allow-Origin": "*"},
-            idUsuario: idUsuario
-        })
-        .then((response) => {
-            const { data } = response
-            setListaDePapeisAPI(JSON.parse(data))  
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-        
+        setLoading(true);
+        setError('');
+        try {
+            const { data } = await axios.get<{ items: IPapeis[] }>(`${URL_API}/investments/watchlist/options`);
+            setListaDePapeisAPI(data.items || []);
+        } catch (requestError: any) {
+            setError(requestError.response?.data?.message || 'Não foi possível carregar os ativos disponíveis.');
+        } finally {
+            setLoading(false);
+        }
     }
 
-    const alteraListaPapel = async (status: string) => {
-        axios.post (URL_API+"/alteraAtivosMonitorar", {
-            headers: {"Access-Control-Allow-Origin": "*"},
-            idUsuario: idUsuario,
-            papel: papelSelecionado,
-            status: status
-        })
-        .then((response) => {
-        })
-        .catch((error) => {
-          console.log(error)
-        })
-        atualizaPapeisMonitorados ("Entrou")
-        dialog.close();
+    const adicionaPapel = async () => {
+        if (!papelSelecionado) return;
+        setSaving(true);
+        setError('');
+        try {
+            await axios.post(`${URL_API}/investments/watchlist`, { codigo: papelSelecionado });
+            await atualizaPapeisMonitorados("Entrou");
+            dialog.close();
+        } catch (requestError: any) {
+            setError(requestError.response?.data?.message || 'Não foi possível adicionar o papel.');
+        } finally {
+            setSaving(false);
+        }
     }
 
     const listaDePapeis = useMemo(() => {
@@ -67,25 +66,28 @@ const InvestmentAddModal: React.FC<IIvestmentAddModalProps> = ({ atualizaPapeisM
 
     useEffect(() => {
         getListaAtivosMonitorar()
-    },[idUsuario]); 
+    },[]);
     return (
         <ModalContent>
             <Select
                 options ={ listaDePapeis }
                 onChange={(e) => { setPapelSelecionado(e!.value) }}
+                isDisabled={loading || saving}
+                placeholder={loading ? 'Carregando ativos…' : 'Busque pelo código ou nome'}
+                noOptionsMessage={() => 'Nenhum ativo encontrado'}
             />
+            {error && <p style={{ color: '#c94a5a', marginTop: 12 }}>{error}</p>}
             <br/>
             <Button
                 style = {{
                     border:"solid 1px black",
                     float: "right",
-                        }}
+                }}
                 color="primary"
-                onClick={() => {
-                        alteraListaPapel("1");
-                    }}
+                disabled={!papelSelecionado || loading || saving}
+                onClick={adicionaPapel}
                     >
-                    Confirmar
+                    {saving ? 'Adicionando…' : 'Confirmar'}
             </Button>
             <br/>
             <br/>

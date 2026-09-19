@@ -56,7 +56,9 @@ interface Props {
 }
 
 const floorId = "upper-floor";
-const imagePath = "/assets/floor-plans/upper-floor.jpg";
+// Keep a version in the URL so browsers do not pair new room geometry with a
+// previously cached floor-plan image.
+const imagePath = "/assets/floor-plans/upper-floor.jpg?v=20260914";
 const groundFloorId = "ground-floor";
 const groundFloorImagePath = "/assets/floor-plans/ground-floor.jpg";
 const lightUpdateRetryDelays = [500, 1200];

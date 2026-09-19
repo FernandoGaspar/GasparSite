@@ -1,15 +1,38 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { MdAutorenew, MdChevronRight, MdMemory, MdSettings } from 'react-icons/md';
+import { MdAccountBalanceWallet, MdAutorenew, MdChevronRight, MdEmail, MdMemory, MdRefresh, MdSettings, MdWork } from 'react-icons/md';
+import { URL_API } from '../../repositories/baseAPI';
 import { Container } from './styles';
 
-export default function SettingsHome() {
+type AutomationStatus={enabled:boolean;initialized:boolean;lastSuccessAt?:string;lastError?:string;migrationRequired?:boolean};
+type Account={configured:boolean;connected:boolean;migrationRequired?:boolean;email?:string;displayName?:string;lastSyncAt?:string;lastError?:string;markedMailAutomation?:AutomationStatus;flaggedMailAutomation?:AutomationStatus;teamsAuthorized?:boolean;teamsSync?:AutomationStatus};
+type Provider='gmail'|'microsoft';
+const copy={
+  gmail:{label:'Gmail',context:'PESSOAL',endpoint:'/gmail/connection',automation:'/gmail/activity-automation',icon:<MdEmail/>,description:'Caixa pessoal, organização e atividades criadas por mensagens marcadas.'},
+  microsoft:{label:'Microsoft 365',context:'PROFISSIONAL',endpoint:'/microsoft/connection',automation:'/microsoft/activity-automation',icon:<MdWork/>,description:'Outlook, agenda e Teams separados da sua vida pessoal.'},
+};
+const messageOf=(error:any,fallback:string)=>error?.response?.data?.message||fallback;
+
+export default function SettingsHome(){
+  const [accounts,setAccounts]=useState<Partial<Record<Provider,Account>>>({});
+  const [loading,setLoading]=useState(true);const [busy,setBusy]=useState('');const [notice,setNotice]=useState('');const [error,setError]=useState('');
+  const load=useCallback(async()=>{setLoading(true);setError('');try{const [gmail,microsoft]=await Promise.all([axios.get<Account>(`${URL_API}/gmail/connection`),axios.get<Account>(`${URL_API}/microsoft/connection`)]);setAccounts({gmail:gmail.data,microsoft:microsoft.data})}catch(e){setError(messageOf(e,'Não foi possível consultar as contas conectadas.'))}finally{setLoading(false)}},[]);
+  useEffect(()=>{void load()},[load]);
+  const connect=async(provider:Provider)=>{const item=copy[provider];setBusy(`${provider}-connect`);setError('');try{const {data}=await axios.post(`${URL_API}${item.endpoint}`,{returnUrl:`${window.location.origin}/settings`});window.location.assign(data.authorizationUrl)}catch(e){setError(messageOf(e,`Não foi possível conectar ${item.label}.`));setBusy('')}};
+  const disconnect=async(provider:Provider)=>{const item=copy[provider];if(!window.confirm(`Desconectar ${item.label}? As atividades já criadas serão preservadas.`))return;setBusy(`${provider}-disconnect`);try{await axios.delete(`${URL_API}${item.endpoint}`);setNotice(`${item.label} desconectado com segurança.`);await load()}catch(e){setError(messageOf(e,`Não foi possível desconectar ${item.label}.`))}finally{setBusy('')}};
+  const toggle=async(provider:Provider,enabled:boolean)=>{const item=copy[provider];setBusy(`${provider}-automation`);try{await axios.put(`${URL_API}${item.automation}`,{enabled});setNotice(enabled?`${item.label}: preparando uma linha de base sem importar marcações antigas.`:`${item.label}: criação automática desativada.`);await load()}catch(e){setError(messageOf(e,'Não foi possível alterar a automação.'))}finally{setBusy('')}};
   return <Container>
-    <header><span><MdSettings /> CONFIGURAÇÕES</span><h1>Escolha o que deseja configurar</h1><p>Organize as regras e rotinas que mantêm sua vida financeira funcionando no automático.</p></header>
+    <header><span><MdSettings/> CONFIGURAÇÕES</span><h1>Contas e preferências</h1><p>Conecte cada contexto separadamente. O Gaspar usa OAuth, não recebe sua senha e não mistura comunicação pessoal com profissional.</p></header>
+    {error&&<div className="settings-banner error">{error}</div>}{notice&&<div className="settings-banner success">{notice}</div>}
+    <section className="accounts-heading"><div><small>CONTAS CONECTADAS</small><h2>E-mail pessoal e corporativo</h2></div><button onClick={()=>void load()} disabled={loading}><MdRefresh/>{loading?'Atualizando…':'Atualizar'}</button></section>
+    <section className="accounts">{(['gmail','microsoft'] as Provider[]).map(provider=>{const item=copy[provider];const account=accounts[provider];const automation=provider==='gmail'?account?.markedMailAutomation:account?.flaggedMailAutomation;const unavailable=!account?.configured||account?.migrationRequired;return <article className={`account-card ${provider}`} key={provider}><div className="account-head"><div className="icon">{item.icon}</div><div><small>{item.context}</small><h2>{item.label}</h2><p>{account?.connected?(account.displayName||account.email):item.description}</p></div><b className={account?.connected?'connected':unavailable?'unavailable':''}>{account?.connected?'Conectado':unavailable?'Indisponível':'Desconectado'}</b></div>{account?.connected?<><label className="activity-automation"><span><strong>Marcados criam atividades {provider==='gmail'?'pessoais':'profissionais'}</strong><small>{automation?.initialized?'Ativa e sincronizada':automation?.enabled?'Preparando linha de base':'Desativada'}{automation?.lastSuccessAt?` · ${new Date(automation.lastSuccessAt).toLocaleString('pt-BR')}`:''}</small></span><input type="checkbox" checked={!!automation?.enabled} disabled={busy===`${provider}-automation`||automation?.migrationRequired} onChange={e=>void toggle(provider,e.target.checked)}/></label>{provider==='microsoft'&&<div className="activity-automation"><span><strong>Conversas do Teams</strong><small>{account.teamsAuthorized?(account.teamsSync?.initialized?'Autorizadas e sincronizadas':'Autorizadas · primeira sincronização pendente'):'Aguardando autorização Chat.Read'}</small></span>{!account.teamsAuthorized&&<button className="connect-button" disabled={!!busy} onClick={()=>void connect('microsoft')}>Autorizar Teams</button>}</div>}{account.lastError||automation?.lastError||account.teamsSync?.lastError?<p className="account-error">{account.lastError||automation?.lastError||account.teamsSync?.lastError}</p>:null}<button className="disconnect" disabled={!!busy} onClick={()=>void disconnect(provider)}>{busy===`${provider}-disconnect`?'Desconectando…':'Desconectar conta'}</button></>:<button className="connect-button" disabled={!!busy||unavailable} onClick={()=>void connect(provider)}>{busy===`${provider}-connect`?'Abrindo autorização…':`Conectar ${item.label}`}</button>}{account?.migrationRequired||automation?.migrationRequired||account?.teamsSync?.migrationRequired?<p className="account-error">A estrutura dessa integração ainda precisa ser aplicada na API.</p>:null}</article>})}</section>
+    <section className="other-heading"><small>OUTRAS CONFIGURAÇÕES</small><h2>Regras e automações</h2></section>
     <main>
-      <Link to="/settings/contas-recorrentes" className="setting-card recurring"><div className="icon"><MdAutorenew /></div><div><small>PLANEJAMENTO FINANCEIRO</small><h2>Fluxos programados</h2><p>Cadastre receitas, despesas e investimentos para projetar o saldo e acompanhar cada realização.</p></div><MdChevronRight className="arrow" /></Link>
-      <Link to="/settings/automations" className="setting-card"><div className="icon"><MdSettings /></div><div><small>SISTEMA</small><h2>Automações</h2><p>Crie rotinas, ajuste agendas e acompanhe as execuções da sua API.</p></div><MdChevronRight className="arrow" /></Link>
-      <Link to="/ai-context" className="setting-card memory"><div className="icon"><MdMemory /></div><div><small>INTELIGÊNCIA ARTIFICIAL</small><h2>IA e memória</h2><p>Gerencie memórias, contextos, agentes e a importação controlada do histórico.</p></div><MdChevronRight className="arrow" /></Link>
+      <Link to="/settings/budget" className="setting-card budget"><div className="icon"><MdAccountBalanceWallet/></div><div><small>PLANEJAMENTO FINANCEIRO</small><h2>Budget mensal</h2><p>Ajuste os limites por grupo contábil comparando a média dos últimos 12 meses e o budget do ano anterior.</p></div><MdChevronRight className="arrow"/></Link>
+      <Link to="/settings/contas-recorrentes" className="setting-card recurring"><div className="icon"><MdAutorenew/></div><div><small>PLANEJAMENTO FINANCEIRO</small><h2>Fluxos programados</h2><p>Cadastre receitas, despesas e investimentos para projetar o saldo e acompanhar cada realização.</p></div><MdChevronRight className="arrow"/></Link>
+      <Link to="/settings/automations" className="setting-card"><div className="icon"><MdSettings/></div><div><small>SISTEMA</small><h2>Automações</h2><p>Crie rotinas, ajuste agendas e acompanhe suas execuções.</p></div><MdChevronRight className="arrow"/></Link>
+      <Link to="/ai-context" className="setting-card memory"><div className="icon"><MdMemory/></div><div><small>INTELIGÊNCIA CONECTADA</small><h2>Mapa de ideias e memória</h2><p>Explore relações entre pessoas, projetos e decisões; gerencie a memória da IA quando precisar.</p></div><MdChevronRight className="arrow"/></Link>
     </main>
   </Container>;
 }
