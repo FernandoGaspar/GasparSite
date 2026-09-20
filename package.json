@@ -44,6 +44,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:second-brain": "playwright test --config playwright.second-brain.config.ts",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -62,6 +63,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",

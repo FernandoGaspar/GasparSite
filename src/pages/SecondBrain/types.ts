@@ -1,0 +1,12 @@
+export type Doc = { id:number; title:string; source:string; folder:string; excerpt?:string; content?:string; contentKind:string; author?:string; sourceUrl?:string; updatedAt:string; occurredAt:string; pinned:boolean; version:number; tags?:string[]; backlinks?:Reference[]; links?:Reference[] };
+export type Reference = { id?:number; title:string; source?:string };
+export type Source = { source:string; label:string; available:boolean; availableCount:number; indexed:number; previews:number; lastSyncAt?:string; error?:string; remoteCompleted?:boolean; remoteRead?:number };
+export type GraphNode = { id:string|number; label:string; type:string; folder:string; summary:string; entityId?:number; topicId?:number; status?:string };
+export type GraphEdge = { from:string|number; to:string|number; label:string; kind?:string; entityId?:number; status?:string; confidence?:number };
+export type GraphData = { nodes:GraphNode[]; edges:GraphEdge[]; total:number; shown:number; conceptsTotal?:number; connectionsTotal?:number };
+export const sourceNames:Record<string,string> = { agent:'Contexto dos agentes',activity_subtask:'Subtarefas',note:'Notas',microsoft_mail:'Outlook',gmail_mail:'Gmail',microsoft_teams:'Teams',activity:'Atividades',assistant_history:'Agentes',profile:'Perfil',context:'Contextos',memory:'Memórias',calendar:'Agenda',collection:'Coleção',person:'Pessoa',project:'Projeto',idea:'Ideia',topic:'Tema',decision:'Decisão',artifact:'Documento',deadline:'Prazo' };
+export const colors:Record<string,string> = { agent:'#b29acd',activity_subtask:'#93c4a9',note:'#bc9bff',microsoft_mail:'#78abf6',gmail_mail:'#edb57f',microsoft_teams:'#a69bf5',activity:'#80c6a5',assistant_history:'#e39ecc',profile:'#a5b8cb',context:'#99b3d8',memory:'#b9a2e0',calendar:'#e2c878',collection:'#d0c4e8',person:'#79cbbb',project:'#a898fa',idea:'#f1d18c',topic:'#859bc9',decision:'#db93ac' };
+export function safeUrl(value?:string) { return value && (/^https?:\/\//i.test(value) || (value.startsWith('/') && !value.startsWith('//'))) ? value : undefined; }
+export function date(value?:string) { return value ? new Date(value).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}) : 'Sem data'; }
+
+export function messageDate(value?:string) { return value ? new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : 'Sem data'; }

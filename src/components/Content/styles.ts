@@ -9,6 +9,7 @@ export const Container = styled.div`
 
     height: calc(100dvh - 70px);
     min-height: 0;
+    min-width: 0;
     overflow-y: scroll;
 
     ::-webkit-scrollbar {

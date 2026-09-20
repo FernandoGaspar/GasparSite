@@ -2,6 +2,8 @@ import React, { lazy, Suspense } from 'react';
 import { Switch, Route } from 'react-router-dom';
 import Layout from '../components/Layout';
 
+const SecondBrain = lazy(() => import('../pages/SecondBrain'));
+
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const List = lazy(() => import('../pages/List'));
 const Investment = lazy(() => import('../pages/Investment'));
@@ -23,6 +25,7 @@ const AppRoutes: React.FC = () => (
     <Layout>
       <Suspense fallback={<div role="status">Carregando…</div>}>
         <Switch>
+            <Route path="/second-brain" exact component={SecondBrain} />
             <Route path="/" exact component={Dashboard} />
             <Route path="/list/:type" exact component={List} />
             <Route path="/investment" exact component={Investment} />

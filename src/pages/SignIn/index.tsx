@@ -1,4 +1,5 @@
 import React, { FormEvent, useState } from 'react';
+import axios from 'axios';
 import { FiEye, FiEyeOff, FiLock, FiMail } from 'react-icons/fi';
 import logoImg from '../../assets/gaspar-mark.png';
 import { useAuth } from '../../hooks/auth';
@@ -29,14 +30,23 @@ const SignIn: React.FC = () => {
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (isSubmitting) return;
         setError('');
         setIsSubmitting(true);
 
         try {
             const authenticated = await signIn(email.trim(), password);
             if (!authenticated) setError('Não foi possível validar suas credenciais.');
-        } catch {
-            setError('Não foi possível conectar ao servidor. Tente novamente em instantes.');
+        } catch (failure) {
+            if (axios.isAxiosError(failure) && failure.response?.status === 429) {
+                setError('Muitas tentativas de acesso. Aguarde alguns minutos antes de tentar novamente.');
+            } else if (axios.isAxiosError(failure) && failure.response?.status === 401) {
+                setError('Não foi possível validar seu acesso. Confira o e-mail e a senha.');
+            } else if (axios.isAxiosError(failure) && failure.response?.status === 503) {
+                setError('O serviço de login está indisponível. A API não conseguiu acessar o banco de dados; a conexão do servidor precisa ser corrigida.');
+            } else {
+                setError('Não foi possível conectar ao servidor. Tente novamente em instantes.');
+            }
         } finally {
             setIsSubmitting(false);
         }

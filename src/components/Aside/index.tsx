@@ -18,6 +18,7 @@ import {
     MdLandscape,
     MdPlaylistAddCheck,
     MdEmail,
+    MdDeviceHub,
 } from 'react-icons/md';
 
 import logoImg from '../../assets/gaspar-mark.png';
@@ -50,6 +51,7 @@ const menuItems = [
     { to: '/planning', label: 'Planejamento', icon: MdDateRange },
     { to: '/activities', label: 'Atividades', icon: MdPlaylistAddCheck },
     { to: '/communications', label: 'Comunicação', icon: MdEmail },
+    { to: '/second-brain', label: 'Segundo cérebro', icon: MdDeviceHub },
     { to: '/settings', label: 'Configurações', icon: MdSettings },
     { to: '/health', label: 'Saúde', icon: MdDirectionsBike },
 ];

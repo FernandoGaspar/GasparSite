@@ -42,16 +42,18 @@ const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
             senha: password
         });
 
-        let token = JSON.parse(data)[0].Token
-        let idUsuario = JSON.parse(data)[0].idUsuario
-        let apelido =  JSON.parse(data)[0].Apelido
+        const records = typeof data === 'string' ? JSON.parse(data) : data;
+        const account = Array.isArray(records) ? records[0] : undefined;
+        const token = account?.Token;
+        const idUsuario = account?.idUsuario;
+        const apelido = account?.Apelido;
 
-        if(token !== "0"){
-            setLogged(true)
+        if(token && String(token) !== "0" && idUsuario){
             localStorage.setItem('@minha-carteira:logged', 'true');
             localStorage.setItem('@minha-carteira:usuarioId', idUsuario);
             localStorage.setItem('@minha-carteira:nomeUsuario', apelido);
             localStorage.setItem('@minha-carteira:token', token);
+            setLogged(true);
 
             return true;
         }else{
@@ -61,8 +63,6 @@ const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
             localStorage.removeItem('@minha-carteira:token');
 
             localStorage.removeItem('@minha-carteira:email');
-
-            alert('Usuário ou senha incorretos!');
 
             return false;
         }                    
