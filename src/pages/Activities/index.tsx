@@ -3,8 +3,9 @@ import axios from 'axios';
 import { useHistory, useLocation } from 'react-router-dom';
 import {
   MdAdd, MdArchive, MdArrowForward, MdCheck, MdClose, MdToday,
-  MdDelete, MdEvent, MdHome, MdInbox, MdLoop, MdMoreHoriz, MdOpenInNew,
+  MdBlock, MdDelete, MdEvent, MdHome, MdInbox, MdLoop, MdMoreHoriz, MdOpenInNew,
   MdPeople, MdPerson, MdPlayArrow, MdSchedule, MdSearch, MdShare, MdShoppingCart, MdTune, MdWork,
+  MdRestore,
 } from 'react-icons/md';
 import { URL_API } from '../../repositories/baseAPI';
 import { safeExternalUrl } from '../../utils/safeUrl';
@@ -41,8 +42,12 @@ interface ActivityAnalysisResponse {
 }
 
 const blank: FormState = { title:'', notes:'', itemType:'task', area:'work', status:'inbox', priority:'medium', dueDate:'', personName:'', assigneeId:null, projectName:'', recurrence:'none', recurrenceInterval:1 };
-interface RegisteredPerson {id:number; name:string; email:string; activityCount:number; activeShares:number;}
+interface RegisteredPerson {
+  id:number; name:string; email:string; activityCount:number; openActivityCount:number; activeShares:number;
+  isActive:boolean; version:number; createdAt?:string; updatedAt?:string;
+}
 interface PersonGroup {key:string; person:string; personId:number|null; topics:Activity[];}
+type PeopleStatusFilter = 'active'|'inactive'|'all';
 const statusLabels: Record<Status,string> = { inbox:'Entrada', next:'Próximas', doing:'Em andamento', waiting:'Aguardando', done:'Concluídas', cancelled:'Canceladas' };
 const typeLabels: Record<ItemType,string> = { task:'Tarefa', follow_up:'Follow-up', maintenance:'Manutenção', purchase:'Compra' };
 const recurrenceLabels: Record<string,string> = { none:'Não se repete', weekly:'Semanal', monthly:'Mensal', quarterly:'Trimestral', yearly:'Anual' };
@@ -94,6 +99,9 @@ const Activities: React.FC = () => {
   const hasActionFilter = Boolean(actionFilter || personFilter || projectFilter);
   const [items, setItems] = useState<Activity[]>([]);
   const [registeredPeople, setRegisteredPeople] = useState<RegisteredPerson[]>([]);
+  const [peopleStatusFilter, setPeopleStatusFilter] = useState<PeopleStatusFilter>('active');
+  const [personBusyId, setPersonBusyId] = useState<number|null>(null);
+  const [personNotice, setPersonNotice] = useState('');
   const [shareTarget, setShareTarget] = useState<{person:string;personId:number|null}|null>(null);
   const [summary, setSummary] = useState<Summary>({open:0,inbox:0,doing:0,waiting:0,overdue:0,dueToday:0});
   const requestedView = actionParams.get('view');
@@ -132,7 +140,20 @@ const Activities: React.FC = () => {
     } finally { if (sequence === loadSequence.current) setLoading(false); }
   }, []);
   const loadPeople = useCallback(async () => {
-    try { const {data} = await axios.get(`${URL_API}/activity-people`); setRegisteredPeople(data.people || []); }
+    try {
+      const {data} = await axios.get(`${URL_API}/activity-people`);
+      setRegisteredPeople((data.people || []).map((person:Partial<RegisteredPerson>)=>({
+        ...person,
+        id:Number(person.id),
+        name:String(person.name || ''),
+        email:String(person.email || ''),
+        activityCount:Number(person.activityCount || 0),
+        openActivityCount:Number(person.openActivityCount || 0),
+        activeShares:Number(person.activeShares || 0),
+        isActive:person.isActive !== false,
+        version:Number(person.version || 1),
+      })));
+    }
     catch { /* Keep the activity list usable if the identity directory is unavailable. */ }
   }, []);
   useEffect(() => {
@@ -190,6 +211,20 @@ const Activities: React.FC = () => {
     });
     return [...grouped.values()].sort((a,b) => !a.person ? 1 : !b.person ? -1 : a.person.localeCompare(b.person) || a.key.localeCompare(b.key));
   }, [items,visible,registeredPeople]);
+  const registeredPeopleById = useMemo(() => new Map(registeredPeople.map(person=>[person.id,person])),[registeredPeople]);
+  const activeRegisteredPeople = useMemo(() => registeredPeople.filter(person=>person.isActive),[registeredPeople]);
+  const assignablePeople = useMemo(() => {
+    const selectedInactive = editing?.assigneeId
+      ? registeredPeople.find(person=>person.id===editing.assigneeId && !person.isActive)
+      : undefined;
+    return selectedInactive ? [selectedInactive,...activeRegisteredPeople] : activeRegisteredPeople;
+  },[activeRegisteredPeople,editing?.assigneeId,registeredPeople]);
+  const visiblePeople = useMemo(() => people.filter(group=>{
+    if (!group.personId) return peopleStatusFilter !== 'inactive';
+    const person = registeredPeopleById.get(group.personId);
+    if (!person) return peopleStatusFilter !== 'inactive';
+    return peopleStatusFilter === 'all' || (peopleStatusFilter === 'active' ? person.isActive : !person.isActive);
+  }),[people,peopleStatusFilter,registeredPeopleById]);
 
   const openNew = (preset:Partial<FormState>={}) => {
     setEditing(null); setDraftInfo(null); setDraftSource(null); setSubtasks([]); setSubtaskTitle(''); setForm({...blank, area:area === 'all' ? 'work' : area, ...preset}); setComposerOpen(true);
@@ -352,8 +387,44 @@ const Activities: React.FC = () => {
     event.preventDefault();
     const item = items.find(current => current.id === draggedId);
     stopDragging();
+    if (group.personId && registeredPeopleById.get(group.personId)?.isActive === false) {
+      setError('Reative o responsável antes de atribuir novas atividades.'); return;
+    }
     if (item && !group.person && item.itemType==='follow_up') { setError('Follow-ups precisam de uma pessoa. Para remover o responsável, altere o tipo para Tarefa.'); return; }
     if (item && (item.personName !== group.person || item.assigneeId !== group.personId)) void moveItem(item, {personName:group.person,assigneeId:group.personId});
+  };
+  const togglePersonActive = async (person:RegisteredPerson) => {
+    const nextActive = !person.isActive;
+    if (!nextActive && person.openActivityCount > 0) {
+      setError(`${person.name} ainda tem ${person.openActivityCount} ${person.openActivityCount===1?'atividade aberta':'atividades abertas'}. Conclua, cancele ou reatribua antes de inativar.`);
+      return;
+    }
+    const confirmed = window.confirm(nextActive
+      ? `Reativar ${person.name}? A pessoa voltará a aparecer nas novas atribuições.`
+      : `Inativar ${person.name}? A pessoa deixará de aparecer em novas atribuições. As atividades e o histórico serão preservados.${person.activeShares>0?' Os acessos compartilhados ativos também serão revogados.':''}`);
+    if (!confirmed) return;
+    setPersonBusyId(person.id); setPersonNotice(''); setError('');
+    try {
+      const {data} = await axios.patch(`${URL_API}/activity-people/${person.id}`, {isActive:nextActive,expectedVersion:person.version});
+      const updated = data?.person || data;
+      if (updated?.id) {
+        setRegisteredPeople(current=>current.map(item=>item.id===person.id?{
+          ...item,...updated,
+          isActive:updated.isActive !== false,
+          version:Number(updated.version || item.version),
+          openActivityCount:Number(updated.openActivityCount ?? item.openActivityCount),
+        }:item));
+      } else {
+        await loadPeople();
+      }
+      const revokedShares = Number(updated?.revokedShares || 0);
+      setPersonNotice(nextActive
+        ? `O cadastro de ${person.name} foi reativado e já pode receber novas atividades.`
+        : `O cadastro de ${person.name} foi inativado. O histórico permanece disponível.${revokedShares?` ${revokedShares} ${revokedShares===1?'acesso compartilhado foi revogado':'acessos compartilhados foram revogados'}.`:''}`);
+    } catch (requestError:any) {
+      if (requestError.response?.status === 409) await loadPeople();
+      setError(requestError.response?.data?.message || `Não foi possível ${nextActive?'reativar':'inativar'} o responsável.`);
+    } finally { setPersonBusyId(null); }
   };
   const archive = async () => {
     if (!editing) return;
@@ -450,6 +521,7 @@ const Activities: React.FC = () => {
 
     <form className={`quick-capture ${analyzing?'busy':''}`} onSubmit={quickAdd} aria-busy={analyzing}><MdAdd/><input disabled={analyzing} value={quickTitle} onChange={e=>setQuickTitle(e.target.value)} placeholder={analyzing?'A IA está organizando sua atividade…':'Descreva naturalmente: pessoa, prazo, projeto ou resultado esperado…'}/><span>{analyzing?'IA…':'ENTER'}</span></form></>}
     {error && <div className="error"><strong>Não deu certo desta vez.</strong><span>{error}</span><button onClick={()=>load(false)}>Tentar novamente</button></div>}
+    {personNotice && <div className="person-notice" role="status"><MdCheck/><span>{personNotice}</span><button aria-label="Fechar aviso" onClick={()=>setPersonNotice('')}><MdClose/></button></div>}
     {loading && <div className="state">Organizando suas atividades…</div>}
 
     {!loading && !searching && view==='agenda' && <MicrosoftWorkspace mode="agenda" onDraft={openMicrosoftDraft} onManageConnection={()=>history.push('/settings')} activities={items}/>}
@@ -471,7 +543,7 @@ const Activities: React.FC = () => {
           <button className="text-button" onClick={()=>setView('board')}>Organizar entrada <MdArrowForward/></button>
         </section>
         <section className="panel people-peek"><div className="section-head"><div><span>RESPONSÁVEIS</span><h2>Por pessoa</h2></div></div>
-          {people.filter(group=>!!group.person).slice(0,4).map(group=><button key={group.key} onClick={()=>setView('people')}><span className="avatar">{group.person.charAt(0).toUpperCase()}</span><span>{group.person}<small>{group.topics.length} {group.topics.length===1?'atividade':'atividades'}</small></span><MdArrowForward/></button>)}
+          {people.filter(group=>!!group.person && (!group.personId || registeredPeopleById.get(group.personId)?.isActive !== false)).slice(0,4).map(group=><button key={group.key} onClick={()=>setView('people')}><span className="avatar">{group.person.charAt(0).toUpperCase()}</span><span>{group.person}<small>{group.topics.length} {group.topics.length===1?'atividade':'atividades'}</small></span><MdArrowForward/></button>)}
           {!!people.find(group=>!group.person)?.topics.length && <button onClick={()=>setView('people')}><span className="avatar"><MdPerson/></span><span>Sem responsável<small>{people.find(group=>!group.person)?.topics.length} atividades</small></span><MdArrowForward/></button>}
           {!people.some(group=>group.topics.length) && <p className="mini-empty">Nenhuma atividade aberta neste filtro.</p>}
         </section>
@@ -481,9 +553,9 @@ const Activities: React.FC = () => {
     {!loading && !searching && view==='board' && <div className="board">{boardStatuses.map(status=>{const target=`status:${status}`;return <section className={`board-column ${dropTarget===target?'drop-target':''}`} key={status} onDragOver={event=>allowDrop(event,target)} onDragEnter={event=>allowDrop(event,target)} onDrop={event=>dropOnStatus(event,status)}><header><span className={`dot ${status}`}/><h2>{statusLabels[status]}</h2><b>{visible.filter(item=>item.status===status).length}</b></header><div>{visible.filter(item=>item.status===status).map(item=><ActivityCard key={item.id} item={item} compact draggable/>)}</div><button onClick={()=>openNew({status})}><MdAdd/>Adicionar</button></section>})}</div>}
 
     {!loading && view==='people' && <div className="people-view">
-      <div className="section-head page-section-head"><div><span>RESPONSÁVEIS</span><h2>Atividades por pessoa</h2><p>Todas as atividades abertas, incluindo as que ainda precisam de um responsável.</p></div><button className="secondary" onClick={()=>openNew({status:'next'})}><MdAdd/> Nova atividade</button></div>
-      <div className="people-grid">{people.map(group=>{const target=`person:${group.key}`;return <section className={`person-card ${!group.person?'unassigned':''} ${dropTarget===target?'drop-target':''}`} key={group.key} onDragOver={event=>allowDrop(event,target)} onDragEnter={event=>allowDrop(event,target)} onDrop={event=>dropOnPerson(event,group)}><header><span className="avatar large">{group.person?group.person.charAt(0).toUpperCase():<MdPerson/>}</span><div><h3>{group.person || 'Sem responsável'}</h3><p>{group.topics.length} {group.topics.length===1?'atividade aberta':'atividades abertas'}{group.personId?` · ${registeredPeople.find(person=>person.id===group.personId)?.email || 'vinculado'}`:''}</p></div>{group.person&&<button type="button" className="person-share-button" aria-label={`Compartilhar atividades de ${group.person}`} onClick={()=>setShareTarget({person:group.person,personId:group.personId})}><MdShare/> Compartilhar</button>}</header><div>{group.topics.map(item=><ActivityCard key={item.id} item={item} compact draggable/>)}{!group.topics.length&&<p className="mini-empty">Nenhuma atividade aberta neste filtro.</p>}</div><button onClick={()=>openNew({personName:group.person,assigneeId:group.personId,status:'next'})}><MdAdd/>Adicionar atividade</button></section>})}</div>
-      {!people.length && <div className="empty panel"><MdPeople/><h3>Suas agendas aparecerão aqui</h3><p>Crie um follow-up e associe a uma pessoa.</p></div>}
+      <div className="section-head page-section-head"><div><span>RESPONSÁVEIS</span><h2>Atividades por pessoa</h2><p>Inative quem não participa mais sem apagar atividades concluídas ou o histórico.</p></div><div className="people-heading-actions"><div className="people-status-filter" role="group" aria-label="Filtrar responsáveis por situação"><button className={peopleStatusFilter==='active'?'active':''} aria-pressed={peopleStatusFilter==='active'} onClick={()=>setPeopleStatusFilter('active')}>Ativos <b>{people.filter(group=>!!group.person&&(!group.personId||registeredPeopleById.get(group.personId)?.isActive!==false)).length}</b></button><button className={peopleStatusFilter==='inactive'?'active':''} aria-pressed={peopleStatusFilter==='inactive'} onClick={()=>setPeopleStatusFilter('inactive')}>Inativos <b>{registeredPeople.filter(person=>!person.isActive).length}</b></button><button className={peopleStatusFilter==='all'?'active':''} aria-pressed={peopleStatusFilter==='all'} onClick={()=>setPeopleStatusFilter('all')}>Todos</button></div><button className="secondary" onClick={()=>openNew({status:'next'})}><MdAdd/> Nova atividade</button></div></div>
+      <div className="people-grid">{visiblePeople.map(group=>{const target=`person:${group.key}`;const person=group.personId?registeredPeopleById.get(group.personId):undefined;const inactive=person?.isActive===false;const blocked=!!person&&person.isActive&&person.openActivityCount>0;return <section className={`person-card ${!group.person?'unassigned':''} ${inactive?'inactive':''} ${dropTarget===target&&!inactive?'drop-target':''}`} key={group.key} onDragOver={inactive?undefined:event=>allowDrop(event,target)} onDragEnter={inactive?undefined:event=>allowDrop(event,target)} onDrop={inactive?undefined:event=>dropOnPerson(event,group)}><header><span className="avatar large">{group.person?group.person.charAt(0).toUpperCase():<MdPerson/>}</span><div><span className="person-name-line"><h3>{group.person || 'Sem responsável'}</h3>{inactive&&<b>Inativo</b>}</span><p>{group.topics.length} {group.topics.length===1?'atividade aberta':'atividades abertas'}{person?` · ${person.email}`:''}</p></div>{group.person&&!inactive&&<button type="button" className="person-share-button" aria-label={`Compartilhar atividades de ${group.person}`} onClick={()=>setShareTarget({person:group.person,personId:group.personId})}><MdShare/> Compartilhar</button>}</header><div>{group.topics.map(item=><ActivityCard key={item.id} item={item} compact draggable={!inactive}/>)}{!group.topics.length&&<p className="mini-empty">{inactive?'Sem atividades abertas. O histórico concluído foi preservado.':'Nenhuma atividade aberta neste filtro.'}</p>}</div>{!inactive&&<button onClick={()=>openNew({personName:group.person,assigneeId:group.personId,status:'next'})}><MdAdd/>Adicionar atividade</button>}{person&&<><button type="button" className={`person-status-button ${inactive?'reactivate':'deactivate'}`} disabled={personBusyId===person.id||blocked} title={blocked?`Conclua, cancele ou reatribua ${person.openActivityCount} ${person.openActivityCount===1?'atividade aberta':'atividades abertas'} antes de inativar.`:undefined} onClick={()=>void togglePersonActive(person)}>{inactive?<MdRestore/>:<MdBlock/>}{personBusyId===person.id?'Salvando…':inactive?'Reativar responsável':'Inativar responsável'}</button>{blocked&&<small className="person-status-help">Resolva {person.openActivityCount} {person.openActivityCount===1?'atividade aberta':'atividades abertas'} antes de inativar.</small>}</>}</section>})}</div>
+      {!visiblePeople.length && <div className="empty panel"><MdPeople/><h3>{peopleStatusFilter==='inactive'?'Nenhum responsável inativo':'Suas agendas aparecerão aqui'}</h3><p>{peopleStatusFilter==='inactive'?'Quando você inativar alguém, o cadastro aparecerá aqui para possível reativação.':'Crie um follow-up e associe a uma pessoa.'}</p></div>}
     </div>}
 
     {!loading && !searching && view==='routines' && <div className="routines-view">
@@ -504,7 +576,7 @@ const Activities: React.FC = () => {
         <label><span>Prioridade</span><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value as any})}><option value="low">Baixa</option><option value="medium">Normal</option><option value="high">Alta</option></select></label>
         <label><span>Data</span><input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label>
         <label><span>{form.itemType==='follow_up'?'Pessoa *':'Pessoa'}</span><input required={form.itemType==='follow_up'} value={form.personName} onChange={e=>setForm({...form,personName:e.target.value,assigneeId:null})} placeholder="Com quem?"/></label>
-        {!!registeredPeople.length&&<label><span>Vincular ao responsável compartilhado</span><select value={form.assigneeId || ''} onChange={e=>{const selected=registeredPeople.find(person=>person.id===Number(e.target.value));setForm({...form,assigneeId:selected?.id || null,personName:selected?.name || form.personName});}}><option value="">Sem vínculo de acesso</option>{registeredPeople.map(person=><option value={person.id} key={person.id}>{person.name} · {person.email}</option>)}</select></label>}
+        {!!assignablePeople.length&&<label><span>Vincular ao responsável compartilhado</span><select value={form.assigneeId || ''} onChange={e=>{const selected=assignablePeople.find(person=>person.id===Number(e.target.value));setForm({...form,assigneeId:selected?.id || null,personName:selected?.name || form.personName});}}><option value="">Sem vínculo de acesso</option>{assignablePeople.map(person=><option value={person.id} key={person.id} disabled={!person.isActive}>{person.name} · {person.email}{person.isActive?'':' · inativo (histórico)'}</option>)}</select></label>}
         <label><span>Projeto ou contexto</span><input value={form.projectName} onChange={e=>setForm({...form,projectName:e.target.value})} placeholder="Ex.: Q3, Casa"/></label>
         <label><span>Repetição</span><select value={form.recurrence} onChange={e=>setForm({...form,recurrence:e.target.value as any})}>{Object.entries(recurrenceLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
       </div>

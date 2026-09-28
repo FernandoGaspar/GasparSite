@@ -28,8 +28,8 @@ const dispatchDrag = (element:HTMLElement, type:string, transfer:DataTransfer) =
   fireEvent(element,event);
 };
 
-const renderPage = (items:ReturnType<typeof activity>[]) => {
-  mockedAxios.get.mockResolvedValue({data:{items,summary}} as any);
+const renderPage = (items:ReturnType<typeof activity>[], people:Record<string,unknown>[]=[]) => {
+  mockedAxios.get.mockImplementation((url:any)=>Promise.resolve({data:String(url).endsWith('/activity-people')?{people}:{items,summary}}) as any);
   mockedAxios.patch.mockResolvedValue({data:{}} as any);
   return render(<MemoryRouter><ThemeProvider theme={dark}><Activities/></ThemeProvider></MemoryRouter>);
 };
@@ -141,6 +141,60 @@ describe('Activities deadline and people views',()=>{
       {name:'Ana',email:'ana@example.com',activityIds:[60,61]},
     ));
   },15000);
+
+  it('inactivates a responsible person with optimistic concurrency and keeps historical names',async()=>{
+    const confirm=jest.spyOn(window,'confirm').mockReturnValue(true);
+    const person={id:7,name:'Ana',email:'ana@example.com',activityCount:2,openActivityCount:0,activeShares:0,isActive:true,version:3};
+    const page=renderPage([
+      activity({id:60,title:'Atividade histórica de Ana',personName:'Ana',assigneeId:7,status:'done'}),
+    ],[person]);
+    mockedAxios.patch
+      .mockResolvedValueOnce({data:{person:{...person,isActive:false,version:4}}} as any)
+      .mockResolvedValueOnce({data:{person:{...person,isActive:true,version:5}}} as any);
+    await wait(()=>page.getByText('Pessoas'));
+    fireEvent.click(page.getByText('Pessoas'));
+    await wait(()=>page.getByText('Inativar responsável'));
+    fireEvent.click(page.getByText('Inativar responsável').closest('button')!);
+
+    await wait(()=>expect(mockedAxios.patch).toHaveBeenCalledWith(
+      expect.stringContaining('/activity-people/7'),
+      {isActive:false,expectedVersion:3},
+    ));
+    expect(page.getByText(/cadastro de Ana foi inativado/)).toBeTruthy();
+    fireEvent.click(page.getByText(/^Inativos/).closest('button')!);
+    expect(page.getByText('Inativo')).toBeTruthy();
+    expect(page.getByText('Reativar responsável')).toBeTruthy();
+    fireEvent.click(page.getByText('Reativar responsável').closest('button')!);
+    await wait(()=>expect(mockedAxios.patch).toHaveBeenCalledWith(
+      expect.stringContaining('/activity-people/7'),
+      {isActive:true,expectedVersion:4},
+    ));
+
+    fireEvent.change(page.getByLabelText('Buscar atividades'),{target:{value:'Atividade histórica de Ana'}});
+    fireEvent.click(page.getByText('Foco'));
+    expect(page.getByText('Atividade histórica de Ana')).toBeTruthy();
+    expect(page.getByText('Ana')).toBeTruthy();
+    confirm.mockRestore();
+  });
+
+  it('blocks inactivation while open activities still belong to the person',async()=>{
+    const person={id:8,name:'Bruno',email:'bruno@example.com',activityCount:1,openActivityCount:1,activeShares:0,isActive:true,version:2};
+    const page=renderPage([activity({id:70,title:'Pendência de Bruno',personName:'Bruno',assigneeId:8})],[person]);
+    await wait(()=>page.getByText('Pessoas'));
+    fireEvent.click(page.getByText('Pessoas'));
+    await wait(()=>page.getByText('Inativar responsável'));
+    const deactivate=page.getByText('Inativar responsável').closest('button') as HTMLButtonElement;
+    expect(deactivate.disabled).toBe(true);
+    expect(page.getByText(/Resolva 1 atividade aberta/)).toBeTruthy();
+    expect(mockedAxios.patch).not.toHaveBeenCalledWith(expect.stringContaining('/activity-people/8'),expect.anything());
+  });
+
+  it('does not offer inactive people for new assignments',async()=>{
+    const page=renderPage([], [{id:9,name:'Carla',email:'carla@example.com',activityCount:0,openActivityCount:0,activeShares:0,isActive:false,version:5}]);
+    await wait(()=>page.getByText('Nova atividade'));
+    fireEvent.click(page.getByText('Nova atividade'));
+    expect(page.queryByText(/Carla · carla@example.com/)).toBeNull();
+  });
 });
 
 describe('Activities subtasks', () => {

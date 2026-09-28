@@ -51,6 +51,8 @@ Essa regra impede dupla contagem no contrato `GET /financial-planning`.
 
 Atividades suportam área pessoal/profissional, status, prioridade, prazo, responsável, projeto, recorrência e subtarefas. Fontes Gmail, Outlook, Teams e WhatsApp podem preparar rascunhos; salvar continua sendo uma decisão explícita do usuário.
 
+Responsáveis sem atividades abertas podem ser inativados e reativados na visão Pessoas. A inativação exige confirmação e controle de versão, preserva atividades e histórico, revoga acessos compartilhados ativos e remove a pessoa das novas atribuições. Enquanto existirem atividades abertas, a interface bloqueia a ação e orienta concluir, cancelar ou reatribuir esses itens.
+
 Compartilhamentos não expõem a sessão principal. O convidado recebe um link-capability, confirma o e-mail com código e recebe uma sessão temporária limitada à atividade ou pessoa. Atualizações permitidas são status, comentário, solicitação de conclusão e subtarefas expostas pela API.
 
 ## 4. Comunicação
