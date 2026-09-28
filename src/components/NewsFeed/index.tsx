@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 import { URL_API } from '../../repositories/baseAPI';
+import { safeExternalUrl, safeImageSource } from '../../utils/safeUrl';
 
 interface NewsItem {
   title: string;
@@ -80,7 +81,6 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ ticker, query, items }) => {
   const searchTerm = query || ticker;
 
   useEffect(() => {
-    console.log('NewsFeed effect run', { ticker, query, items });
     // if caller gave items we can use them immediately while a fetch may follow
     if (items) {
       setNews(items);
@@ -123,18 +123,21 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ ticker, query, items }) => {
   return (
     <Wrapper>
       <List>
-      {news.map((n, idx) => (
+      {news.map((n, idx) => {
+        const articleUrl = safeExternalUrl(n.url);
+        const imageUrl = safeImageSource(n.image);
+        return (
         <Item key={idx}>
-          {n.image && (
+          {imageUrl && (
             <img
-              src={n.image}
+              src={imageUrl}
               alt=""
               style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 4 }}
             />
           )}
           <div style={{ flex: 1 }}>
-            {n.url ? (
-              <a className="title" href={n.url} target="_blank" rel="noreferrer">
+            {articleUrl ? (
+              <a className="title" href={articleUrl} target="_blank" rel="noopener noreferrer">
                 {n.title}
               </a>
             ) : (
@@ -146,7 +149,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ ticker, query, items }) => {
             </small>
           </div>
         </Item>
-      ))}
+      )})}
       </List>
     </Wrapper>
   );

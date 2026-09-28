@@ -1,6 +1,8 @@
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import { useAuth } from '../hooks/auth';
+import SharedActivity from '../pages/SharedActivity';
+import AssignedActivities from '../pages/AssignedActivities';
 
 import App from './app.routes';
 import Auth from './auth.routes';
@@ -10,7 +12,11 @@ const Routes: React.FC = () => {
 
     return (
         <BrowserRouter>
-            { logged ? <App/> : <Auth/> }
+            <Switch>
+                <Route path="/activity-share" exact component={SharedActivity}/>
+                <Route path="/assigned-activities" exact component={AssignedActivities}/>
+                <Route render={() => logged ? <App/> : <Auth/>}/>
+            </Switch>
         </BrowserRouter>
     );
 }

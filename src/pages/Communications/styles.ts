@@ -53,10 +53,11 @@ export const Container = styled.div`
     letter-spacing: -.05em;
   }
   .hero p { max-width: 660px; color: #96a8c1; font-size: 15px; line-height: 1.6; }
-  .scope-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 12px; padding: 5px; border-radius: 14px; background: #0b1829; }
+  .scope-nav { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 12px; padding: 5px; border-radius: 14px; background: #0b1829; }
   .scope-nav button { display:flex;align-items:center;justify-content:center;gap:7px;min-height:46px;border:1px solid transparent;border-radius:10px;color:#8095b0;background:transparent;font-size:12px;font-weight:850; }
   .scope-nav button.personal.active { border-color:#28705f;color:#effff9;background:#133c32; }
   .scope-nav button.work.active { border-color:#4c48a1;color:#f3f0ff;background:#282456; }
+  .scope-nav button.whatsapp.active { border-color:#277a5c;color:#eafff6;background:#123b31; }
   .context-note { display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:13px 16px;border:1px solid #24425e;border-radius:12px;background:#0d1c30; }
   .context-note strong { flex:none;color:#eef5ff;font-size:12px; }
   .context-note span { color:#8da2bd;font-size:11px;line-height:1.45; }

@@ -16,12 +16,15 @@ import {
 import { useLocation } from 'react-router-dom';
 import { Container } from './styles';
 import { URL_API } from '../../repositories/baseAPI';
+import SchedulingCard, { isWhatsAppScheduling, SchedulingAction } from '../SchedulingCard';
+import { safeHttpUrl } from '../../utils/safeUrl';
 
 interface AgentIdentity { id: string; name: string; }
 interface Message {
   content: string;
   sender: 'user' | 'bot';
   action?: Record<string, unknown>;
+  pendingAction?: Record<string, unknown>;
   agent?: AgentIdentity | string;
   delegatedAgent?: string;
 }
@@ -127,7 +130,10 @@ const Chat: React.FC<Props> = ({
       params: { idUsuario: userId, agente: agent },
       timeout: requestTimeout,
     }).then(({ data }) => {
-      if (active && Array.isArray(data.messages)) setMessages(data.messages);
+      if (active && Array.isArray(data.messages)) setMessages(data.messages.map((message:Message) => ({
+        ...message,
+        action: message.action || message.pendingAction,
+      })));
     }).catch(() => { /* mantém o histórico local como fallback */ });
     return () => { active = false; };
   }, [agent, userId]);
@@ -213,7 +219,7 @@ const Chat: React.FC<Props> = ({
         ? 'A captura ou análise demorou mais que o esperado. Tente novamente em instantes.'
         : error?.response?.data?.message || 'Não consegui confirmar a resposta agora. Se ela tiver sido processada, será recuperada na próxima tentativa.';
       setMessages((current) => [...current, recovered ? {
-        content:recovered.content,sender:'bot',action:recovered.action,
+        content:recovered.content,sender:'bot',action:recovered.action || recovered.pendingAction,
         delegatedAgent:recovered.delegatedAgent,
         agent:recovered.delegatedAgent
           ? {id:recovered.delegatedAgent,name:agentNames[recovered.delegatedAgent]||recovered.delegatedAgent}
@@ -241,6 +247,12 @@ const Chat: React.FC<Props> = ({
     recognition.start();
   };
 
+  const updateScheduling = (messageIndex: number, action: SchedulingAction) => {
+    setMessages((current) => current.map((message, index) => index === messageIndex
+      ? { ...message, action }
+      : message));
+  };
+
   if (!page && ['/assistant', '/settings/contas-recorrentes'].includes(pathname)) return null;
 
   return <Container page={page}><div className="chat">
@@ -259,7 +271,7 @@ const Chat: React.FC<Props> = ({
           <button className="alerts-toggle" onClick={() => setAlertsOpen((current) => !current)}><span><MdNotifications /> {alerts.length} {alerts.length === 1 ? 'alerta disponível' : 'alertas disponíveis'}</span>{alertsOpen ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</button>
           {alertsOpen && <div className="alerts-list">{alerts.slice(0, 10).map((alert, index) => <article className={`agent-alert ${alert.severity}`} key={`${alert.title}-${index}`}>
             <div><span>{alert.sourceAgent ? agentNames[alert.sourceAgent] || alert.sourceAgent : 'Última análise'}</span><strong>{alert.title}</strong><p>{alert.description}</p></div>
-            <footer><button disabled={loading} onClick={() => send(`Quero entender melhor o alerta "${alert.title}": ${alert.description}`)}>Conversar sobre isso</button>{alert.actionUrl && <a href={alert.actionUrl}>{alert.actionLabel || 'Abrir'}</a>}</footer>
+            <footer><button disabled={loading} onClick={() => send(`Quero entender melhor o alerta "${alert.title}": ${alert.description}`)}>Conversar sobre isso</button>{safeHttpUrl(alert.actionUrl) && <a href={safeHttpUrl(alert.actionUrl)}>{alert.actionLabel || 'Abrir'}</a>}</footer>
           </article>)}</div>}
         </section>}
         {messages.length === 0 && <div className="empty-state"><AgentAvatar agent={agent === 'general' ? coordinator : { id: agent, name: agentName }} /><div><strong>{agent === 'general' ? 'Gaspar e sua equipe estão aqui' : `${agentName} está aqui`}</strong><p>{agent === 'general' ? 'Faça uma pergunta. O especialista certo responde nesta mesma conversa.' : 'Este chat contém somente sua conversa com este especialista.'}</p></div></div>}
@@ -270,8 +282,10 @@ const Chat: React.FC<Props> = ({
             <AgentAvatar agent={agent} />
             <div className="agent-message-content">
               <div className="agent-meta"><strong>{agent.name}</strong><span>{agentRole(agent)}</span></div>
-              <div className="message bot">{message.delegatedAgent && <span className="delegation">Análise delegada a {agentNames[message.delegatedAgent] || message.delegatedAgent}</span>}<FormattedMessage content={message.content} />
-                {message.action && <button className="confirm" onClick={() => confirm(message.action!)}>Confirmar ação</button>}
+              <div className={`message bot ${isWhatsAppScheduling(message.action) ? 'has-scheduling' : ''}`}>{message.delegatedAgent && <span className="delegation">Análise delegada a {agentNames[message.delegatedAgent] || message.delegatedAgent}</span>}<FormattedMessage content={message.content} />
+                {isWhatsAppScheduling(message.action)
+                  ? <SchedulingCard action={message.action} onChange={(next) => updateScheduling(index, next)} />
+                  : message.action && <button className="confirm" onClick={() => confirm(message.action!)}>Confirmar ação</button>}
               </div>
             </div>
           </div>;

@@ -19,12 +19,12 @@ export const Container = styled.div<{ page?: boolean }>`
       color: ${({ theme }) => theme.colors.white}; background: ${({ theme }) => theme.colors.secondary};
       box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
     }
-    .chat-window header { display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid ${({ theme }) => theme.colors.tertiary}; }
-    .chat-window header > div:first-child { min-width:0; flex:1; }
-    .chat-window header span { display:block; color:#6fa8ff; font-size:10px; font-weight:800; letter-spacing:.12em; }
-    .chat-window header strong { display:block; margin-top:4px; font-size:16px; }
-    .chat-window header small { display:block; max-width:620px; margin-top:3px; color:${({ theme }) => theme.colors.gray}; font-size:10px; line-height:1.35; }
-    .chat-window header button { border:0; color:${({ theme }) => theme.colors.gray}; background:transparent; cursor:pointer; font:inherit; }
+    .chat-window > header { display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid ${({ theme }) => theme.colors.tertiary}; }
+    .chat-window > header > div:first-child { min-width:0; flex:1; }
+    .chat-window > header span { display:block; color:#6fa8ff; font-size:10px; font-weight:800; letter-spacing:.12em; }
+    .chat-window > header strong { display:block; margin-top:4px; font-size:16px; }
+    .chat-window > header small { display:block; max-width:620px; margin-top:3px; color:${({ theme }) => theme.colors.gray}; font-size:10px; line-height:1.35; }
+    .chat-window > header button { border:0; color:${({ theme }) => theme.colors.gray}; background:transparent; cursor:pointer; font:inherit; }
     .team { display:flex; align-items:center; }
     .team span { display:grid; width:28px; height:28px; margin-left:-7px; place-items:center; border:2px solid ${({ theme }) => theme.colors.secondary}; border-radius:50%; color:#b9cbff; background:#203c66; font-size:14px; }
     .team span:nth-child(2) { color:#6de2ba; background:#17463a; }
@@ -85,13 +85,13 @@ export const Container = styled.div<{ page?: boolean }>`
     }
     @media(max-width: 720px) {
       ${({ page }) => page && `.chat-window { height:clamp(460px,70dvh,600px); min-height:0; border-radius:14px; }`}
-      .chat-window header { padding:15px 16px; }
+      .chat-window > header { padding:15px 16px; }
       .chat-body { padding:16px; }
     }
     @media(max-width: 520px) {
       .chat { right:12px; bottom:12px; }
       .chat-window { width:calc(100vw - 24px); height:calc(100dvh - 100px); }
-      .chat-window header { padding:14px 16px; }
+      .chat-window > header { padding:14px 16px; }
       .chat-body { padding:16px; }
       .message.user { max-width:86%; }
       .agent-message { max-width:96%; }
@@ -99,7 +99,7 @@ export const Container = styled.div<{ page?: boolean }>`
       ${({ page }) => page && `.chat-window { width:100%; height:clamp(430px,72dvh,580px); min-height:0; border-radius:14px; }`}
     }
     @media(max-width: 380px) {
-      .chat-window header small { display:none; }
+      .chat-window > header small { display:none; }
       form { gap:6px; }
       form input { padding:0 10px; }
       form button { width:39px; flex:0 0 39px; }

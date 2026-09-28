@@ -252,9 +252,9 @@ test('organized knowledge groups sources by area and preserves human classificat
   await page.locator('.brain-topic-card').click();
   await expect(page.locator('.brain-knowledge-detail')).toContainText('Decisão contextualizada.');
   await page.getByLabel('Área do assunto').fill('Pessoal');
-  await page.getByRole('button',{name:'Salvar classificação'}).click();
-  await expect(page.locator('.brain-topic-review')).toContainText('Revisado por você');
-  await page.getByRole('button',{name:'Todos os assuntos'}).click();
+  await page.getByRole('button',{name:'Confirmar e ver próximos'}).click();
+  await expect(page.locator('.brain-knowledge-detail')).not.toBeVisible();
+  await expect(page.getByText('Classificação confirmada. A próxima sugestão já está pronta para revisão.')).toBeVisible();
   await expect(page.locator('.brain-topic-card')).toContainText('Pessoal');
   await page.reload();
   await expect(page.locator('.brain-topic-card')).toContainText('Pessoal');
@@ -278,9 +278,12 @@ for(const width of [320,390,768])test(`mobile knowledge reading and review at ${
   await page.screenshot({path:`tmp/knowledge-${width}.png`,fullPage:true});
   await page.locator('.brain-topic-card').click();
   await expect(page.locator('.brain-knowledge-detail .brain-markdown')).toContainText('Decisões com fontes');
-  await page.getByLabel('Área do assunto').fill('Pessoal');await page.getByRole('button',{name:'Salvar classificação'}).click();
-  await expect(page.locator('.brain-topic-review')).toContainText('Revisado por você');
+  await page.getByLabel('Área do assunto').fill('Pessoal');
+  const rejectsSuggestion=width===390;
+  await page.getByRole('button',{name:rejectsSuggestion?'Descartar e ver próximos':'Confirmar e ver próximos'}).click();
+  await expect(page.locator('.brain-knowledge-detail')).not.toBeVisible();
+  await expect(page.getByText(rejectsSuggestion?'Assunto descartado. A próxima sugestão já está pronta para revisão.':'Classificação confirmada. A próxima sugestão já está pronta para revisão.')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:`tmp/reading-${width}.png`,fullPage:true});
-  await page.getByRole('button',{name:'Todos os assuntos'}).click();await expect(page.locator('.brain-topic-card')).toContainText('Pessoal');
+  await expect(page.locator('.brain-topic-card')).toContainText('Pessoal');
 });

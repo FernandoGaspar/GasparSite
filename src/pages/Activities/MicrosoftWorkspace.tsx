@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
   MdAccessTime, MdAdd, MdAttachFile, MdEmail, MdEvent,
@@ -6,9 +6,10 @@ import {
   MdRefresh, MdSend, MdSync,
 } from 'react-icons/md';
 import { URL_API } from '../../repositories/baseAPI';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import { WorkspaceShell } from './MicrosoftWorkspace.styles';
 
-export interface MicrosoftSource { sourceType:'microsoft_event'|'microsoft_mail'|'microsoft_teams'; sourceId:string; sourceUrl:string; }
+export interface MicrosoftSource { sourceType:'microsoft_event'|'microsoft_mail'|'microsoft_teams'|'whatsapp'; sourceId:string; sourceUrl:string; }
 export interface MicrosoftDraft {
   suggestion:any;
   analysis?:any;
@@ -58,6 +59,7 @@ export default function MicrosoftWorkspace({mode,onDraft,onManageConnection,show
   const [lastSyncAt,setLastSyncAt] = useState('');
   const [syncPending,setSyncPending] = useState(false);
   const [explainId,setExplainId] = useState('');
+  const refreshedSources = useRef(new Set<string>());
 
   const visibleEvents = useMemo(() => {
     const now = new Date(); now.setHours(0,0,0,0);
@@ -78,27 +80,33 @@ export default function MicrosoftWorkspace({mode,onDraft,onManageConnection,show
     )).slice(0,3);
   };
 
-  const load = useCallback(async (forceRefresh=false) => {
-    setLoading(true); setError('');
-    try {
-      const current = (await axios.get<Status>(`${URL_API}/microsoft/connection`)).data;
-      setStatus(current);
-      if (!current.connected) return;
-      if (mode === 'agenda') {
-        const start = new Date(); start.setHours(0,0,0,0);
-        const end = new Date(start); end.setDate(end.getDate()+45);
-        const data=(await axios.get<SnapshotResponse<EventItem>>(`${URL_API}/microsoft/calendar`,{params:{start:start.toISOString(),end:end.toISOString(),refresh:forceRefresh||undefined}})).data;
-        setEvents(data.items || []);setLastSyncAt(data.lastSyncAt||'');setSyncPending(!!data.syncPending);
-      } else {
-        const data=(await axios.get<SnapshotResponse<MailItem>>(`${URL_API}/microsoft/messages`,{params:{mode:mailMode,limit:50,refresh:forceRefresh||undefined}})).data;
-        setMessages(data.items || []);setMailSummary(data.summary || {total:0,unread:0,flagged:0,attachments:0,actionable:0});setLastSyncAt(data.lastSyncAt||'');setSyncPending(!!data.syncPending);
-      }
-    } catch (requestError:any) {
-      setError(requestError.response?.data?.message || 'Não foi possível carregar o Microsoft 365.');
-    } finally { setLoading(false); }
+  const snapshot = useCallback(async (refresh=false) => {
+    if (mode === 'agenda') {
+      const start = new Date(); start.setHours(0,0,0,0);
+      const end = new Date(start); end.setDate(end.getDate()+45);
+      return (await axios.get<SnapshotResponse<EventItem>>(`${URL_API}/microsoft/calendar`,{params:{start:start.toISOString(),end:end.toISOString(),refresh:refresh||undefined}})).data;
+    }
+    return (await axios.get<SnapshotResponse<MailItem>>(`${URL_API}/microsoft/messages`,{params:{mode:mailMode,limit:50,refresh:refresh||undefined}})).data;
   },[mailMode,mode]);
+  const applySnapshot = useCallback((data:SnapshotResponse<EventItem|MailItem>) => {
+    if(mode==='agenda')setEvents((data.items||[]) as EventItem[]);
+    else {setMessages((data.items||[]) as MailItem[]);setMailSummary(data.summary||{total:0,unread:0,flagged:0,attachments:0,actionable:0});}
+    setLastSyncAt(data.lastSyncAt||'');setSyncPending(!!data.syncPending);
+  },[mode]);
+  const refresh = useCallback(async()=>{setError('');try{applySnapshot(await snapshot(true))}catch(requestError:any){setError(requestError.response?.data?.message||'Não foi possível solicitar a atualização do Microsoft 365.')}},[applySnapshot,snapshot]);
+  const load = useCallback(async (silent=false) => {
+    if(!silent)setLoading(true); setError('');
+    try {
+      const [connectionResponse,data]=await Promise.all([axios.get<Status>(`${URL_API}/microsoft/connection`),snapshot(false)]);
+      const current=connectionResponse.data;setStatus(current);applySnapshot(data);
+      if(current.connected&&!refreshedSources.current.has(mode)){refreshedSources.current.add(mode);window.setTimeout(()=>void refresh(),0);}
+    } catch (requestError:any) {
+      setError(requestError.response?.data?.message || 'Não foi possível carregar os dados salvos do Microsoft 365.');
+    } finally { if(!silent)setLoading(false); }
+  },[applySnapshot,mode,refresh,snapshot]);
 
   useEffect(()=>{ void load(); },[load]);
+  useEffect(()=>{if(!syncPending)return undefined;const timer=window.setTimeout(()=>void load(true),7000);return()=>window.clearTimeout(timer);},[load,syncPending]);
 
   const draft = async (sourceType:MicrosoftSource['sourceType'], sourceId:string) => {
     setBusy(sourceId); setError('');
@@ -118,7 +126,7 @@ export default function MicrosoftWorkspace({mode,onDraft,onManageConnection,show
     } finally { setBusy(''); }
   };
 
-  if (loading && !status) return <WorkspaceShell><section className="m365-state panel"><MdSync className="spin"/><h2>Sincronizando Microsoft 365…</h2></section></WorkspaceShell>;
+  if (loading && !status) return <WorkspaceShell><section className="m365-state panel"><MdSync className="spin"/><h2>Carregando dados salvos…</h2></section></WorkspaceShell>;
   if (!status?.connected) return <WorkspaceShell><section className="m365-connect panel">
     <div className="m365-logo"><span>Microsoft</span><strong>365</strong></div>
     <div><span className="eyebrow">CONTA CORPORATIVA</span><h2>Traga sua rotina de trabalho para o Gaspar</h2><p>Consulte agenda e e-mails e transforme compromissos em atividades revisadas por você.</p>
@@ -131,20 +139,20 @@ export default function MicrosoftWorkspace({mode,onDraft,onManageConnection,show
   </section></WorkspaceShell>;
 
   return <WorkspaceShell><section className="m365-workspace">
-    <header className="m365-head panel"><div><span className="eyebrow">PROFISSIONAL · MICROSOFT 365</span><h2>{mode==='agenda'?'Minha agenda':'Caixa corporativa'}</h2><p>{status.displayName || status.email} · SQL Server · {lastSyncAt?`atualizado ${dateTime(lastSyncAt)}`:'sincronização inicial pendente'}</p></div><div><button className="secondary" onClick={()=>void load(true)}><MdRefresh/>Atualizar Microsoft</button>{onManageConnection&&<button className="m365-disconnect" onClick={onManageConnection}>Configurações</button>}</div></header>
+    <header className="m365-head panel"><div><span className="eyebrow">PROFISSIONAL · MICROSOFT 365</span><h2>{mode==='agenda'?'Minha agenda':'Caixa corporativa'}</h2><p>{status.displayName || status.email} · SQL Server · {lastSyncAt?`atualizado ${dateTime(lastSyncAt)}`:'sincronização inicial pendente'}</p></div><div><button className="secondary" disabled={syncPending} onClick={()=>void refresh()}><MdRefresh/>{syncPending?'Atualizando em segundo plano':'Buscar novidades'}</button>{onManageConnection&&<button className="m365-disconnect" onClick={onManageConnection}>Configurações</button>}</div></header>
     {error && <div className="m365-warning"><MdErrorOutline/>{error}</div>}
     {mode==='emails'&&<><section className="m365-metrics"><article><strong>{mailSummary.unread}</strong><span>Não lidos</span></article><article><strong>{mailSummary.flagged}</strong><span>Sinalizados</span></article><article><strong>{mailSummary.attachments}</strong><span>Anexos</span></article><article><strong>{mailSummary.actionable}</strong><span>Pedem ação</span></article></section><input className="m365-search" value={mailSearch} onChange={event=>setMailSearch(event.target.value)} placeholder="Buscar remetente, destinatário ou assunto"/></>}
     <div className="m365-filters">{mode==='agenda'?<><button className={agendaRange==='today'?'active':''} onClick={()=>setAgendaRange('today')}>Hoje</button><button className={agendaRange==='week'?'active':''} onClick={()=>setAgendaRange('week')}>7 dias</button><button className={agendaRange==='month'?'active':''} onClick={()=>setAgendaRange('month')}>30 dias</button></>:<><button className={mailMode==='action'?'active':''} onClick={()=>setMailMode('action')}>Pedem ação</button><button className={mailMode==='flagged'?'active':''} onClick={()=>setMailMode('flagged')}>Sinalizados</button><button className={mailMode==='unread'?'active':''} onClick={()=>setMailMode('unread')}>Não lidos</button><button className={mailMode==='sent'?'active':''} onClick={()=>setMailMode('sent')}>Enviados</button><button className={mailMode==='all'?'active':''} onClick={()=>setMailMode('all')}>Todos</button></>}</div>
     {loading && <div className="m365-loading"><MdSync className="spin"/>Atualizando…</div>}
-    {!loading && mode==='agenda' && <div className="m365-list">{visibleEvents.map(event=>{const matches=related(event);return <article className="m365-card" key={event.id}>
+    {!loading && mode==='agenda' && <div className="m365-list">{visibleEvents.map(event=>{const matches=related(event),webLink=safeExternalUrl(event.webLink);return <article className="m365-card" key={event.id}>
       <div className="m365-date"><strong>{dateTime(event.start?.dateTime,{day:'2-digit'})}</strong><span>{dateTime(event.start?.dateTime,{month:'short'})}</span></div>
       <div className="m365-copy"><span className="eyebrow">{event.isOnlineMeeting?'REUNIÃO ONLINE':'COMPROMISSO'}</span><h3>{event.subject}</h3><div className="m365-meta"><span><MdAccessTime/>{event.isAllDay?'Dia inteiro':dateTime(event.start?.dateTime,{hour:'2-digit',minute:'2-digit'})}</span>{event.location&&<span><MdLocationOn/>{event.location}</span>}<span>{event.attendees?.length || 0} participantes</span></div>{event.bodyPreview&&<p>{event.bodyPreview}</p>}{matches.length>0&&<div className="m365-related"><b>{matches.length} {matches.length===1?'atividade relacionada':'atividades relacionadas'}</b>{matches.map(item=><span key={item.id}>{item.title}</span>)}</div>}</div>
-      <div className="m365-actions">{showManualActivity&&<button disabled={busy===event.id} onClick={()=>void draft('microsoft_event',event.id)}><MdAdd/>{busy===event.id?'Preparando…':'Criar atividade'}</button>}{event.webLink&&<a href={event.webLink} target="_blank" rel="noreferrer"><MdOpenInNew/>Outlook</a>}</div>
+      <div className="m365-actions">{showManualActivity&&<button disabled={busy===event.id} onClick={()=>void draft('microsoft_event',event.id)}><MdAdd/>{busy===event.id?'Preparando…':'Criar atividade'}</button>}{webLink&&<a href={webLink} target="_blank" rel="noopener noreferrer"><MdOpenInNew/>Outlook</a>}</div>
     </article>})}{!visibleEvents.length&&<div className="m365-empty"><MdEvent/><h3>Nenhum compromisso neste período</h3></div>}</div>}
-    {!loading && mode==='emails' && <div className="m365-list">{visibleMessages.map(message=><article className={`m365-card mail ${!message.isRead?'unread':''}`} key={message.id}>
+    {!loading && mode==='emails' && <div className="m365-list">{visibleMessages.map(message=>{const webLink=safeExternalUrl(message.webLink);return <article className={`m365-card mail ${!message.isRead?'unread':''}`} key={message.id}>
       <div className="m365-mail-icon"><MdEmail/></div><div className="m365-copy"><span className="eyebrow">{mailContact(message)}</span><h3>{message.subject}</h3><div className="m365-meta"><span>{dateTime(message.receivedDateTime)}</span>{message.mailboxLocation==='archive'&&<span>Arquivado</span>}{message.mailboxLocation==='sentitems'&&<span><MdSend/>Enviado</span>}{message.flagStatus==='flagged'&&<span className="action"><MdFlag/>Sinalizado</span>}{message.hasAttachments&&<span><MdAttachFile/>Anexo</span>}{message.actionable&&<span className="action">Pede ação · {Math.round((message.actionConfidence||0)*100)}%</span>}</div>{message.bodyPreview&&<p>{message.bodyPreview}</p>}{explainId===message.id&&<div className="m365-explanation">{(message.actionReasons||[]).map(reason=><p key={reason}>{reason}</p>)}</div>}</div>
-      <div className="m365-actions">{message.actionable&&<button disabled={busy===`ignore:${message.id}`} onClick={()=>void ignore(message)}>{busy===`ignore:${message.id}`?'Ignorando…':'Ignorar'}</button>}{showManualActivity&&<button disabled={busy===message.id} onClick={()=>void draft('microsoft_mail',message.id)}><MdAdd/>{busy===message.id?'Analisando…':'Criar atividade'}</button>}{message.webLink&&<a href={message.webLink} target="_blank" rel="noreferrer"><MdOpenInNew/>Outlook</a>}</div>
+      <div className="m365-actions">{message.actionable&&<button disabled={busy===`ignore:${message.id}`} onClick={()=>void ignore(message)}>{busy===`ignore:${message.id}`?'Ignorando…':'Ignorar'}</button>}{showManualActivity&&<button disabled={busy===message.id} onClick={()=>void draft('microsoft_mail',message.id)}><MdAdd/>{busy===message.id?'Analisando…':'Criar atividade'}</button>}{webLink&&<a href={webLink} target="_blank" rel="noopener noreferrer"><MdOpenInNew/>Outlook</a>}</div>
       <button className="m365-explain-button" aria-label="Explicar classificação" aria-expanded={explainId===message.id} onClick={()=>setExplainId(current=>current===message.id?'':message.id)}>?</button>
-    </article>)}{!visibleMessages.length&&<div className="m365-empty"><MdEmail/><h3>{syncPending?'Sincronização inicial em andamento':mailMode==='sent'?'Nenhum e-mail enviado encontrado':'Nenhum e-mail neste filtro'}</h3></div>}</div>}
+    </article>})}{!visibleMessages.length&&<div className="m365-empty"><MdEmail/><h3>{syncPending?'Sincronização inicial em andamento':mailMode==='sent'?'Nenhum e-mail enviado encontrado':'Nenhum e-mail neste filtro'}</h3></div>}</div>}
   </section></WorkspaceShell>;
 }

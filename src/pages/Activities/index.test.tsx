@@ -75,7 +75,7 @@ describe('Activities drag and drop', () => {
     dispatchDrag(target,'dragover',transfer);
     dispatchDrag(target,'drop',transfer);
 
-    await wait(() => expect(mockedAxios.patch).toHaveBeenCalledWith(expect.stringContaining('/activities/2'),{personName:'Bruno'}));
+    await wait(() => expect(mockedAxios.patch).toHaveBeenCalledWith(expect.stringContaining('/activities/2'),{personName:'Bruno',assigneeId:null}));
   });
 });
 
@@ -122,8 +122,25 @@ describe('Activities deadline and people views',()=>{
     expect(findColumn(page.container,'.person-card','Sem responsável').textContent).toContain('Ainda sem pessoa');
     fireEvent.change(page.getByLabelText('Buscar atividades'),{target:{value:'Tarefa de Ana'}});
     expect(page.getByText('Sem responsável')).toBeTruthy();
-    expect(page.getByText('Nenhuma atividade sem responsável neste filtro.')).toBeTruthy();
+    expect(page.getAllByText('Nenhuma atividade aberta neste filtro.').length).toBeGreaterThan(0);
   });
+  it('shares one person’s full list, including completed activities',async()=>{
+    const page=renderPage([
+      activity({id:60,title:'Responder Ana',personName:'Ana'}),
+      activity({id:61,title:'Orçamento encerrado',personName:'Ana',status:'done'}),
+    ]);
+    await wait(()=>page.getByText('Responder Ana'));
+    fireEvent.click(page.getByText('Pessoas'));
+    fireEvent.click(page.getByRole('button',{name:'Compartilhar atividades de Ana'}));
+    expect(page.getByText('Orçamento encerrado')).toBeTruthy();
+    mockedAxios.post.mockResolvedValueOnce({data:{personId:7,guestEmail:'ana@example.com',link:'https://example.com/assigned-activities#token',activityCount:2}} as any);
+    fireEvent.change(page.getByLabelText('E-mail do responsável'),{target:{value:'ana@example.com'}});
+    fireEvent.click(page.getByRole('button',{name:/Compartilhar lista/}));
+    await wait(()=>expect(mockedAxios.post).toHaveBeenCalledWith(
+      expect.stringContaining('/activity-people/shares'),
+      {name:'Ana',email:'ana@example.com',activityIds:[60,61]},
+    ));
+  },15000);
 });
 
 describe('Activities subtasks', () => {
@@ -213,8 +230,8 @@ describe('Activities contextual capture', () => {
 
   it('reloads activities automatically when the browser regains focus', async () => {
     renderPage([]);
-    await wait(() => expect(mockedAxios.get).toHaveBeenCalledTimes(1));
+    await wait(() => expect(mockedAxios.get.mock.calls.filter(([url])=>String(url).endsWith('/activities'))).toHaveLength(1));
     fireEvent(window,new Event('focus'));
-    await wait(() => expect(mockedAxios.get).toHaveBeenCalledTimes(2));
+    await wait(() => expect(mockedAxios.get.mock.calls.filter(([url])=>String(url).endsWith('/activities'))).toHaveLength(2));
   });
 });

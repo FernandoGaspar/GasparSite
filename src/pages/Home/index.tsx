@@ -32,6 +32,7 @@ import {
   appendSceneBlinds,
   SceneBlindActions,
 } from "./sceneBlinds";
+import { buildCameraMediaUrl, CameraMediaMode, issueCameraMediaTicket, shouldRetryCameraMedia } from "./cameraMedia";
 import { Container } from "./styles";
 
 interface HomeAssistantState {
@@ -183,12 +184,6 @@ const readStoredJson = <T,>(key: string, fallback: T): T => {
     return fallback;
   }
 };
-const mediaAuthQuery = () => {
-  const token = localStorage.getItem("@minha-carteira:token") || "";
-  const userId = localStorage.getItem("@minha-carteira:usuarioId") || "";
-  return `token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}`;
-};
-
 type CoverAction = "open" | "stop" | "close";
 const coverStatus = (state: string) =>
   ({
@@ -732,7 +727,7 @@ const CameraWebRTC: React.FC<{
       window.clearTimeout(connectTimeout);
       connection.close();
     };
-  }, [entityId]);
+  }, [entityId, onFailed]);
 
   return (
     <div className="camera-image camera-live-player">
@@ -761,18 +756,71 @@ const CameraCard: React.FC<CameraCardProps> = ({
   const [snapshotVersion, setSnapshotVersion] = useState(() => Date.now());
   const [webrtcFailed, setWebrtcFailed] = useState(false);
   const [mediaFailed, setMediaFailed] = useState(false);
+  const [snapshotUrl, setSnapshotUrl] = useState("");
+  const [fallbackStreamUrl, setFallbackStreamUrl] = useState("");
+  const [mediaLoading, setMediaLoading] = useState<CameraMediaMode | "">("");
+  const [mediaRetryNonce, setMediaRetryNonce] = useState(0);
+  const mediaRetryCount = useRef<Record<CameraMediaMode, number>>({ snapshot:0, stream:0 });
+  const usesWebRTC =
+    live && !webrtcFailed && !!camera.attributes.camera_webrtc_enabled;
+  const handleWebRtcFailed = useCallback(() => setWebrtcFailed(true), []);
+
   useEffect(() => {
     setMediaFailed(false);
     if (!live) setWebrtcFailed(false);
   }, [live, snapshotVersion]);
-  const snapshotUrl = `${URL_API}/home-assistant/camera/${encodeURIComponent(
-    camera.entity_id,
-  )}?mode=snapshot&v=${snapshotVersion}&${mediaAuthQuery()}`;
-  const fallbackStreamUrl = `${URL_API}/home-assistant/camera/${encodeURIComponent(
-    camera.entity_id,
-  )}?mode=stream&${mediaAuthQuery()}`;
-  const usesWebRTC =
-    live && !webrtcFailed && !!camera.attributes.camera_webrtc_enabled;
+
+  useEffect(() => {
+    const mode:CameraMediaMode = live ? "stream" : "snapshot";
+    mediaRetryCount.current[mode] = 0;
+  }, [camera.entity_id, live, snapshotVersion]);
+
+  useEffect(() => {
+    if (live) return undefined;
+    let active = true;
+    setMediaLoading("snapshot");
+    setSnapshotUrl("");
+    issueCameraMediaTicket(camera.entity_id, "snapshot")
+      .then(result => {
+        if (!active) return;
+        setSnapshotUrl(buildCameraMediaUrl(camera.entity_id, "snapshot", result.ticket, snapshotVersion));
+        setMediaFailed(false);
+      })
+      .catch(() => { if (active) setMediaFailed(true); })
+      .finally(() => { if (active) setMediaLoading(""); });
+    return () => { active = false; };
+  }, [camera.entity_id, live, mediaRetryNonce, snapshotVersion]);
+
+  useEffect(() => {
+    if (!live || usesWebRTC) {
+      setFallbackStreamUrl("");
+      return undefined;
+    }
+    let active = true;
+    setMediaLoading("stream");
+    setFallbackStreamUrl("");
+    issueCameraMediaTicket(camera.entity_id, "stream")
+      .then(result => {
+        if (!active) return;
+        setFallbackStreamUrl(buildCameraMediaUrl(camera.entity_id, "stream", result.ticket));
+        setMediaFailed(false);
+      })
+      .catch(() => { if (active) setMediaFailed(true); })
+      .finally(() => { if (active) setMediaLoading(""); });
+    return () => { active = false; };
+  }, [camera.entity_id, live, mediaRetryNonce, usesWebRTC]);
+
+  const mediaUrl = live ? fallbackStreamUrl : snapshotUrl;
+  const handleMediaError = () => {
+    const mode:CameraMediaMode = live ? "stream" : "snapshot";
+    if (shouldRetryCameraMedia(mediaRetryCount.current[mode])) {
+      mediaRetryCount.current[mode] += 1;
+      setMediaFailed(false);
+      setMediaRetryNonce(current => current + 1);
+      return;
+    }
+    setMediaFailed(true);
+  };
 
   return (
     <article
@@ -782,7 +830,7 @@ const CameraCard: React.FC<CameraCardProps> = ({
         <CameraWebRTC
           entityId={camera.entity_id}
           name={camera.name}
-          onFailed={() => setWebrtcFailed(true)}
+          onFailed={handleWebRtcFailed}
         />
       ) : (
         <button
@@ -793,16 +841,20 @@ const CameraCard: React.FC<CameraCardProps> = ({
           aria-pressed={live}
           title={live ? "Encerrar transmissão ao vivo" : "Abrir ao vivo"}
         >
-          <img
-            src={live ? fallbackStreamUrl : snapshotUrl}
-            alt={`Imagem da câmera ${camera.name}`}
-            loading="eager"
-            decoding="async"
-            onError={() => setMediaFailed(true)}
-            data-camera-state={mediaFailed ? "unavailable" : "ready"}
-          />
+          {mediaUrl && <img
+              src={mediaUrl}
+              alt={`Imagem da câmera ${camera.name}`}
+              loading="eager"
+              decoding="async"
+              onError={handleMediaError}
+              data-camera-state={mediaFailed ? "unavailable" : "ready"}
+            />}
           <span>
-            {live ? "Ao vivo · clique para encerrar" : "Clique para ao vivo"}
+            {mediaLoading
+              ? live ? "Preparando transmissão…" : "Carregando imagem…"
+              : mediaFailed
+                ? "Imagem indisponível"
+                : live ? "Ao vivo · clique para encerrar" : "Clique para ao vivo"}
           </span>
         </button>
       )}
@@ -824,7 +876,10 @@ const CameraCard: React.FC<CameraCardProps> = ({
           <button
             type="button"
             className="refresh-camera"
-            onClick={() => setSnapshotVersion(Date.now())}
+            onClick={() => {
+              mediaRetryCount.current.snapshot = 0;
+              setSnapshotVersion(Date.now());
+            }}
             aria-label={`Atualizar imagem da câmera ${camera.name}`}
             title="Atualizar snapshot"
           >

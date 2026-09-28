@@ -1,86 +1,42 @@
-# Gaspar
+# GasparSite
 
-Projeto front-end React (Create React App) para gerenciar finanças pessoais/empresariais.
+Interface web React/TypeScript do ecossistema Gaspar para finanças, atividades, comunicações, casa conectada, memória/IA e secretária via WhatsApp.
 
-**Resumo**
-- SPA em React + TypeScript com `styled-components`, Material UI e várias libs auxiliares.
-- Comunicação com back-end via `axios`; endpoints definidos em `src/repositories/baseAPI.ts`.
-- Autenticação simples com token salvo em `localStorage`.
-- Planejamento de 90 dias com contas recorrentes e próxima fatura consolidada; compras do cartão não são projetadas individualmente.
+## Começar
 
-**Requisitos**
-- Node.js 16+ (recomendado 18 LTS)
-- npm 8+ ou yarn
+Requisitos: Node.js 20 LTS e npm.
 
-**Instalação**
-1. Na raiz do projeto, instale dependências:
-
-```bash
-npm install --legacy-peer-deps
-```
-
-2. O feed de notícias é consultado pelo backend. Configure `NEWS_API_KEY` somente no `.env` da API; nunca use uma variável `REACT_APP_*` para segredos, pois ela seria incorporada ao JavaScript público.
-
-O projeto instala com `npm install`; dependências antigas e incompatíveis que não eram utilizadas foram removidas.
-
-Se preferir `yarn`:
-
-```bash
-yarn
-```
-
-**Executar em desenvolvimento**
-
-```bash
+```powershell
+npm ci --legacy-peer-deps
 npm start
 ```
 
-Isso iniciará o servidor dev (Create React App) e normalmente abre http://localhost:3000.
+O desenvolvimento abre normalmente em `http://localhost:3000` e usa o GasparAPI em `http://127.0.0.1:5000`. Produção usa `https://api.fernandogasparjr.com`.
 
-**Build de produção**
+## Validar
 
-```bash
+```powershell
+npx tsc --noEmit
+$env:CI='true'
+npm test -- --watchAll=false --runInBand --silent
+npm audit --omit=dev --audit-level=high
+$env:CI='false'
+$env:GENERATE_SOURCEMAP='false'
 npm run build
+Copy-Item -LiteralPath '.\web.config' -Destination '.\build\web.config' -Force
 ```
 
-**Configuração da API**
-- Endpoints/URLs da API estão em [src/repositories/baseAPI.ts](src/repositories/baseAPI.ts). Em produção o projeto usa `https://api.fernandogasparjr.com`.
-- Se precisar apontar para um backend local, edite `URL_API` em `src/repositories/baseAPI.ts`.
+O artefato publicável é `build`. Não use `npm audit fix --force`.
 
-**Autenticação**
-- `src/hooks/auth.tsx` implementa a sessão web; um interceptor envia `Authorization` e `X-User-Id`. A API valida o token e impede que IDs enviados pelo cliente substituam o usuário autenticado.
+## Documentação
 
-**Principais comandos de ajuda**
+- [Índice e governança](docs/README.md)
+- [Arquitetura](docs/ARCHITECTURE.md)
+- [Catálogo funcional](docs/FUNCTIONALITY.md)
+- [Integração com a API](docs/API_INTEGRATION.md)
+- [Segurança e riscos](docs/SECURITY.md)
+- [Testes, CI, deploy e rollback](docs/OPERATIONS.md)
 
-```bash
-# Instalar dependências
-npm install
+## Segurança
 
-# Rodar em dev
-npm start
-
-# Gerar build de produção
-npm run build
-```
-
-**Problemas comuns**
-- Erro `react-scripts não é reconhecido`: normalmente significa que `node_modules` não está instalado ou a instalação falhou. Rode `npm install --legacy-peer-deps` e tente `npm start` novamente.
-- O build ainda emite avisos de lint do código legado; eles não impedem a compilação, mas devem ser eliminados gradualmente.
-
-**Arquitetura & pontos importantes**
-- Entrada: [src/index.tsx](src/index.tsx) → providers (`Theme`, `ShowNumber`, `Auth`) → `App`.
-- Rotas: [src/routes/index.tsx](src/routes/index.tsx) escolhe entre `app.routes` e `auth.routes` conforme `useAuth()`.
-- Exemplo de componente com lógica de domínio: [src/components/HistoryFinanceModal/index.tsx](src/components/HistoryFinanceModal/index.tsx).
-- Formatação de datas: [src/utils/formatDate.ts](src/utils/formatDate.ts).
-
-**Validação**
-- `npm test -- --watchAll=false`: 4 testes;
-- `npm run build`: build de produção por rota;
-- `npm audit --omit=dev`: zero vulnerabilidades conhecidas em dependências entregues ao navegador em 28/08/2026.
-
-**Contribuição**
-- Abra issues e pull requests. Mantenha consistência de estilo e execute testes locais antes de enviar PRs.
-
----
-Arquivo criado: [README.md](README.md)
-
+Não adicione segredos em código ou variáveis `REACT_APP_*`: elas são públicas no bundle. Consulte [SECURITY.md](SECURITY.md) para reporte e [docs/SECURITY.md](docs/SECURITY.md) para os controles técnicos.

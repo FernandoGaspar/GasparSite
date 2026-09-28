@@ -12,6 +12,7 @@ import {
   MdBusinessCenter,
 } from 'react-icons/md';
 import { URL_API } from '../../repositories/baseAPI';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import './MemoryGraph.css';
 
 type Node = { id:number; type:string; label:string; summary:string; horizon:string; importance:number; confidence:number; status:string; occurrences:number };
@@ -158,7 +159,7 @@ export default function MemoryGraph({ onError, onNotice }:{ onError:(value:strin
           <p className="knowledge-summary">{focus.summary || 'Este assunto foi identificado nas suas comunicações.'}</p>
           <div className="knowledge-score"><span><strong>{Math.round(focus.importance * 100)}%</strong>relevância</span><span><strong>{Math.round(focus.confidence * 100)}%</strong>confiança</span><span><strong>{focus.occurrences}</strong>menções</span></div>
           <div className="knowledge-evidence-head"><div><small>POR QUE ISSO ESTÁ AQUI?</small><h4>Evidências encontradas</h4></div><span>{evidence.length}</span></div>
-          <div className="knowledge-evidence">{evidence.map(item => <article key={item.id}><span>{item.sourceType === 'teams' ? 'Teams' : item.sourceType === 'mail' ? 'Outlook' : item.sourceType}</span><strong>{item.title}</strong><small>{item.author}{item.occurredAt ? ` · ${new Date(item.occurredAt).toLocaleDateString('pt-BR')}` : ''}</small><p>{item.excerpt}</p>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer"><MdOpenInNew />Abrir mensagem original</a>}</article>)}{!evidence.length && <div className="knowledge-no-evidence">As evidências deste assunto ainda estão sendo consolidadas.</div>}</div>
+          <div className="knowledge-evidence">{evidence.map(item => {const sourceUrl=safeExternalUrl(item.sourceUrl);return <article key={item.id}><span>{item.sourceType === 'teams' ? 'Teams' : item.sourceType === 'mail' ? 'Outlook' : item.sourceType}</span><strong>{item.title}</strong><small>{item.author}{item.occurredAt ? ` · ${new Date(item.occurredAt).toLocaleDateString('pt-BR')}` : ''}</small><p>{item.excerpt}</p>{sourceUrl && <a href={sourceUrl} target="_blank" rel="noopener noreferrer"><MdOpenInNew />Abrir mensagem original</a>}</article>})}{!evidence.length && <div className="knowledge-no-evidence">As evidências deste assunto ainda estão sendo consolidadas.</div>}</div>
           <div className="knowledge-review">{focus.status !== 'confirmed' && <button className="confirm" disabled={busy} onClick={() => void review('confirmed')}><MdCheck />Manter como memória importante</button>}<button className="dismiss" disabled={busy} onClick={() => void review('rejected')}>Não é relevante</button></div>
         </> : <div className="knowledge-welcome"><span><MdDeviceHub /></span><h3>Explore uma conexão</h3><p>Selecione um assunto na lista ou no mapa. Você verá o resumo, a relevância e as mensagens que deram origem àquela conexão.</p><ol><li><b>1</b>Escolha um assunto</li><li><b>2</b>Revise as evidências</li><li><b>3</b>Confirme o que merece permanecer</li></ol></div>}
       </aside>

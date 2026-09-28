@@ -1,13 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useHistory } from 'react-router-dom';
 import {
   MdArchive, MdCheckCircle, MdClose, MdCreate, MdEmail, MdFlag, MdInbox,
   MdOpenInNew, MdPerson, MdRefresh, MdSecurity, MdSend, MdStar, MdWork,
 } from 'react-icons/md';
+import { FaWhatsapp } from 'react-icons/fa';
 import { URL_API } from '../../repositories/baseAPI';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import MicrosoftWorkspace, { MicrosoftDraft } from '../Activities/MicrosoftWorkspace';
 import MicrosoftTeamsWorkspace from '../Activities/MicrosoftTeamsWorkspace';
+import WhatsAppWorkspace, { WhatsAppDraft } from './WhatsAppWorkspace';
 import { Container } from './styles';
 
 type Connection = {
@@ -29,7 +32,8 @@ const messageOf=(error:any,fallback:string)=>error?.response?.data?.message||fal
 
 export default function Communications(){
   const history=useHistory();
-  const [scope,setScope]=useState<'personal'|'work'>('work');
+  const initialScope=new URLSearchParams(window.location.search).get('channel')==='whatsapp'?'whatsapp':'work';
+  const [scope,setScope]=useState<'personal'|'work'|'whatsapp'>(initialScope);
   const [workView,setWorkView]=useState<'outlook'|'teams'>('outlook');
   const [connection,setConnection]=useState<Connection>();
   const [inbox,setInbox]=useState<Inbox>(emptyInbox);
@@ -38,17 +42,19 @@ export default function Communications(){
   const [notice,setNotice]=useState(''); const [error,setError]=useState('');
   const [compose,setCompose]=useState(false); const [draftId,setDraftId]=useState('');
   const [mail,setMail]=useState({to:'',cc:'',subject:'',body:''});
+  const gmailRefreshRequested=useRef(false);
 
-  const load=useCallback(async(forceRefresh=false)=>{
-    setLoading(true);setError('');
+  const load=useCallback(async(forceRefresh=false,silent=false)=>{
+    if(!silent)setLoading(true);setError('');
     try{
-      const {data:status}=await axios.get<Connection>(`${URL_API}/gmail/connection`);setConnection(status);
-      if(status.connected){const {data}=await axios.get<Inbox>(`${URL_API}/gmail/messages`,{params:{mode,limit:30,search,refresh:forceRefresh||undefined}});setInbox(data);if(data.lastSyncAt)setConnection({...status,lastSyncAt:data.lastSyncAt});}
-      else {setInbox(emptyInbox)}
+      const [connectionResponse,messageResponse]=await Promise.all([axios.get<Connection>(`${URL_API}/gmail/connection`),axios.get<Inbox>(`${URL_API}/gmail/messages`,{params:{mode,limit:30,search,refresh:forceRefresh||undefined}})]);
+      const status=connectionResponse.data,data=messageResponse.data;setConnection(data.lastSyncAt?{...status,lastSyncAt:data.lastSyncAt}:status);setInbox(data);
+      if(status.connected&&!forceRefresh&&!gmailRefreshRequested.current){gmailRefreshRequested.current=true;window.setTimeout(()=>void load(true,true),0);}
     }catch(e){setError(messageOf(e,'Não foi possível carregar a Central de Comunicação.'));}
-    finally{setLoading(false);}
+    finally{if(!silent)setLoading(false);}
   },[mode,search]);
-  useEffect(()=>{void load()},[load]);
+  useEffect(()=>{if(scope==='personal')void load()},[load,scope]);
+  useEffect(()=>{if(scope!=='personal'||!inbox.syncPending)return undefined;const timer=window.setTimeout(()=>void load(false,true),7000);return()=>window.clearTimeout(timer);},[inbox.syncPending,load,scope]);
 
   const savePreferences=async(next:Partial<NonNullable<Connection['preferences']>>)=>{if(!connection?.preferences)return;setBusy('preferences');try{const {data}=await axios.put(`${URL_API}/gmail/preferences`,{...connection.preferences,...next});setConnection({...connection,preferences:data});setNotice('Preferências salvas.')}catch(e){setError(messageOf(e,'Não foi possível salvar as preferências.'))}finally{setBusy('')}};
   const organize=async()=>{setBusy('organize');setError('');try{const {data}=await axios.post(`${URL_API}/gmail/organize`,{apply:true,limit:30});setNotice(`${data.applied} mensagem${data.applied===1?' organizada':'s organizadas'}. Nenhuma foi apagada.`);await load()}catch(e){setError(messageOf(e,'Não foi possível organizar sua caixa.'))}finally{setBusy('')}};
@@ -57,8 +63,10 @@ export default function Communications(){
   const sendDraft=async()=>{if(!draftId||!window.confirm(`Enviar este e-mail para ${mail.to}?`))return;setBusy('send');try{await axios.post(`${URL_API}/gmail/drafts/${encodeURIComponent(draftId)}/send`,{confirmed:true});setCompose(false);setDraftId('');setMail({to:'',cc:'',subject:'',body:''});setNotice('E-mail enviado com confirmação.')}catch(e){setError(messageOf(e,'Não foi possível enviar o e-mail.'))}finally{setBusy('')}};
   const confidence=useMemo(()=>inbox.messages.filter(item=>item.confidence>=.86).length,[inbox]);
   const openWorkActivity=(draft:MicrosoftDraft)=>history.push('/activities',{microsoftDraft:draft});
+  const openWhatsAppActivity=(draft:WhatsAppDraft)=>history.push('/activities',{microsoftDraft:draft});
 
-  const scopeNav=<nav className="scope-nav"><button className={scope==='personal'?'personal active':''} onClick={()=>setScope('personal')}><MdPerson/>Pessoal</button><button className={scope==='work'?'work active':''} onClick={()=>setScope('work')}><MdWork/>Profissional</button></nav>;
+  const scopeNav=<nav className="scope-nav"><button className={scope==='personal'?'personal active':''} onClick={()=>setScope('personal')}><MdPerson/>Pessoal</button><button className={scope==='work'?'work active':''} onClick={()=>setScope('work')}><MdWork/>Profissional</button><button className={scope==='whatsapp'?'whatsapp active':''} onClick={()=>setScope('whatsapp')}><FaWhatsapp/>WhatsApp</button></nav>;
+  if(scope==='whatsapp')return <Container><header className="hero"><div><span><FaWhatsapp/> CENTRAL DE COMUNICAÇÃO</span><h1>WhatsApp</h1><p>Conversas vinculadas ao Second Brain, com envio sempre confirmado por você.</p></div></header>{scopeNav}<WhatsAppWorkspace onDraft={openWhatsAppActivity} onManageConnection={()=>history.push('/settings')}/></Container>;
   if(scope==='work')return <Container>
     <header className="hero"><div><span><MdEmail/> CENTRAL DE COMUNICAÇÃO</span><h1>Comunicação profissional</h1><p>Outlook e Teams no mesmo contexto de trabalho.</p></div></header>
     {scopeNav}<nav className="filters"><button className={workView==='outlook'?'active':''} onClick={()=>setWorkView('outlook')}>Outlook</button><button className={workView==='teams'?'active':''} onClick={()=>setWorkView('teams')}>Teams</button></nav><section className="context-note work"><strong>{workView==='teams'?'Conversas do Teams':'Contexto profissional'}</strong><span>{workView==='teams'?'Converta uma mensagem importante em atividade sem misturar conversas pessoais.':'E-mails sinalizados no Outlook criam atividades profissionais. A conta é gerenciada em Configurações.'}</span></section>
@@ -79,7 +87,7 @@ export default function Communications(){
         <label><input type="checkbox" checked={!!connection.preferences?.reviewSuspects} onChange={e=>void savePreferences({reviewSuspects:e.target.checked})}/>Retirar suspeitos da entrada para revisão</label>
       </div></section>
       <nav className="filters">{Object.entries(labels).map(([key,label])=><button key={key} className={mode===key?'active':''} onClick={()=>setMode(key)}>{label}{inbox.gmailCategories?.[key]?.unread?` · ${inbox.gmailCategories[key].unread}`:''}</button>)}<input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&void load()} placeholder="Buscar remetente ou assunto"/></nav>
-      <main className="mail-list">{inbox.messages.map(item=><article key={item.id} className={`mail panel ${!item.isRead?'unread':''}`}><div className="mail-icon"><MdEmail/></div><div className="mail-copy"><div className="mail-top"><span>{item.sender.name||item.sender.email}</span><time>{item.receivedDateTime?new Date(item.receivedDateTime).toLocaleString('pt-BR'):'—'}</time></div><h3>{item.subject}</h3><p>{item.snippet}</p><div className="tags"><b className={item.category==='suspect'?'suspect':''}>{categoryName[item.category]||item.category}</b><span>Gmail: {item.gmailCategoryLabel}</span><span>{Math.round(item.confidence*100)}% de confiança</span>{item.hasAttachments&&<span>Anexo</span>}</div><details><summary>Por que o Gaspar classificou assim?</summary>{item.reasons.map(reason=><p key={reason}>{reason}</p>)}</details></div><div className="mail-actions"><button disabled={busy===item.id} onClick={()=>void act(item,'apply_suggestion')}><MdCheckCircle/>Aplicar</button><button disabled={busy===item.id} onClick={()=>void act(item,'important')}><MdFlag/>Importante</button><button disabled={busy===item.id} onClick={()=>void act(item,'archive')}><MdArchive/>Arquivar</button><button className="secondary" disabled={busy===item.id} onClick={()=>void act(item,item.isRead?'unread':'read')}>{item.isRead?'Não lido':'Lido'}</button><a href={item.webLink} target="_blank" rel="noreferrer"><MdOpenInNew/>Gmail</a></div></article>)}{!loading&&!inbox.messages.length&&<div className="empty panel"><MdInbox/><h2>{inbox.syncPending?'Sincronização inicial em andamento':'Nada nesta visualização'}</h2><p>{inbox.syncPending?'As mensagens já confirmadas aparecerão aqui enquanto o Gmail é espelhado no SQL Server.':'Sua caixa está em ordem ou o filtro não encontrou mensagens.'}</p></div>}</main>
+      <main className="mail-list">{inbox.messages.map(item=>{const webLink=safeExternalUrl(item.webLink);return <article key={item.id} className={`mail panel ${!item.isRead?'unread':''}`}><div className="mail-icon"><MdEmail/></div><div className="mail-copy"><div className="mail-top"><span>{item.sender.name||item.sender.email}</span><time>{item.receivedDateTime?new Date(item.receivedDateTime).toLocaleString('pt-BR'):'—'}</time></div><h3>{item.subject}</h3><p>{item.snippet}</p><div className="tags"><b className={item.category==='suspect'?'suspect':''}>{categoryName[item.category]||item.category}</b><span>Gmail: {item.gmailCategoryLabel}</span><span>{Math.round(item.confidence*100)}% de confiança</span>{item.hasAttachments&&<span>Anexo</span>}</div><details><summary>Por que o Gaspar classificou assim?</summary>{item.reasons.map(reason=><p key={reason}>{reason}</p>)}</details></div><div className="mail-actions"><button disabled={busy===item.id} onClick={()=>void act(item,'apply_suggestion')}><MdCheckCircle/>Aplicar</button><button disabled={busy===item.id} onClick={()=>void act(item,'important')}><MdFlag/>Importante</button><button disabled={busy===item.id} onClick={()=>void act(item,'archive')}><MdArchive/>Arquivar</button><button className="secondary" disabled={busy===item.id} onClick={()=>void act(item,item.isRead?'unread':'read')}>{item.isRead?'Não lido':'Lido'}</button>{webLink&&<a href={webLink} target="_blank" rel="noopener noreferrer"><MdOpenInNew/>Gmail</a>}</div></article>})}{!loading&&!inbox.messages.length&&<div className="empty panel"><MdInbox/><h2>{inbox.syncPending?'Sincronização inicial em andamento':'Nada nesta visualização'}</h2><p>{inbox.syncPending?'As mensagens já confirmadas aparecerão aqui enquanto o Gmail é espelhado no SQL Server.':'Sua caixa está em ordem ou o filtro não encontrou mensagens.'}</p></div>}</main>
     </>}
     {compose&&<div className="modal-backdrop" onMouseDown={()=>setCompose(false)}><section className="composer panel" onMouseDown={e=>e.stopPropagation()}><header><div><span>ENVIO CONTROLADO</span><h2>Novo e-mail</h2></div><button className="icon-button" onClick={()=>setCompose(false)}><MdClose/></button></header><label>Para<input value={mail.to} onChange={e=>{setDraftId('');setMail({...mail,to:e.target.value})}} placeholder="nome@gmail.com"/></label><label>Cc<input value={mail.cc} onChange={e=>{setDraftId('');setMail({...mail,cc:e.target.value})}} placeholder="Opcional"/></label><label>Assunto<input value={mail.subject} onChange={e=>{setDraftId('');setMail({...mail,subject:e.target.value})}}/></label><label>Mensagem<textarea value={mail.body} onChange={e=>{setDraftId('');setMail({...mail,body:e.target.value})}} rows={9}/></label><p className="safety">O Gaspar primeiro salva no Gmail. O envio só acontece após uma segunda confirmação.</p><footer>{draftId?<><span>Rascunho pronto</span><button disabled={busy==='send'} onClick={sendDraft}><MdSend/>{busy==='send'?'Enviando…':'Confirmar e enviar'}</button></>:<button disabled={busy==='draft'||!mail.to||!mail.subject||!mail.body} onClick={saveDraft}>{busy==='draft'?'Salvando…':'Salvar rascunho'}</button>}</footer></section></div>}
   </Container>;

@@ -4,12 +4,14 @@ import { useHistory, useLocation } from 'react-router-dom';
 import {
   MdAdd, MdArchive, MdArrowForward, MdCheck, MdClose, MdToday,
   MdDelete, MdEvent, MdHome, MdInbox, MdLoop, MdMoreHoriz, MdOpenInNew,
-  MdPeople, MdPerson, MdPlayArrow, MdSchedule, MdSearch, MdShoppingCart, MdTune, MdWork,
+  MdPeople, MdPerson, MdPlayArrow, MdSchedule, MdSearch, MdShare, MdShoppingCart, MdTune, MdWork,
 } from 'react-icons/md';
 import { URL_API } from '../../repositories/baseAPI';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import { Container } from './styles';
 import { ActivityPeriod, matchesActivityPeriod, periodLabels, periodDescriptions, sortByActivityUrgency } from './activityPeriods';
 import MicrosoftWorkspace, { MicrosoftDraft, MicrosoftSource } from './MicrosoftWorkspace';
+import PersonSharePanel from './PersonSharePanel';
 
 type View = 'focus' | 'board' | 'people' | 'routines' | 'agenda';
 type Status = 'inbox' | 'next' | 'doing' | 'waiting' | 'done' | 'cancelled';
@@ -20,7 +22,7 @@ interface Subtask {
 }
 interface Activity {
   id:number; title:string; notes:string; itemType:ItemType; area:'work'|'personal';
-  status:Status; priority:'low'|'medium'|'high'; dueDate:string|null; personName:string;
+  status:Status; priority:'low'|'medium'|'high'; dueDate:string|null; personName:string; assigneeId:number|null;
   projectName:string; recurrence:'none'|'weekly'|'monthly'|'quarterly'|'yearly';
   recurrenceInterval:number; createdAt:string; completedAt:string|null;
   subtasks:Subtask[]; subtaskSummary:{total:number;completed:number};
@@ -29,7 +31,7 @@ interface Activity {
 interface Summary { open:number; inbox:number; doing:number; waiting:number; overdue:number; dueToday:number; }
 interface FormState {
   title:string; notes:string; itemType:ItemType; area:'work'|'personal'; status:Status;
-  priority:'low'|'medium'|'high'; dueDate:string; personName:string; projectName:string;
+  priority:'low'|'medium'|'high'; dueDate:string; personName:string; assigneeId:number|null; projectName:string;
   recurrence:'none'|'weekly'|'monthly'|'quarterly'|'yearly'; recurrenceInterval:number;
 }
 interface DraftInfo { kind:'ai'|'fallback'; message:string; details:string; }
@@ -38,7 +40,9 @@ interface ActivityAnalysisResponse {
   analysis: { usedAI:boolean; usedContext:boolean; selectedDomains:string[]; memoryCount:number; estimatedContextTokens:number; model:string };
 }
 
-const blank: FormState = { title:'', notes:'', itemType:'task', area:'work', status:'inbox', priority:'medium', dueDate:'', personName:'', projectName:'', recurrence:'none', recurrenceInterval:1 };
+const blank: FormState = { title:'', notes:'', itemType:'task', area:'work', status:'inbox', priority:'medium', dueDate:'', personName:'', assigneeId:null, projectName:'', recurrence:'none', recurrenceInterval:1 };
+interface RegisteredPerson {id:number; name:string; email:string; activityCount:number; activeShares:number;}
+interface PersonGroup {key:string; person:string; personId:number|null; topics:Activity[];}
 const statusLabels: Record<Status,string> = { inbox:'Entrada', next:'Próximas', doing:'Em andamento', waiting:'Aguardando', done:'Concluídas', cancelled:'Canceladas' };
 const typeLabels: Record<ItemType,string> = { task:'Tarefa', follow_up:'Follow-up', maintenance:'Manutenção', purchase:'Compra' };
 const recurrenceLabels: Record<string,string> = { none:'Não se repete', weekly:'Semanal', monthly:'Mensal', quarterly:'Trimestral', yearly:'Anual' };
@@ -89,6 +93,8 @@ const Activities: React.FC = () => {
   const projectFilter = actionParams.get('project') || '';
   const hasActionFilter = Boolean(actionFilter || personFilter || projectFilter);
   const [items, setItems] = useState<Activity[]>([]);
+  const [registeredPeople, setRegisteredPeople] = useState<RegisteredPerson[]>([]);
+  const [shareTarget, setShareTarget] = useState<{person:string;personId:number|null}|null>(null);
   const [summary, setSummary] = useState<Summary>({open:0,inbox:0,doing:0,waiting:0,overdue:0,dueToday:0});
   const requestedView = actionParams.get('view');
   const [view, setView] = useState<View>(requestedView === 'agenda' ? requestedView : 'focus');
@@ -125,8 +131,13 @@ const Activities: React.FC = () => {
       if (!silent && sequence === loadSequence.current) setError(requestError.response?.data?.message || 'Não foi possível carregar as atividades.');
     } finally { if (sequence === loadSequence.current) setLoading(false); }
   }, []);
+  const loadPeople = useCallback(async () => {
+    try { const {data} = await axios.get(`${URL_API}/activity-people`); setRegisteredPeople(data.people || []); }
+    catch { /* Keep the activity list usable if the identity directory is unavailable. */ }
+  }, []);
   useEffect(() => {
     void load(false);
+    void loadPeople();
     const refresh = () => void load(true);
     const onVisibilityChange = () => { if (document.visibilityState === 'visible') refresh(); };
     const interval = window.setInterval(refresh, refreshIntervalMs);
@@ -138,7 +149,7 @@ const Activities: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       loadSequence.current += 1;
     };
-  }, [load]);
+  }, [load,loadPeople]);
 
   const searching = Boolean(search.trim());
   const matchesActionFilter = useCallback((item:Activity) => {
@@ -156,10 +167,29 @@ const Activities: React.FC = () => {
   const focus = hasActionFilter || period !== 'all' ? focusItems : focusItems.length ? focusItems : open;
   const actionFilterLabel = personFilter ? `Responsável: ${personFilter}` : projectFilter ? `Projeto: ${projectFilter}` : periodLabels[effectivePeriod as ActivityPeriod] || ({ waiting:'Follow-ups aguardando', 'missing-context':'Prioridades sem contexto' } as Record<string,string>)[actionFilter] || 'Filtro do alerta';
   const people = useMemo(() => {
-    const grouped:Record<string,Activity[]> = { '':[] };
-    visible.filter(item => !isClosed(item)).forEach(item => (grouped[item.personName?.trim() || ''] ||= []).push(item));
-    return Object.entries(grouped).sort((a,b) => !a[0] ? 1 : !b[0] ? -1 : a[0].localeCompare(b[0]));
-  }, [visible]);
+    const grouped = new Map<string,PersonGroup>();
+    grouped.set('unassigned',{key:'unassigned',person:'',personId:null,topics:[]});
+    const idsByName = new Map<string,number[]>();
+    registeredPeople.forEach(person => {
+      const name = normalizeSearch(person.name);
+      idsByName.set(name,[...(idsByName.get(name) || []),person.id]);
+      grouped.set(`id:${person.id}`,{key:`id:${person.id}`,person:person.name,personId:person.id,topics:[]});
+    });
+    const keyFor = (item:Activity) => {
+      const name = normalizeSearch(item.personName || '');
+      const registeredIds = idsByName.get(name) || [];
+      return item.assigneeId ? `id:${item.assigneeId}` : !name ? 'unassigned' : registeredIds.length===1 ? `id:${registeredIds[0]}` : `name:${name}`;
+    };
+    items.forEach(item => {
+      const key = keyFor(item);
+      if (!grouped.has(key)) grouped.set(key,{key,person:item.personName?.trim() || '',personId:item.assigneeId || null,topics:[]});
+    });
+    visible.filter(item => !isClosed(item)).forEach(item => {
+      const key = keyFor(item);
+      grouped.get(key)!.topics.push(item);
+    });
+    return [...grouped.values()].sort((a,b) => !a.person ? 1 : !b.person ? -1 : a.person.localeCompare(b.person) || a.key.localeCompare(b.key));
+  }, [items,visible,registeredPeople]);
 
   const openNew = (preset:Partial<FormState>={}) => {
     setEditing(null); setDraftInfo(null); setDraftSource(null); setSubtasks([]); setSubtaskTitle(''); setForm({...blank, area:area === 'all' ? 'work' : area, ...preset}); setComposerOpen(true);
@@ -168,7 +198,7 @@ const Activities: React.FC = () => {
     setEditing(item);
     setDraftInfo(null); setDraftSource(null);
     setSubtasks(item.subtasks || []); setSubtaskTitle('');
-    setForm({title:item.title,notes:item.notes,itemType:item.itemType,area:item.area,status:item.status,priority:item.priority,dueDate:item.dueDate||'',personName:item.personName,projectName:item.projectName,recurrence:item.recurrence,recurrenceInterval:item.recurrenceInterval});
+    setForm({title:item.title,notes:item.notes,itemType:item.itemType,area:item.area,status:item.status,priority:item.priority,dueDate:item.dueDate||'',personName:item.personName,assigneeId:item.assigneeId || null,projectName:item.projectName,recurrence:item.recurrence,recurrenceInterval:item.recurrenceInterval});
     setComposerOpen(true);
   };
   const save = async (event:FormEvent) => {
@@ -248,6 +278,7 @@ const Activities: React.FC = () => {
         priority:suggestion.priority || 'medium',
         dueDate:suggestion.dueDate || '',
         personName:suggestion.personName || '',
+        assigneeId:null,
         projectName:suggestion.projectName || '',
         recurrence:suggestion.recurrence || 'none',
         recurrenceInterval:suggestion.recurrenceInterval || 1,
@@ -317,12 +348,12 @@ const Activities: React.FC = () => {
     stopDragging();
     if (item && item.status !== status) void moveItem(item, {status});
   };
-  const dropOnPerson = (event:DragEvent<HTMLElement>, personName:string) => {
+  const dropOnPerson = (event:DragEvent<HTMLElement>, group:PersonGroup) => {
     event.preventDefault();
     const item = items.find(current => current.id === draggedId);
     stopDragging();
-    if (item && !personName && item.itemType==='follow_up') { setError('Follow-ups precisam de uma pessoa. Para remover o responsável, altere o tipo para Tarefa.'); return; }
-    if (item && item.personName !== personName) void moveItem(item, {personName});
+    if (item && !group.person && item.itemType==='follow_up') { setError('Follow-ups precisam de uma pessoa. Para remover o responsável, altere o tipo para Tarefa.'); return; }
+    if (item && (item.personName !== group.person || item.assigneeId !== group.personId)) void moveItem(item, {personName:group.person,assigneeId:group.personId});
   };
   const archive = async () => {
     if (!editing) return;
@@ -336,9 +367,10 @@ const Activities: React.FC = () => {
     setSubtasks((suggestion.steps || []).map((title:string,index:number)=>({id:-(Date.now()+index),activityId:0,title,isCompleted:false,position:index})));
     setForm({
       ...blank,...suggestion,dueDate:suggestion.dueDate || '',
-      recurrenceInterval:suggestion.recurrenceInterval || 1,area:'work',
+      recurrenceInterval:suggestion.recurrenceInterval || 1,area:suggestion.area || (data.source.sourceType==='whatsapp'?'personal':'work'),
     });
-    setDraftInfo({kind:data.analysis?.usedAI?'ai':'fallback',message:data.analysis?.usedAI?'O agente preparou este rascunho a partir do Microsoft 365.':'A IA não estava disponível; preparei um rascunho básico com o item selecionado.',details:'Revise os campos antes de salvar. O e-mail ou compromisso original ficará vinculado à atividade.'});
+    const sourceLabel=data.source.sourceType==='whatsapp'?'WhatsApp':'Microsoft 365';
+    setDraftInfo({kind:data.analysis?.usedAI?'ai':'fallback',message:data.analysis?.usedAI?`O agente preparou este rascunho a partir do ${sourceLabel}.`:'A IA não estava disponível; preparei um rascunho básico com o item selecionado.',details:'Revise os campos antes de salvar. A mensagem original ficará vinculada à atividade.'});
     setComposerOpen(true);
   };
   useEffect(() => {
@@ -350,7 +382,9 @@ const Activities: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[location.state]);
 
-  const ActivityCard = ({item,compact=false,draggable=false}:{item:Activity,compact?:boolean,draggable?:boolean}) => <article
+  const ActivityCard = ({item,compact=false,draggable=false}:{item:Activity,compact?:boolean,draggable?:boolean}) => {
+    const sourceUrl = safeExternalUrl(item.sourceUrl);
+    return <article
     className={`activity-card ${compact?'compact':''} ${isClosed(item)?'closed':''} ${draggable?'draggable':''} ${draggedId===item.id?'dragging':''} ${movingIds.includes(item.id)?'moving':''}`}
     draggable={draggable && !movingIds.includes(item.id)}
     aria-grabbed={draggable ? draggedId === item.id : undefined}
@@ -369,12 +403,13 @@ const Activities: React.FC = () => {
         {item.projectName && <span>#{item.projectName}</span>}
         {item.dueDate && <span className={isOverdue(item)?'late':''}><MdToday/>{dateLabel(item.dueDate)}</span>}
       {item.recurrence!=='none' && <span><MdLoop/>{recurrenceLabels[item.recurrence]}</span>}
-        {item.sourceUrl && <a className="source-link" href={item.sourceUrl} target="_blank" rel="noreferrer" onClick={event=>event.stopPropagation()}><MdOpenInNew/>{item.sourceType==='gmail_mail'?'Gmail':'Outlook'}</a>}
+        {sourceUrl && <a className="source-link" href={sourceUrl} target="_blank" rel="noopener noreferrer" onClick={event=>event.stopPropagation()}><MdOpenInNew/>{item.sourceType==='gmail_mail'?'Gmail':'Outlook'}</a>}
       </div>
       {!!item.subtasks?.length && <div className="subtask-progress"><span><MdCheck/>{item.subtaskSummary?.completed || 0}/{item.subtaskSummary?.total || item.subtasks.length} etapas</span><i><b style={{width:`${Math.round(((item.subtaskSummary?.completed || 0)/(item.subtaskSummary?.total || item.subtasks.length))*100)}%`}}/></i></div>}
     </div>
     <span className={`priority ${item.priority}`} title={`Prioridade ${item.priority}`}/>
   </article>;
+  };
 
   return <Container>
     <header className="page-header">
@@ -436,9 +471,9 @@ const Activities: React.FC = () => {
           <button className="text-button" onClick={()=>setView('board')}>Organizar entrada <MdArrowForward/></button>
         </section>
         <section className="panel people-peek"><div className="section-head"><div><span>RESPONSÁVEIS</span><h2>Por pessoa</h2></div></div>
-          {people.filter(([person])=>!!person).slice(0,4).map(([person,topics])=><button key={person} onClick={()=>setView('people')}><span className="avatar">{person.charAt(0).toUpperCase()}</span><span>{person}<small>{topics.length} {topics.length===1?'atividade':'atividades'}</small></span><MdArrowForward/></button>)}
-          {!!people.find(([person])=>!person)?.[1].length && <button onClick={()=>setView('people')}><span className="avatar"><MdPerson/></span><span>Sem responsável<small>{people.find(([person])=>!person)?.[1].length} atividades</small></span><MdArrowForward/></button>}
-          {!people.some(([,topics])=>topics.length) && <p className="mini-empty">Nenhuma atividade aberta neste filtro.</p>}
+          {people.filter(group=>!!group.person).slice(0,4).map(group=><button key={group.key} onClick={()=>setView('people')}><span className="avatar">{group.person.charAt(0).toUpperCase()}</span><span>{group.person}<small>{group.topics.length} {group.topics.length===1?'atividade':'atividades'}</small></span><MdArrowForward/></button>)}
+          {!!people.find(group=>!group.person)?.topics.length && <button onClick={()=>setView('people')}><span className="avatar"><MdPerson/></span><span>Sem responsável<small>{people.find(group=>!group.person)?.topics.length} atividades</small></span><MdArrowForward/></button>}
+          {!people.some(group=>group.topics.length) && <p className="mini-empty">Nenhuma atividade aberta neste filtro.</p>}
         </section>
       </aside>
     </div>}
@@ -447,7 +482,7 @@ const Activities: React.FC = () => {
 
     {!loading && view==='people' && <div className="people-view">
       <div className="section-head page-section-head"><div><span>RESPONSÁVEIS</span><h2>Atividades por pessoa</h2><p>Todas as atividades abertas, incluindo as que ainda precisam de um responsável.</p></div><button className="secondary" onClick={()=>openNew({status:'next'})}><MdAdd/> Nova atividade</button></div>
-      <div className="people-grid">{people.map(([person,topics])=>{const target=`person:${person}`;return <section className={`person-card ${!person?'unassigned':''} ${dropTarget===target?'drop-target':''}`} key={person} onDragOver={event=>allowDrop(event,target)} onDragEnter={event=>allowDrop(event,target)} onDrop={event=>dropOnPerson(event,person)}><header><span className="avatar large">{person?person.charAt(0).toUpperCase():<MdPerson/>}</span><div><h3>{person || 'Sem responsável'}</h3><p>{topics.length} {topics.length===1?'atividade aberta':'atividades abertas'}</p></div></header><div>{topics.map(item=><ActivityCard key={item.id} item={item} compact draggable/>)}{!topics.length&&<p className="mini-empty">Nenhuma atividade sem responsável neste filtro.</p>}</div><button onClick={()=>openNew({personName:person,status:'next'})}><MdAdd/>Adicionar atividade</button></section>})}</div>
+      <div className="people-grid">{people.map(group=>{const target=`person:${group.key}`;return <section className={`person-card ${!group.person?'unassigned':''} ${dropTarget===target?'drop-target':''}`} key={group.key} onDragOver={event=>allowDrop(event,target)} onDragEnter={event=>allowDrop(event,target)} onDrop={event=>dropOnPerson(event,group)}><header><span className="avatar large">{group.person?group.person.charAt(0).toUpperCase():<MdPerson/>}</span><div><h3>{group.person || 'Sem responsável'}</h3><p>{group.topics.length} {group.topics.length===1?'atividade aberta':'atividades abertas'}{group.personId?` · ${registeredPeople.find(person=>person.id===group.personId)?.email || 'vinculado'}`:''}</p></div>{group.person&&<button type="button" className="person-share-button" aria-label={`Compartilhar atividades de ${group.person}`} onClick={()=>setShareTarget({person:group.person,personId:group.personId})}><MdShare/> Compartilhar</button>}</header><div>{group.topics.map(item=><ActivityCard key={item.id} item={item} compact draggable/>)}{!group.topics.length&&<p className="mini-empty">Nenhuma atividade aberta neste filtro.</p>}</div><button onClick={()=>openNew({personName:group.person,assigneeId:group.personId,status:'next'})}><MdAdd/>Adicionar atividade</button></section>})}</div>
       {!people.length && <div className="empty panel"><MdPeople/><h3>Suas agendas aparecerão aqui</h3><p>Crie um follow-up e associe a uma pessoa.</p></div>}
     </div>}
 
@@ -460,7 +495,7 @@ const Activities: React.FC = () => {
     {composerOpen && <div className="overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setComposerOpen(false)}}><form className="composer" onSubmit={save}>
       <header><div><span>{editing?'EDITAR ATIVIDADE':draftInfo?.kind==='ai'?'RASCUNHO ORGANIZADO PELA IA':'NOVA ATIVIDADE'}</span><h2>{editing?'Ajuste os detalhes':draftInfo?'Revise antes de salvar':'Tire da cabeça. Organize depois.'}</h2></div><button type="button" onClick={()=>setComposerOpen(false)}><MdClose/></button></header>
       {draftInfo && <div className={`ai-draft ${draftInfo.kind}`}><b><span>IA</span>{draftInfo.message}</b><small>{draftInfo.details}</small></div>}
-      {(draftSource || editing?.sourceUrl) && <a className="composer-source" href={draftSource?.sourceUrl || editing?.sourceUrl} target="_blank" rel="noreferrer"><MdOpenInNew/>Abrir origem no Outlook</a>}
+      {safeExternalUrl(draftSource?.sourceUrl || editing?.sourceUrl) && <a className="composer-source" href={safeExternalUrl(draftSource?.sourceUrl || editing?.sourceUrl)} target="_blank" rel="noopener noreferrer"><MdOpenInNew/>Abrir origem no Outlook</a>}
       <label className="title-field"><span>Título</span><input autoFocus required maxLength={180} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="O que precisa acontecer?"/></label>
       <div className="form-grid">
         <label><span>Tipo</span><select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value as ItemType})}>{Object.entries(typeLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
@@ -468,7 +503,8 @@ const Activities: React.FC = () => {
         <label><span>Status</span><select value={form.status} onChange={e=>setForm({...form,status:e.target.value as Status})}>{boardStatuses.map(value=><option value={value} key={value}>{statusLabels[value]}</option>)}</select></label>
         <label><span>Prioridade</span><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value as any})}><option value="low">Baixa</option><option value="medium">Normal</option><option value="high">Alta</option></select></label>
         <label><span>Data</span><input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label>
-        <label><span>{form.itemType==='follow_up'?'Pessoa *':'Pessoa'}</span><input required={form.itemType==='follow_up'} value={form.personName} onChange={e=>setForm({...form,personName:e.target.value})} placeholder="Com quem?"/></label>
+        <label><span>{form.itemType==='follow_up'?'Pessoa *':'Pessoa'}</span><input required={form.itemType==='follow_up'} value={form.personName} onChange={e=>setForm({...form,personName:e.target.value,assigneeId:null})} placeholder="Com quem?"/></label>
+        {!!registeredPeople.length&&<label><span>Vincular ao responsável compartilhado</span><select value={form.assigneeId || ''} onChange={e=>{const selected=registeredPeople.find(person=>person.id===Number(e.target.value));setForm({...form,assigneeId:selected?.id || null,personName:selected?.name || form.personName});}}><option value="">Sem vínculo de acesso</option>{registeredPeople.map(person=><option value={person.id} key={person.id}>{person.name} · {person.email}</option>)}</select></label>}
         <label><span>Projeto ou contexto</span><input value={form.projectName} onChange={e=>setForm({...form,projectName:e.target.value})} placeholder="Ex.: Q3, Casa"/></label>
         <label><span>Repetição</span><select value={form.recurrence} onChange={e=>setForm({...form,recurrence:e.target.value as any})}>{Object.entries(recurrenceLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
       </div>
@@ -481,6 +517,16 @@ const Activities: React.FC = () => {
       </section>
       <footer>{editing?<button type="button" className="danger" onClick={archive}><MdArchive/>Arquivar</button>:<span/>}<div><button type="button" className="cancel" onClick={()=>setComposerOpen(false)}>Cancelar</button><button className="primary" disabled={saving}>{saving?'Salvando…':'Salvar atividade'}</button></div></footer>
     </form></div>}
+    {shareTarget&&<PersonSharePanel
+      key={shareTarget.person}
+      name={shareTarget.person}
+      personId={shareTarget.personId}
+      email={registeredPeople.find(person=>person.id===shareTarget.personId)?.email || ''}
+      activities={items.filter(item=>shareTarget.personId ? item.assigneeId===shareTarget.personId || (!item.assigneeId && normalizeSearch(item.personName)===normalizeSearch(shareTarget.person)) : !item.assigneeId && normalizeSearch(item.personName)===normalizeSearch(shareTarget.person))}
+      onClose={()=>setShareTarget(null)}
+      onPersonCreated={id=>setShareTarget(current=>current?{...current,personId:id}:current)}
+      onChanged={()=>{void load(true);void loadPeople();}}
+    />}
   </Container>;
 };
 

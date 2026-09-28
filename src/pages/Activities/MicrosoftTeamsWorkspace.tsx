@@ -14,6 +14,7 @@ import {
 } from 'react-icons/md';
 
 import { URL_API } from '../../repositories/baseAPI';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import { WorkspaceShell } from './MicrosoftWorkspace.styles';
 import type { MicrosoftDraft } from './MicrosoftWorkspace';
 import './MicrosoftTeamsWorkspace.css';
@@ -132,6 +133,7 @@ export default function MicrosoftTeamsWorkspace({
   );
   const selected = visibleConversations.find(conversation => conversation.id === selectedChat)
     || visibleConversations[0];
+  const selectedWebUrl = safeExternalUrl(selected?.last.webUrl);
 
   useEffect(() => {
     if (selected && selected.id !== selectedChat) setSelectedChat(selected.id);
@@ -184,7 +186,7 @@ export default function MicrosoftTeamsWorkspace({
 
       <section className="teams-chat-stage">
         {selected ? <>
-          <header className="teams-chat-header"><div className="teams-avatar large">{initials(selected.title)}</div><div><span>CONVERSA NO TEAMS</span><h3>{selected.title}</h3><p>{selected.messages.length} mensagens recentes disponíveis</p></div>{selected.last.webUrl && <a href={selected.last.webUrl} target="_blank" rel="noreferrer"><MdOpenInNew />Continuar no Teams</a>}</header>
+          <header className="teams-chat-header"><div className="teams-avatar large">{initials(selected.title)}</div><div><span>CONVERSA NO TEAMS</span><h3>{selected.title}</h3><p>{selected.messages.length} mensagens recentes disponíveis</p></div>{selectedWebUrl && <a href={selectedWebUrl} target="_blank" rel="noopener noreferrer"><MdOpenInNew />Continuar no Teams</a>}</header>
           <div className="teams-chat-scroll">
             <div className="teams-history-marker"><span>Histórico recente</span></div>
             {selected.messages.map(item => {
