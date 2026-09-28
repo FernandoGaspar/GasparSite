@@ -195,6 +195,23 @@ describe('Activities deadline and people views',()=>{
     fireEvent.click(page.getByText('Nova atividade'));
     expect(page.queryByText(/Carla · carla@example.com/)).toBeNull();
   });
+
+  it('materializes and inactivates a historical name-only responsible person',async()=>{
+    const confirm=jest.spyOn(window,'confirm').mockReturnValue(true);
+    const page=renderPage([
+      activity({id:71,title:'Histórico de Arthur',personName:'Arthur Souza',assigneeId:null,status:'done'}),
+    ]);
+    mockedAxios.patch.mockResolvedValueOnce({data:{person:{id:12,name:'Arthur Souza',email:'',isActive:false,version:1}}} as any);
+    await wait(()=>page.getByText('Pessoas'));
+    fireEvent.click(page.getByText('Pessoas'));
+    await wait(()=>page.getByText('Arthur Souza'));
+    fireEvent.click(page.getByText('Inativar responsável').closest('button')!);
+    await wait(()=>expect(mockedAxios.patch).toHaveBeenCalledWith(
+      expect.stringContaining('/activity-people/legacy'),
+      {name:'Arthur Souza',isActive:false},
+    ));
+    confirm.mockRestore();
+  });
 });
 
 describe('Activities subtasks', () => {
