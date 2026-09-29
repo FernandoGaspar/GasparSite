@@ -1,6 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import {fireEvent,render,wait} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import WhatsAppWorkspace,{ sameWhatsAppIdentity } from './WhatsAppWorkspace';
 
 jest.mock('axios',()=>({__esModule:true,default:{get:jest.fn(),post:jest.fn()}}));
@@ -38,9 +39,10 @@ describe('WhatsApp manual send idempotency',()=>{
   afterEach(()=>jest.restoreAllMocks());
 
   it('opens the secretary shortcut directly in the scheduling inbox',async()=>{
-    const page=render(<WhatsAppWorkspace initialView="scheduling" onDraft={jest.fn()} onManageConnection={jest.fn()}/>);
+    const page=render(<MemoryRouter><WhatsAppWorkspace initialView="scheduling" onDraft={jest.fn()} onManageConnection={jest.fn()}/></MemoryRouter>);
     await wait(()=>page.getByText('Agendamentos pelo WhatsApp'));
     expect(page.getByText('INBOX DA SECRETÁRIA')).toBeTruthy();
+    expect(page.getByText('Novo agendamento').closest('a')?.getAttribute('href')).toBe('/assistant');
     expect(page.queryByText('Escolha uma conversa')).toBeNull();
   });
 

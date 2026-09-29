@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import axios from 'axios';
-import {MdArrowForward,MdCheckCircle,MdInbox,MdRefresh,MdSchedule,MdWarning} from 'react-icons/md';
+import {Link} from 'react-router-dom';
+import {MdAdd,MdArrowForward,MdCheckCircle,MdInbox,MdRefresh,MdSchedule,MdWarning} from 'react-icons/md';
 import SchedulingCard,{SchedulingAction} from '../../components/SchedulingCard';
 import {URL_API} from '../../repositories/baseAPI';
 
@@ -51,7 +52,7 @@ export default function SchedulingInbox({requestedId}:{requestedId?:string|null}
   const updateItem=(next:SchedulingAction)=>{setSelected(next);setItems(current=>current.map(item=>idOf(item)===idOf(next)?next:item))};
 
   return <section className="scheduling-inbox">
-    <header className="section-heading"><div><span>INBOX DA SECRETÁRIA</span><h2>Agendamentos pelo WhatsApp</h2><p>Acompanhe mandatos ativos e encontre rapidamente tudo que precisa da sua decisão.</p></div><button className="secondary-action" disabled={refreshing} onClick={()=>void load()}><MdRefresh/>{refreshing?'Atualizando…':'Atualizar'}</button></header>
+    <header className="section-heading"><div><span>INBOX DA SECRETÁRIA</span><h2>Agendamentos pelo WhatsApp</h2><p>Acompanhe mandatos ativos e encontre rapidamente tudo que precisa da sua decisão.</p></div><div><Link className="primary-action" to="/assistant"><MdAdd/>Novo agendamento</Link><button className="secondary-action" disabled={refreshing} onClick={()=>void load()}><MdRefresh/>{refreshing?'Atualizando…':'Atualizar'}</button></div></header>
     {error&&<div className="wa-banner error" role="alert">{error}</div>}
     <nav className="scheduling-filters" aria-label="Filtros dos agendamentos">
       <button className={filter==='active'?'active':''} onClick={()=>setFilter('active')}><MdSchedule/><span>Ativos<strong>{groups.active.length}</strong></span></button>
