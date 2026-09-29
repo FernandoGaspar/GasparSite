@@ -26,6 +26,7 @@ O fragmento do convite é capturado e removido imediatamente da URL. Sem convite
 | `/assistant` | Agentes | coordenador, especialistas, alertas e ações estruturadas |
 | `/activities` | Atividades | foco, quadro, pessoas, rotinas, agenda, compartilhamento e integrações |
 | `/communications` | Comunicação | Gmail pessoal, Microsoft profissional, Teams e WhatsApp |
+| `/secretary` | Secretária | acesso direto aos agendamentos e negociações da secretária pelo WhatsApp |
 | `/second-brain` | Segundo Cérebro | notas, fontes, busca, grafo, revisão e importação/exportação |
 | `/ai-context` | Memória de IA | perfil, domínios, memórias, backfill e grafo de evidências |
 | `/settings` | Contas | OAuth Google/Microsoft, WhatsApp e atalhos de configuração |

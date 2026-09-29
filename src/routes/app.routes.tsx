@@ -36,6 +36,7 @@ const AppRoutes: React.FC = () => (
             <Route path="/planning" exact component={Planning} />
             <Route path="/activities" exact component={Activities} />
             <Route path="/communications" exact component={Communications} />
+            <Route path="/secretary" exact component={Communications} />
             <Route path="/ai-context" exact component={AIContext} />
             <Route path="/settings" exact component={SettingsHome} />
             <Route path="/settings/automations" exact component={Settings} />

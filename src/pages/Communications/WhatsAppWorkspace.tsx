@@ -37,13 +37,13 @@ export const sameWhatsAppIdentity=(left?:string,right?:string)=>{
 const manualSendFingerprint=(chatId:string,text:string)=>`${normalizedWhatsAppIdentity(chatId)}\0${text}`;
 const clearManualSendAttemptsForChat=(attempts:Map<string,string>,chatId:string)=>{const prefix=`${normalizedWhatsAppIdentity(chatId)}\0`;for(const fingerprint of Array.from(attempts.keys()))if(fingerprint.startsWith(prefix))attempts.delete(fingerprint)};
 
-export default function WhatsAppWorkspace({onDraft,onManageConnection}:{onDraft:(draft:WhatsAppDraft)=>void;onManageConnection:()=>void}){
+export default function WhatsAppWorkspace({initialView,onDraft,onManageConnection}:{initialView?:'conversations'|'scheduling'|'contacts'|'style';onDraft:(draft:WhatsAppDraft)=>void;onManageConnection:()=>void}){
   const query=useMemo(()=>new URLSearchParams(window.location.search),[]);
   const requestedChatId=query.get('chatId');
   const requestedSchedulingId=query.get('schedulingId');
   const [status,setStatus]=useState<Status>(); const [items,setItems]=useState<Conversation[]>([]);
   const [selected,setSelected]=useState<Conversation>(); const [messages,setMessages]=useState<Message[]>([]);
-  const [view,setView]=useState<'conversations'|'scheduling'|'contacts'|'style'>(requestedSchedulingId||query.get('section')==='scheduling'?'scheduling':query.get('section')==='contacts'?'contacts':query.get('section')==='style'?'style':'conversations');
+  const [view,setView]=useState<'conversations'|'scheduling'|'contacts'|'style'>(requestedSchedulingId||query.get('section')==='scheduling'?'scheduling':query.get('section')==='contacts'?'contacts':query.get('section')==='style'?'style':initialView||'conversations');
   const [schedulingFocusId,setSchedulingFocusId]=useState<string|null>(requestedSchedulingId);
   const [schedulingAttention,setSchedulingAttention]=useState<SchedulingAction[]>([]);
   const [schedulingAttentionLoading,setSchedulingAttentionLoading]=useState(true);

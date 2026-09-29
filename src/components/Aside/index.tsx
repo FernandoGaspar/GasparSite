@@ -18,6 +18,7 @@ import {
     MdLandscape,
     MdPlaylistAddCheck,
     MdEmail,
+    MdSchedule,
     MdDeviceHub,
 } from 'react-icons/md';
 
@@ -52,6 +53,7 @@ const menuItems = [
     { to: '/planning', label: 'Planejamento', icon: MdDateRange },
     { to: '/activities', label: 'Atividades', icon: MdPlaylistAddCheck },
     { to: '/communications', label: 'Comunicação', icon: MdEmail },
+    { to: '/secretary', label: 'Secretária', icon: MdSchedule },
     { to: '/second-brain', label: 'Segundo cérebro', icon: MdDeviceHub },
     { to: '/settings', label: 'Configurações', icon: MdSettings },
     { to: '/health', label: 'Saúde', icon: MdDirectionsBike },

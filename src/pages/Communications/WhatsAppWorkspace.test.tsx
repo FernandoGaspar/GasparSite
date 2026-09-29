@@ -37,6 +37,13 @@ describe('WhatsApp manual send idempotency',()=>{
 
   afterEach(()=>jest.restoreAllMocks());
 
+  it('opens the secretary shortcut directly in the scheduling inbox',async()=>{
+    const page=render(<WhatsAppWorkspace initialView="scheduling" onDraft={jest.fn()} onManageConnection={jest.fn()}/>);
+    await wait(()=>page.getByText('Agendamentos pelo WhatsApp'));
+    expect(page.getByText('INBOX DA SECRETÁRIA')).toBeTruthy();
+    expect(page.queryByText('Escolha uma conversa')).toBeNull();
+  });
+
   it('reuses the same key after an ambiguous error and discards it only after success',async()=>{
     mockedAxios.post.mockRejectedValueOnce({}).mockResolvedValue({data:{ok:true}} as any);
     const page=render(<WhatsAppWorkspace onDraft={jest.fn()} onManageConnection={jest.fn()}/>);
