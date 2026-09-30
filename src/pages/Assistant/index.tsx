@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   MdAccessTime, MdAccountBalance, MdClose, MdHome, MdInfoOutline, MdPieChart,
   MdKeyboardArrowDown, MdKeyboardArrowUp, MdRefresh, MdSecurity, MdShowChart,
-  MdSupervisorAccount, MdViewList, MdAssignmentTurnedIn,
+  MdSupervisorAccount, MdViewList, MdAssignmentTurnedIn, MdSchedule,
 } from 'react-icons/md';
 import Chat, { AgentAlert } from '../../components/Chat';
 import { Container } from './styles';
@@ -40,13 +40,14 @@ const fallbackAgents: AgentDefinition[] = [
   { id:'economist', name:'Economista doméstico', role:'Encontra economias mensuráveis nos gastos reais.', specialties:['Comparações', 'Economia recorrente', 'Categorias'], dataSources:['Despesas', 'Recorrências'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
   { id:'investor', name:'Especialista em investimentos', role:'Analisa carteira, integração e risco dos investimentos.', specialties:['Diversificação', 'Liquidez', 'Integrações'], dataSources:['Posições', 'Pluggy'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
   { id:'activity_manager', name:'Gestor de atividades', role:'Cruza atividades, responsáveis, projetos, prazos e memória para antecipar gargalos.', specialties:['Prazos', 'Responsáveis', 'Projetos', 'Follow-ups'], dataSources:['Atividades', 'Projetos', 'Memória'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
+  { id:'secretary', name:'Secretária', role:'Organiza demandas, coordena especialistas e conduz agendamentos aprovados.', specialties:['Organização executiva', 'Agendamentos', 'Comunicação', 'Coordenação entre especialistas'], dataSources:['Memória da equipe', 'Atividades', 'Contatos', 'WhatsApp'], prompt:'O prompt completo será carregado pela API.', cadence:'Sob demanda', executionMode:'on_demand', sharesTeamHistory:true },
   { id:'home', name:'Especialista da casa', role:'Cuida dos dispositivos, rotinas e sinais da casa conectada.', specialties:['Dispositivos', 'Rotinas', 'Câmeras'], dataSources:['Home Assistant', 'Snapshots'], prompt:'O prompt completo será carregado pela API.', cadence:'A cada 6 horas', executionMode:'scheduled', sharesTeamHistory:false },
 ];
 
 const icons: Record<string, React.ComponentType> = {
   general: MdSupervisorAccount, guardian: MdSecurity, organizer: MdViewList,
   planner: MdPieChart, economist: MdAccountBalance, investor: MdShowChart,
-  activity_manager: MdAssignmentTurnedIn, home: MdHome,
+  activity_manager: MdAssignmentTurnedIn, secretary: MdSchedule, home: MdHome,
 };
 
 const formatDate = (value?: string) => value

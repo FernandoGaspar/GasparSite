@@ -32,8 +32,7 @@ const messageOf=(error:any,fallback:string)=>error?.response?.data?.message||fal
 
 export default function Communications(){
   const history=useHistory();
-  const secretaryRoute=window.location.pathname==='/secretary';
-  const initialScope=secretaryRoute||new URLSearchParams(window.location.search).get('channel')==='whatsapp'?'whatsapp':'work';
+  const initialScope=new URLSearchParams(window.location.search).get('channel')==='whatsapp'?'whatsapp':'work';
   const [scope,setScope]=useState<'personal'|'work'|'whatsapp'>(initialScope);
   const [workView,setWorkView]=useState<'outlook'|'teams'>('outlook');
   const [connection,setConnection]=useState<Connection>();
@@ -67,7 +66,7 @@ export default function Communications(){
   const openWhatsAppActivity=(draft:WhatsAppDraft)=>history.push('/activities',{microsoftDraft:draft});
 
   const scopeNav=<nav className="scope-nav"><button className={scope==='personal'?'personal active':''} onClick={()=>setScope('personal')}><MdPerson/>Pessoal</button><button className={scope==='work'?'work active':''} onClick={()=>setScope('work')}><MdWork/>Profissional</button><button className={scope==='whatsapp'?'whatsapp active':''} onClick={()=>setScope('whatsapp')}><FaWhatsapp/>WhatsApp</button></nav>;
-  if(scope==='whatsapp')return <Container><header className="hero"><div><span><FaWhatsapp/> CENTRAL DE COMUNICAÇÃO</span><h1>{secretaryRoute?'Secretária':'WhatsApp'}</h1><p>{secretaryRoute?'Agendamentos e negociações pelo WhatsApp, sempre sob sua aprovação.':'Conversas vinculadas ao Second Brain, com envio sempre confirmado por você.'}</p></div></header>{scopeNav}<WhatsAppWorkspace initialView={secretaryRoute?'scheduling':undefined} onDraft={openWhatsAppActivity} onManageConnection={()=>history.push('/settings')}/></Container>;
+  if(scope==='whatsapp')return <Container><header className="hero"><div><span><FaWhatsapp/> CENTRAL DE COMUNICAÇÃO</span><h1>WhatsApp</h1><p>Conversas vinculadas ao Second Brain, com envio sempre confirmado por você.</p></div></header>{scopeNav}<WhatsAppWorkspace onDraft={openWhatsAppActivity} onManageConnection={()=>history.push('/settings')}/></Container>;
   if(scope==='work')return <Container>
     <header className="hero"><div><span><MdEmail/> CENTRAL DE COMUNICAÇÃO</span><h1>Comunicação profissional</h1><p>Outlook e Teams no mesmo contexto de trabalho.</p></div></header>
     {scopeNav}<nav className="filters"><button className={workView==='outlook'?'active':''} onClick={()=>setWorkView('outlook')}>Outlook</button><button className={workView==='teams'?'active':''} onClick={()=>setWorkView('teams')}>Teams</button></nav><section className="context-note work"><strong>{workView==='teams'?'Conversas do Teams':'Contexto profissional'}</strong><span>{workView==='teams'?'Converta uma mensagem importante em atividade sem misturar conversas pessoais.':'E-mails sinalizados no Outlook criam atividades profissionais. A conta é gerenciada em Configurações.'}</span></section>

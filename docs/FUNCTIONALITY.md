@@ -26,7 +26,6 @@ O fragmento do convite é capturado e removido imediatamente da URL. Sem convite
 | `/assistant` | Agentes | coordenador, especialistas, alertas e ações estruturadas |
 | `/activities` | Atividades | foco, quadro, pessoas, rotinas, agenda, compartilhamento e integrações |
 | `/communications` | Comunicação | Gmail pessoal, Microsoft profissional, Teams e WhatsApp |
-| `/secretary` | Secretária | acesso direto aos agendamentos e negociações da secretária pelo WhatsApp |
 | `/second-brain` | Segundo Cérebro | notas, fontes, busca, grafo, revisão e importação/exportação |
 | `/ai-context` | Memória de IA | perfil, domínios, memórias, backfill e grafo de evidências |
 | `/settings` | Contas | OAuth Google/Microsoft, WhatsApp e atalhos de configuração |
@@ -111,6 +110,12 @@ Estilo configurável inclui formalidade, cordialidade, concisão, emojis, sauda�
 ## 5. IA, memória e Segundo Cérebro
 
 Conteúdo remoto e Markdown são renderizados como nós React, sem HTML arbitrário. Evidências devem ser revisadas antes de uma relação sugerida virar memória confirmada. Alertas e ações da IA são tratados como dados não confiáveis; URLs inválidas deixam de ser exibidas.
+
+A Secretária aparece como agente próprio na equipe. Ela organiza solicitações,
+compartilha a memória recente dos agentes e encaminha análises financeiras, de
+atividades e da casa aos respectivos especialistas. Agendamentos iniciados no
+chat continuam disponíveis em Comunicação → WhatsApp apenas para acompanhamento,
+contatos, permissões e estilo.
 
 O chat separa histórico por usuário e agente, reutiliza chave de idempotência durante retry e tenta recuperar resposta persistida após timeout. A API decide ações e permissões; o componente não executa código retornado pelo modelo.
 

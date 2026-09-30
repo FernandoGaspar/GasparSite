@@ -1,6 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import {fireEvent,render,wait} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import SchedulingInbox from './SchedulingInbox';
 
 jest.mock('axios',()=>({__esModule:true,default:{get:jest.fn(),post:jest.fn()}}));
@@ -20,11 +21,12 @@ describe('Secretary scheduling inbox',()=>{
   });
 
   it('recovers an existing negotiation by id and exposes attention and approval inboxes',async()=>{
-    const page=render(<SchedulingInbox requestedId="schedule-2"/>);
+    const page=render(<MemoryRouter><SchedulingInbox requestedId="schedule-2"/></MemoryRouter>);
     await wait(()=>page.getByLabelText('Acompanhamento de agendamento pelo WhatsApp'));
     expect(page.getAllByText('Confirmar exame').length).toBeGreaterThan(0);
     expect(page.getByText('Precisam de atenção')).toBeTruthy();
     expect(page.getByText('Aguardando aprovação')).toBeTruthy();
+    expect(page.getByText('Novo agendamento').closest('a')?.getAttribute('href')).toBe('/assistant');
     fireEvent.click(page.getByText('Precisam de atenção'));
     expect(page.getByText('Reunião encerrada')).toBeTruthy();
     expect(page.getByText(/Verificar envio/)).toBeTruthy();
