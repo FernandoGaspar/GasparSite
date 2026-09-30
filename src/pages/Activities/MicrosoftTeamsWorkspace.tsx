@@ -154,7 +154,7 @@ export default function MicrosoftTeamsWorkspace({
   };
 
   if (loading && !status) return <WorkspaceShell><section className="m365-state panel"><MdSync className="spin" /><h2>Sincronizando Teams…</h2></section></WorkspaceShell>;
-  if (!status?.connected) return <WorkspaceShell><section className="m365-connect panel"><div className="m365-logo"><span>Microsoft</span><strong>Teams</strong></div><div><span className="eyebrow">CONTA CORPORATIVA</span><h2>Conecte o Microsoft 365</h2><p>A integração usa somente sua conta e não recebe sua senha.</p><button className="primary" onClick={onManageConnection}>Abrir Configurações</button></div></section></WorkspaceShell>;
+  if (!status?.connected) return <WorkspaceShell><section className="m365-connect panel"><div className="m365-logo"><span>Microsoft</span><strong>Teams</strong></div><div><span className="eyebrow">CONTA CORPORATIVA</span><h2>Conecte o Microsoft 365</h2><p>A integração usa somente sua conta e não recebe sua senha.</p><button className="primary" onClick={onManageConnection}>Abrir Conexões</button></div></section></WorkspaceShell>;
   if (!status.teamsAuthorized) return <WorkspaceShell><section className="m365-connect panel"><div className="m365-logo"><MdMessage /><strong>Teams</strong></div><div><span className="eyebrow">NOVA PERMISSÃO</span><h2>Autorize suas conversas</h2><p>O Gaspar solicitará somente leitura dos chats da sua própria conta.</p><ul><li><MdLockOutline />Permissão delegada Chat.Read</li><li><MdAdd />Mensagens só viram atividades após sua confirmação</li></ul><button className="primary" onClick={onManageConnection}>Autorizar Teams</button></div></section></WorkspaceShell>;
   if (status.teamsSync?.migrationRequired) return <WorkspaceShell><div className="m365-warning"><MdErrorOutline />A integração do Teams aguarda a migration da API.</div></WorkspaceShell>;
 
@@ -168,7 +168,7 @@ export default function MicrosoftTeamsWorkspace({
     <div className="teams-commandbar">
       <label className="teams-search"><MdSearch /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar pessoa, assunto ou trecho da mensagem" /></label>
       <div className="teams-view-switch" role="group" aria-label="Filtrar conversas"><button className={conversationFilter === 'all' ? 'active' : ''} onClick={() => setConversationFilter('all')}>Todas</button><button className={conversationFilter === 'activities' ? 'active' : ''} onClick={() => setConversationFilter('activities')}>Com atividade</button></div>
-      <button className="teams-settings" onClick={onManageConnection}>Configurações</button>
+      <button className="teams-settings" onClick={onManageConnection}>Conexões</button>
     </div>
 
     {error && <div className="m365-warning"><MdErrorOutline />{error}</div>}

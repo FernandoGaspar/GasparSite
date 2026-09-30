@@ -25,6 +25,8 @@ O fragmento do convite é capturado e removido imediatamente da URL. Sem convite
 | `/tracker` | Rastreamento | dispositivos conhecidos e estado recente |
 | `/assistant` | Agentes | coordenador, especialistas, alertas e ações estruturadas |
 | `/activities` | Atividades | foco, quadro, pessoas, rotinas, agenda, compartilhamento e integrações |
+| `/agenda` | Agenda | compromissos Microsoft 365 e atividades previstas para o dia |
+| `/connections` | Conexões | OAuth, pareamento e permissões de WhatsApp, Gmail e Microsoft 365 |
 | `/communications` | Comunicação | Gmail pessoal, Microsoft profissional, Teams e WhatsApp |
 | `/second-brain` | Segundo Cérebro | notas, fontes, busca, grafo, revisão e importação/exportação |
 | `/ai-context` | Memória de IA | perfil, domínios, memórias, backfill e grafo de evidências |
@@ -132,3 +134,9 @@ Todo módulo novo deve representar, quando aplicável:
 - ação em andamento e prevenção de duplo clique;
 - permissão insuficiente;
 - viewport móvel, foco visível e navegação por teclado.
+## Organização principal
+
+- **Conexões (`/connections`)** reúne WhatsApp, Gmail e Microsoft 365, incluindo Outlook, Agenda e Teams. Configurações mantém somente preferências e automações.
+- **Agentes (`/assistant`)** reúne todos os agentes conversacionais e mostra a autoria do especialista quando ocorre uma delegação.
+- **Atividades (`/activities`)** preserva o quadro atual e fornece dados de prazo, responsáveis e projetos aos agentes autorizados.
+- **Agenda (`/agenda`)** combina compromissos do Microsoft 365 com as atividades previstas para o dia.

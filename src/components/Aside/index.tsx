@@ -19,6 +19,7 @@ import {
     MdPlaylistAddCheck,
     MdEmail,
     MdDeviceHub,
+    MdLink,
 } from 'react-icons/md';
 
 import logoImg from '../../assets/gaspar-mark.png';
@@ -48,9 +49,11 @@ const menuItems = [
     { to: '/investment', label: 'Investimentos', icon: MdTrendingUp },
     { to: '/home', label: 'Casa', icon: MdHome },
     { to: '/tracker', label: 'Rastreador', icon: MdSettingsInputAntenna },
-    { to: '/assistant', label: 'Assistente', icon: MdChatBubble },
+    { to: '/connections', label: 'Conexões', icon: MdLink },
+    { to: '/assistant', label: 'Agentes', icon: MdChatBubble },
     { to: '/planning', label: 'Planejamento', icon: MdDateRange },
     { to: '/activities', label: 'Atividades', icon: MdPlaylistAddCheck },
+    { to: '/agenda', label: 'Agenda', icon: MdDateRange },
     { to: '/communications', label: 'Comunicação', icon: MdEmail },
     { to: '/second-brain', label: 'Segundo cérebro', icon: MdDeviceHub },
     { to: '/settings', label: 'Configurações', icon: MdSettings },

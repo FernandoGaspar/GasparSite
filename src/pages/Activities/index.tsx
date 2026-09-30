@@ -480,7 +480,7 @@ const Activities: React.FC = () => {
     {error && <div className="error"><strong>Não deu certo desta vez.</strong><span>{error}</span><button onClick={()=>load(false)}>Tentar novamente</button></div>}
     {loading && <div className="state">Organizando suas atividades…</div>}
 
-    {!loading && !searching && view==='agenda' && <MicrosoftWorkspace mode="agenda" onDraft={openMicrosoftDraft} onManageConnection={()=>history.push('/settings')} activities={items}/>}
+    {!loading && !searching && view==='agenda' && <MicrosoftWorkspace mode="agenda" onDraft={openMicrosoftDraft} onManageConnection={()=>history.push('/connections')} activities={items}/>}
 
     {!loading && searching && view!=='people' && <section className="panel search-results">
       <div className="section-head"><div><span>BUSCA</span><h2>Atividades encontradas</h2></div><small>{visible.length} {visible.length===1?'item':'itens'}</small></div>
