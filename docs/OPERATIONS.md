@@ -23,8 +23,6 @@ O Site não aceita segredos. Variáveis `REACT_APP_*` são compiladas no JavaScr
 
 | Variável | Finalidade | Padrão |
 | --- | --- | --- |
-| `REACT_APP_SITIOS_ENABLED` | exibe integração `/sitios` | habilitada, salvo `false` |
-| `REACT_APP_SITIOS_WEB_URL` | endereço público da integração | `/sitios/` |
 
 A URL do GasparAPI está em `src/repositories/baseAPI.ts`. Qualquer futura parametrização deve validar origem e continuar sem segredos.
 
@@ -98,7 +96,6 @@ O artefato é o conteúdo de `build`, incluindo `web.config`. Configuração mí
 - módulo URL Rewrite;
 - binding HTTPS e certificado válidos;
 - identidade do pool com leitura no diretório;
-- aplicação independente `/sitios` preservada.
 
 Antes de publicar, valide o XML:
 
@@ -118,7 +115,7 @@ $backupPath = "C:\Site\Backups\Gastos-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 
 New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
 Copy-Item -LiteralPath $sitePath -Destination $backupPath -Recurse -Force
-robocopy $releasePath $sitePath /MIR /XD "$sitePath\sitios"
+robocopy $releasePath $sitePath /MIR
 if ($LASTEXITCODE -ge 8) { throw "Falha no robocopy: $LASTEXITCODE" }
 ```
 
@@ -127,7 +124,7 @@ if ($LASTEXITCODE -ge 8) { throw "Falha no robocopy: $LASTEXITCODE" }
 Rollback:
 
 1. interrompa novas publicações;
-2. restaure o backup validado para `C:\Site\Gastos`, preservando `/sitios`;
+2. restaure o backup validado para `C:\Site\Gastos`;
 3. recicle o pool correto;
 4. repita smoke tests;
 5. registre release, motivo e resultado.

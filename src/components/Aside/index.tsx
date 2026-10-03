@@ -15,7 +15,6 @@ import {
     MdSettings,
     MdChatBubble,
     MdDateRange,
-    MdLandscape,
     MdPlaylistAddCheck,
     MdEmail,
     MdDeviceHub,
@@ -26,7 +25,6 @@ import logoImg from '../../assets/gaspar-mark.png';
 
 import { useAuth } from '../../hooks/auth';
 import { useTheme } from '../../hooks/theme';
-import { safeHttpUrl } from '../../utils/safeUrl';
 
 import {
     Container,
@@ -35,7 +33,6 @@ import {
     Title,
     MenuContainer,
     MenuItemLink,
-    MenuItemAnchor,
     MenuFooter,
     MenuItemButton,
     ToggleMenu,
@@ -59,11 +56,6 @@ const menuItems = [
     { to: '/settings', label: 'Configurações', icon: MdSettings },
     { to: '/health', label: 'Saúde', icon: MdDirectionsBike },
 ];
-
-// Enabled by default so routine builds cannot silently remove the module.
-// It remains explicitly removable with REACT_APP_SITIOS_ENABLED=false.
-const sitiosEnabled = process.env.REACT_APP_SITIOS_ENABLED !== 'false';
-const sitiosUrl = safeHttpUrl(process.env.REACT_APP_SITIOS_WEB_URL || '/sitios/') || '/sitios/';
 
 const Aside: React.FC = () => {
     const { signOut } = useAuth();
@@ -108,12 +100,6 @@ const Aside: React.FC = () => {
                         {item.label}
                     </MenuItemLink>
                 ))}
-                {sitiosEnabled && (
-                    <MenuItemAnchor href={sitiosUrl} onClick={() => setToggleMenuIsOpened(false)}>
-                        <MdLandscape />
-                        Sítios
-                    </MenuItemAnchor>
-                )}
             </MenuContainer>
 
             <MenuFooter>
